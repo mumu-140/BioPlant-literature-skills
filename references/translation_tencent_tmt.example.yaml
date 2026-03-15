@@ -1,0 +1,28 @@
+provider: tencent-tmt
+glossary_path: /Users/mumu/Documents/skills/bio-literature-digest/references/bio_translation_glossary.yaml
+
+tencent_tmt:
+  endpoint: https://tmt.tencentcloudapi.com/
+  host: tmt.tencentcloudapi.com
+  service: tmt
+  action: TextTranslate
+  version: 2018-03-21
+  region: ap-beijing
+  project_id: 0
+  source_lang: en
+  target_lang: zh
+  timeout_seconds: 20
+  secret_id_env: TENCENT_TMT_SECRET_ID
+  secret_key_env: TENCENT_TMT_SECRET_KEY
+  token_env: ""
+
+summary:
+  mode: translated-abstract
+  prefix_template: ""
+  fallback_without_abstract: "未抓取到可用摘要，建议后续人工补充中文总结。"
+
+notes:
+  - Tencent Cloud TextTranslate API uses SecretId + SecretKey; AppID is not required for this cloud API path.
+  - Set secrets only in environment variables, not in YAML.
+  - If you use temporary credentials, also set token_env.
+  - Add a biology glossary for post-processing to improve term consistency.

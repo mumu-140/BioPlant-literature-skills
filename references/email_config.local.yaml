@@ -1,0 +1,22 @@
+smtp_profiles:
+  qq_mail:
+    enabled: true
+    smtp_host: smtp.qq.com
+    smtp_port: 465
+    security: ssl
+    username: 1404064349@qq.com
+    password_env: QQ_MAIL_APP_PASSWORD
+    from_email: 1404064349@qq.com
+    from_name: Bio Literature Digest
+    to_emails:
+      - 1404064349@qq.com
+      - wangt0814@163.com
+      - 975391310@qq.com
+
+delivery_defaults:
+  timezone: Asia/Shanghai
+  schedule_time: "08:00"
+  subject_template: "[Bio Digest] {date} Daily Literature Update"
+  attach_csv: true
+  attach_xlsx: true
+  attach_html_copy: false

@@ -1,0 +1,43 @@
+provider: google-basic-v2
+glossary_path: /Users/mumu/Documents/skills/bio-literature-digest/references/bio_translation_glossary.yaml
+fallback_provider: tencent-tmt
+
+google_basic_v2:
+  endpoint: https://translation.googleapis.com/language/translate/v2
+  api_key_env: GOOGLE_TRANSLATE_API_KEY
+  source_lang: en
+  target_lang: zh-CN
+  timeout_seconds: 20
+  min_interval_seconds: 0.1
+  max_retries: 5
+  retry_backoff_seconds: 0.8
+  model: nmt
+  format: text
+
+tencent_tmt:
+  endpoint: https://tmt.tencentcloudapi.com/
+  host: tmt.tencentcloudapi.com
+  service: tmt
+  action: TextTranslate
+  version: 2018-03-21
+  region: ap-beijing
+  project_id: 0
+  source_lang: en
+  target_lang: zh
+  timeout_seconds: 20
+  min_interval_seconds: 0.25
+  max_retries: 5
+  retry_backoff_seconds: 0.8
+  secret_id_env: TENCENT_TMT_SECRET_ID
+  secret_key_env: TENCENT_TMT_SECRET_KEY
+  token_env: ""
+
+summary:
+  mode: translated-abstract
+  prefix_template: ""
+  fallback_without_abstract: "未抓取到可用摘要，建议后续人工补充中文总结。"
+
+notes:
+  - Google Cloud Translation Basic v2 can be used with an API key.
+  - Google Advanced v3 glossary requires ADC or a service account plus a real glossary resource; API key alone is not enough.
+  - Tencent TMT stays enabled only as a fallback provider.

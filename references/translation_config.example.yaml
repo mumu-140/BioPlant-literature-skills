@@ -1,0 +1,37 @@
+provider: http-json
+
+defaults:
+  source_lang: en
+  target_lang: zh-CN
+  timeout_seconds: 20
+
+title_translation:
+  method: GET
+  url: https://example-translator.local/translate
+  query:
+    text: "{text}"
+    from: "{source_lang}"
+    to: "{target_lang}"
+  headers: {}
+  response_json_path: data.translation
+
+abstract_translation:
+  method: GET
+  url: https://example-translator.local/translate
+  query:
+    text: "{text}"
+    from: "{source_lang}"
+    to: "{target_lang}"
+  headers: {}
+  response_json_path: data.translation
+
+summary:
+  mode: translated-abstract
+  prefix_template: ""
+  fallback_without_abstract: "未抓取到可用摘要，建议后续人工补充中文总结。"
+
+notes:
+  - Fill this file with the free translation service you actually want to use.
+  - Google, Bing, Youdao, or self-hosted translation gateways can all be adapted if they return JSON.
+  - Keep secrets or API keys in environment variables when required by the chosen service.
+  - For Tencent Cloud TMT, use `translation_tencent_tmt.example.yaml` instead of this generic HTTP JSON template.

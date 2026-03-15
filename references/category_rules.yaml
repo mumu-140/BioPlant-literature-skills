@@ -1,0 +1,524 @@
+relevance_filter:
+  keep_domains:
+    - biology
+    - molecular-biology
+    - cell-biology
+    - developmental-biology
+    - plant-biology
+    - genetics
+    - genomics
+    - epigenomics
+    - transcriptomics
+    - proteomics
+    - metabolomics
+    - microbiology
+    - immunity
+    - structural-biology
+    - bioinformatics
+    - computational-biology
+    - methods
+    - databases
+    - biotechnology
+    - ai-for-bio
+
+  reject_domains:
+    - pure-ecology
+    - pure-materials
+    - pure-physics
+    - pure-chemistry
+    - mechanical-engineering-without-biology
+    - business-analytics
+    - social-science
+
+  keep_keywords:
+    - gene
+    - genome
+    - genomic
+    - cell
+    - cells
+    - chromosome
+    - chromosomal
+    - transcriptome
+    - transcriptomic
+    - single-cell
+    - multi-omics
+    - proteome
+    - protein
+    - enzyme
+    - pathway
+    - signaling
+    - chromatin
+    - crispr
+    - breeding
+    - crop
+    - plant
+    - root
+    - leaf
+    - seed
+    - photosynthesis
+    - pathogen
+    - immunity
+    - microbiome
+    - microbiota
+    - metabolism
+    - metabolic
+    - cancer
+    - neuron
+    - neuronal
+    - neural
+    - stem cell
+    - lipid nanoparticle
+    - senescence
+    - auxin
+    - auxin response factor
+    - biofilm
+    - biofilms
+    - bioinformatics
+    - microbiota
+    - bile acid
+    - enterocyte
+    - enterocytes
+    - senescence
+    - senescent
+    - circadian
+    - salivation
+    - nociceptive
+    - oxidative stress
+    - glioma
+    - t cell
+    - cd8
+    - precision agriculture
+    - federated learning
+    - macrophage
+    - mitosis
+    - chondrocyte
+    - machine learning
+    - deep learning
+    - neural network
+    - foundation model
+    - language model
+    - protein design
+    - structure prediction
+    - database
+    - protocol
+    - assay
+    - sequencing
+
+  ai_keep_keywords:
+    - machine learning
+    - deep learning
+    - neural network
+    - foundation model
+    - language model
+    - transformer
+    - protein language model
+    - bioinformatics
+    - computational biology
+
+  reject_keywords:
+    - battery
+    - catalyst
+    - quantum
+    - semiconductor
+    - alloy
+    - polymer electrolyte
+    - spintronics
+    - combustion
+    - photonic crystal
+    - perovskite
+    - traffic forecasting
+    - recommender system
+    - macroeconomics
+
+  hard_reject_keywords:
+    - species distribution
+    - biodiversity measurement
+    - conservation policy
+    - conservation finance
+    - fiscal impact
+    - behavioural plasticity
+    - lunar compass
+    - foraminiferal
+    - paleoecology
+    - solar cells
+    - frequency upconversion
+    - triboelectric
+    - peat
+    - bioregionalisation
+    - global change drivers
+    - ecological research
+
+  editorial_reject_title_prefixes:
+    - "Briefing chat:"
+    - "Podcast:"
+    - "Careers Q&A"
+    - "Books in brief"
+    - "Q&A with "
+    - "Author Correction:"
+    - "Publisher Correction:"
+    - "Retraction:"
+    - "Erratum:"
+
+  editorial_reject_doi_prefixes:
+    - 10.1038/d41586-
+    - 10.1073/iti
+
+  strict_bio_source_ids:
+    - nature
+    - nature-communications
+    - science
+    - science-advances
+    - science-first-release
+    - pnas
+    - advanced-science
+    - arxiv-q-bio
+
+  conditional_journals:
+    - Nature Machine Intelligence
+    - Patterns
+
+  conditional_rule: Keep only if title or abstract shows direct biology, biomedical, plant, omics, protein, or genetics relevance.
+
+categories:
+  - id: omics
+    label: Omics
+    description: Genomics, transcriptomics, epigenomics, metabolomics, proteomics, single-cell, and multi-omics studies.
+    keywords:
+      - genome
+      - genomic
+      - transcriptome
+      - transcriptomic
+      - epigenome
+      - epigenomic
+      - proteome
+      - metabolome
+      - single-cell
+      - multi-omics
+
+  - id: gene-function-regulation
+    label: Gene Function And Regulation
+    description: Gene function, regulatory networks, transcriptional control, chromatin regulation, and pathway dissection.
+    keywords:
+      - gene function
+      - mutations
+      - mutation
+      - line-1
+      - insertion
+      - transposon
+      - enhancer
+      - gene conversion
+      - transcription factor
+      - regulatory network
+      - enhancer
+      - promoter
+      - chromatin
+      - epigenetic regulation
+      - signaling pathway
+      - mutant
+      - auxin response factor
+      - variant
+      - variants
+      - mitosis
+      - chondrocyte
+      - chondrocytes
+
+  - id: genome-editing-breeding
+    label: Genome Editing And Breeding
+    description: CRISPR, gene editing, crop improvement, trait engineering, domestication, and breeding strategy papers.
+    keywords:
+      - crispr
+      - genome editing
+      - base editing
+      - prime editing
+      - breeding
+      - cultivar
+      - trait improvement
+      - domestication
+      - crop engineering
+
+  - id: protein-structure-function
+    label: Protein Structure And Function
+    description: Protein structure, enzyme mechanism, folding, interaction, design, and functional biochemistry.
+    keywords:
+      - protein
+      - enzyme
+      - structure
+      - folding
+      - interaction
+      - binding
+      - cryo-em
+      - alphafold
+      - protein design
+      - proteolysis
+
+  - id: ai-computational-biology
+    label: AI And Computational Biology
+    description: Machine learning, deep learning, modeling, bioinformatics, and AI systems applied to biological data or questions.
+    keywords:
+      - machine learning
+      - deep learning
+      - model
+      - bioinformatics
+      - computational biology
+      - foundation model
+      - graph neural network
+      - transformer
+      - protein language model
+      - federated learning
+      - prognostic model
+      - prognostic models
+
+  - id: methods-datasets-resources
+    label: Methods Datasets And Resources
+    description: Experimental or computational methods, databases, benchmark datasets, protocols, and tools.
+    keywords:
+      - method
+      - protocol
+      - pipeline
+      - workflow
+      - toolbox
+      - profiling
+      - screening
+      - assay
+      - benchmark
+      - resource
+      - database
+      - atlas
+      - toolkit
+      - sensor
+      - sensors
+      - diagnostic
+      - diagnosis
+      - colorimetric
+      - electrochemical
+      - theranostic
+      - theranostics
+      - interfacing
+      - deeprootlab
+
+  - id: plant-biology
+    label: Plant Biology
+    description: Plant development, crop biology, stress response, physiology, plant-pathogen interaction, and breeding-related studies.
+    keywords:
+      - plant
+      - crop
+      - root
+      - leaf
+      - seed
+      - flowering
+      - photosynthesis
+      - stomata
+      - phytohormone
+      - auxin
+      - arabidopsis
+      - embryogenesis
+      - wax accumulation
+      - guard cell
+      - precision agriculture
+
+  - id: cell-development-signaling
+    label: Cell Development And Signaling
+    description: Cell biology, development, lineage, differentiation, organogenesis, and signaling mechanisms.
+    keywords:
+      - cell fate
+      - differentiation
+      - development
+      - embryo
+      - embryogenesis
+      - organogenesis
+      - lineage
+      - signaling
+      - receptor
+      - stem cell
+      - morphogenesis
+      - metastasis
+      - synapse
+      - neuronal
+      - hippocampal
+      - intestinal
+      - enterocyte
+      - enterocytes
+      - autophagy
+      - mitochondria
+      - senescence
+      - senescent
+      - circadian
+      - colon
+      - salivation
+      - brain stem
+      - nociceptive
+      - oxidative stress
+      - purine
+
+  - id: microbe-immunity
+    label: Microbe And Immunity
+    description: Host-microbe interaction, pathogen biology, immunity, infection, microbiome, and defense responses.
+    keywords:
+      - pathogen
+      - immunity
+      - immune
+      - infection
+      - microbiome
+      - bacteria
+      - fungus
+      - virus
+      - biofilm
+      - biofilms
+      - host-pathogen
+      - microbiota
+      - bile acid
+      - t cell
+      - cd8
+      - antigen
+      - macrophage
+
+  - id: other
+    label: Other
+    description: Biology-relevant paper that does not fit any fixed category with enough confidence.
+    keywords: []
+
+classification_policy:
+  max_categories_per_paper: 1
+  fallback_category: other
+  primary_method: keyword-first
+  secondary_method: llm-tiebreak
+  require_explicit_reason: true
+
+output_schema:
+  required_columns:
+    - journal
+    - publish_date
+    - publication_stage
+    - category
+    - title_en
+    - title_zh
+    - authors
+    - summary_zh
+    - abstract
+    - doi
+    - article_url
+    - tags
+
+  greeting_template: "{date}--祝你早上快乐--这是今日份的论文快看吧"
+
+  summary_requirements:
+    language: zh-CN
+    style: concise-professional
+    max_sentences: 4
+    must_cover:
+      - research_subject
+      - main_finding_or_resource
+      - biology_relevance
+
+  title_translation_requirements:
+    language: zh-CN
+    preserve_gene_and_protein_symbols: true
+    preserve_species_names_when_clear: true
+
+review_queue_schema:
+  required_columns:
+    - journal
+    - publish_date
+    - publication_stage
+    - category
+    - title_en
+    - llm_decision
+    - llm_confidence
+    - llm_reason
+    - relevance_reason
+    - doi
+    - article_url
+    - tags
+
+notes:
+  - Assign exactly one category per paper.
+  - Send ambiguous but relevant papers to `other` instead of inventing new buckets.
+  - Prefer plant-specific categories only when the paper is truly plant-centered.
+
+visual_filters:
+  attachment_only_source_ids:
+    - nature
+    - science
+    - cell
+    - pnas
+    - nature-communications
+    - science-advances
+    - current-biology
+    - cell-reports
+  attachment_only_keywords:
+    - mouse
+    - mice
+    - murine
+    - human
+    - humans
+    - patient
+    - patients
+    - cancer
+    - tumor
+    - tumour
+    - glioma
+    - neuronal
+    - neuron
+    - neural
+    - brain
+    - cerebral
+    - neuro
+    - gut
+    - intestinal
+    - colon
+    - imaging
+    - image
+    - microscopy
+    - diagnosis
+    - diagnostic
+    - myopia
+    - pancreatic
+    - blood
+    - heart
+    - cardiac
+
+display_priority:
+  default_grouping_mode: journal
+  available_grouping_modes:
+    - journal
+    - priority
+  top_journal_source_ids:
+    - nature
+    - science
+    - cell
+    - pnas
+    - nature-genetics
+    - nature-plants
+    - nature-biotechnology
+    - nature-methods
+    - nature-communications
+  journal_order_source_ids:
+    - nature
+    - science
+    - cell
+    - pnas
+    - nature-genetics
+    - nature-plants
+    - nature-biotechnology
+    - nature-methods
+    - nature-communications
+    - the-plant-cell
+    - molecular-plant
+    - plant-biotechnology-journal
+    - new-phytologist
+    - journal-of-integrative-plant-biology
+    - cell-reports
+    - cell-genomics
+    - cell-systems
+    - current-biology
+    - trends-in-plant-science
+    - patterns
+    - nature-machine-intelligence
+    - nature-protocols
+    - nucleic-acids-research
+  plant_priority_groups:
+    - plant-core
+  deferred_category_ids:
+    - gene-function-regulation
+  non_deferred_category_ids:
+    - ai-computational-biology

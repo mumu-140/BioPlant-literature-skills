@@ -1,0 +1,625 @@
+journals:
+  - id: nature
+    enabled: true
+    publisher_family: springer-nature
+    journal_name: Nature
+    group: flagship-general
+    source_strategy: official_feed_or_toc
+    source_locator: https://www.nature.com/nature.rss
+    article_scope: all
+    topic_bias:
+      include:
+        - biology
+        - genetics
+        - methods
+        - ai-for-bio
+      exclude:
+        - pure-materials
+        - pure-physics
+        - pure-chemistry
+        - pure-ecology
+
+  - id: nature-communications
+    enabled: true
+    publisher_family: springer-nature
+    journal_name: Nature Communications
+    group: nature-family
+    source_strategy: official_feed_or_toc
+    source_locator:
+      - https://www.nature.com/subjects/biological-sciences/ncomms.rss
+      - https://www.nature.com/ncomms.rss
+    article_scope: all
+    topic_bias:
+      include:
+        - biology
+        - plant-biology
+        - methods
+        - genetics
+      exclude:
+        - pure-materials
+        - pure-physics
+        - pure-chemistry
+
+  - id: nature-biotechnology
+    enabled: true
+    publisher_family: springer-nature
+    journal_name: Nature Biotechnology
+    group: nature-family
+    source_strategy: official_feed_or_toc
+    source_locator: https://www.nature.com/nbt.rss
+    article_scope: all
+    topic_bias:
+      include:
+        - biotechnology
+        - functional-genomics
+        - tools
+        - ai-for-bio
+      exclude:
+        - industrial-bioprocess-without-biology
+
+  - id: nature-genetics
+    enabled: true
+    publisher_family: springer-nature
+    journal_name: Nature Genetics
+    group: nature-family
+    source_strategy: official_feed_or_toc
+    source_locator: https://www.nature.com/ng.rss
+    article_scope: all
+    topic_bias:
+      include:
+        - genetics
+        - genomics
+        - gene-function
+      exclude: []
+
+  - id: nature-methods
+    enabled: true
+    publisher_family: springer-nature
+    journal_name: Nature Methods
+    group: nature-family
+    source_strategy: official_feed_or_toc
+    source_locator: https://www.nature.com/nmeth.rss
+    article_scope: all
+    topic_bias:
+      include:
+        - methods
+        - datasets
+        - tools
+        - computational-biology
+      exclude: []
+
+  - id: nature-machine-intelligence
+    enabled: true
+    publisher_family: springer-nature
+    journal_name: Nature Machine Intelligence
+    group: ai-conditional
+    source_strategy: official_feed_or_toc
+    source_locator: https://www.nature.com/natmachintell.rss
+    article_scope: all
+    topic_bias:
+      include:
+        - ai-for-bio
+        - biomedical-ai
+        - omics
+        - protein
+        - genomics
+      exclude:
+        - general-ai-without-biology
+        - robotics
+        - autonomous-driving
+        - computer-vision-without-biology
+
+  - id: nature-plants
+    enabled: true
+    publisher_family: springer-nature
+    journal_name: Nature Plants
+    group: plant-core
+    source_strategy: official_feed_or_toc
+    source_locator: https://www.nature.com/nplants.rss
+    source_notes: verified by live 200 response from the Springer Nature RSS endpoint
+    article_scope: all
+    topic_bias:
+      include:
+        - plant-biology
+        - crop
+        - breeding
+        - plant-genomics
+      exclude:
+        - pure-ecology
+
+  - id: nature-protocols
+    enabled: true
+    publisher_family: springer-nature
+    journal_name: Nature Protocols
+    group: methods-core
+    source_strategy: official_feed_or_toc
+    source_locator: https://www.nature.com/nprot.rss
+    source_notes: verified by live redirect from the Nature Protocols current-issue RSS path to the canonical RSS endpoint
+    article_scope: all
+    topic_bias:
+      include:
+        - methods
+        - protocols
+        - wet-lab
+        - computational-biology
+      exclude: []
+
+  - id: science
+    enabled: true
+    publisher_family: aaas
+    journal_name: Science
+    group: flagship-general
+    source_strategy: official_feed_or_toc
+    source_locator: https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=science
+    article_scope: all
+    topic_bias:
+      include:
+        - biology
+        - genetics
+        - methods
+        - ai-for-bio
+      exclude:
+        - pure-materials
+        - pure-physics
+        - pure-chemistry
+
+  - id: science-advances
+    enabled: true
+    publisher_family: aaas
+    journal_name: Science Advances
+    group: science-family
+    source_strategy: official_feed_or_toc
+    source_locator: https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=sciadv
+    article_scope: all
+    topic_bias:
+      include:
+        - biology
+        - plant-biology
+        - genomics
+        - methods
+      exclude:
+        - pure-materials
+        - pure-physics
+        - pure-chemistry
+
+  - id: science-first-release
+    enabled: true
+    publisher_family: aaas
+    journal_name: Science First Release
+    group: science-family
+    source_strategy: official_feed_or_toc
+    source_locator: https://www.science.org/action/showFeed?type=axatoc&feed=rss&jc=science
+    article_scope: all
+    topic_bias:
+      include:
+        - biology
+        - methods
+      exclude:
+        - pure-materials
+        - pure-physics
+        - pure-chemistry
+
+  - id: cell
+    enabled: true
+    publisher_family: cell-press
+    journal_name: Cell
+    group: flagship-general
+    source_strategy: official_feed_or_toc
+    source_locator:
+      - https://www.cell.com/cell/inpress.rss
+      - https://www.cell.com/cell/current.rss
+    article_scope: all
+    topic_bias:
+      include:
+        - biology
+        - molecular-biology
+        - genetics
+        - methods
+      exclude: []
+
+  - id: cell-reports
+    enabled: true
+    publisher_family: cell-press
+    journal_name: Cell Reports
+    group: cell-family
+    source_strategy: official_feed_or_toc
+    source_locator:
+      - https://www.cell.com/cell-reports/current.rss
+      - https://www.cell.com/cell-reports/inpress.rss
+    source_notes: verified by live 200 responses from both current and in-press Cell Press RSS endpoints
+    article_scope: all
+    topic_bias:
+      include:
+        - biology
+        - molecular-biology
+        - genomics
+        - plant-biology
+      exclude: []
+
+  - id: cell-genomics
+    enabled: true
+    publisher_family: cell-press
+    journal_name: Cell Genomics
+    group: cell-family
+    source_strategy: official_feed_or_toc
+    source_locator:
+      - https://www.cell.com/cell-genomics/current.rss
+      - https://www.cell.com/cell-genomics/inpress.rss
+    source_notes: verified by live 200 responses from both current and in-press Cell Press RSS endpoints
+    article_scope: all
+    topic_bias:
+      include:
+        - genomics
+        - multiomics
+        - genetics
+        - computational-biology
+      exclude: []
+
+  - id: cell-systems
+    enabled: true
+    publisher_family: cell-press
+    journal_name: Cell Systems
+    group: cell-family
+    source_strategy: official_feed_or_toc
+    source_locator:
+      - https://www.cell.com/cell-systems/current.rss
+      - https://www.cell.com/cell-systems/inpress.rss
+    source_notes: verified by live 200 responses from both current and in-press Cell Press RSS endpoints
+    article_scope: all
+    topic_bias:
+      include:
+        - systems-biology
+        - computational-biology
+        - modeling
+        - bioinformatics
+      exclude:
+        - general-systems-engineering
+
+  - id: current-biology
+    enabled: true
+    publisher_family: cell-press
+    journal_name: Current Biology
+    group: cell-family
+    source_strategy: official_feed_or_toc
+    source_locator:
+      - https://www.cell.com/current-biology/current.rss
+      - https://www.cell.com/current-biology/inpress.rss
+    source_notes: verified by live 200 responses from both current and in-press Cell Press RSS endpoints
+    article_scope: all
+    topic_bias:
+      include:
+        - biology
+        - cell-biology
+        - development
+        - plant-biology
+      exclude:
+        - pure-ecology
+
+  - id: trends-in-plant-science
+    enabled: true
+    publisher_family: cell-press
+    journal_name: Trends in Plant Science
+    group: plant-core
+    source_strategy: official_feed_or_toc
+    source_locator:
+      - https://www.cell.com/trends/plant-science/current.rss
+      - https://www.cell.com/trends/plant-science/inpress.rss
+    source_notes: verified by live 200 responses from both current and in-press Cell Press RSS endpoints
+    article_scope: all
+    topic_bias:
+      include:
+        - plant-biology
+        - crop
+        - breeding
+        - review
+      exclude:
+        - pure-ecology
+
+  - id: patterns
+    enabled: true
+    publisher_family: cell-press
+    journal_name: Patterns
+    group: ai-conditional
+    source_strategy: official_feed_or_toc
+    source_locator:
+      - https://www.cell.com/patterns/current.rss
+      - https://www.cell.com/patterns/inpress.rss
+    source_notes: verified by live 200 responses from both current and in-press Cell Press RSS endpoints
+    article_scope: all
+    topic_bias:
+      include:
+        - ai-for-bio
+        - biomedical-ai
+        - omics
+        - bioinformatics
+      exclude:
+        - general-ai-without-biology
+        - social-data-science
+        - business-analytics
+
+  - id: molecular-plant
+    enabled: true
+    publisher_family: cell-press
+    journal_name: Molecular Plant
+    group: plant-core
+    source_strategy: official_feed_or_toc
+    source_locator:
+      - https://www.cell.com/molecular-plant/inpress.rss
+      - https://www.cell.com/molecular-plant/current.rss
+    article_scope: all
+    topic_bias:
+      include:
+        - plant-biology
+        - plant-genomics
+        - crop
+        - breeding
+      exclude:
+        - pure-ecology
+
+  - id: the-plant-cell
+    enabled: true
+    publisher_family: aspb
+    journal_name: The Plant Cell
+    group: plant-core
+    source_strategy: official_feed_or_toc
+    source_locator:
+      - https://academic.oup.com/rss/site_6317/advanceAccess_4077.xml
+      - https://academic.oup.com/plcell/advance-articles
+    source_notes: verified from Oxford Academic advance articles page and linked RSS feed
+    article_scope: all
+    topic_bias:
+      include:
+        - plant-biology
+        - cell-biology
+        - plant-genetics
+      exclude:
+        - pure-ecology
+
+  - id: plant-biotechnology-journal
+    enabled: true
+    publisher_family: wiley
+    journal_name: Plant Biotechnology Journal
+    group: plant-core
+    source_strategy: official_feed_or_toc
+    source_locator: https://onlinelibrary.wiley.com/feed/14677652/most-recent
+    source_notes: verified by live 200 response from the Wiley feed endpoint
+    article_scope: all
+    topic_bias:
+      include:
+        - plant-biology
+        - biotechnology
+        - genome-editing
+        - crop
+      exclude:
+        - pure-ecology
+
+  - id: new-phytologist
+    enabled: true
+    publisher_family: wiley
+    journal_name: New Phytologist
+    group: plant-core
+    source_strategy: official_feed_or_toc
+    source_locator: https://onlinelibrary.wiley.com/feed/14698137/most-recent
+    source_notes: verified by live 200 response from the Wiley feed endpoint
+    article_scope: all
+    topic_bias:
+      include:
+        - plant-biology
+        - plant-development
+        - plant-physiology
+        - plant-microbe
+      exclude:
+        - pure-ecology
+
+  - id: journal-of-integrative-plant-biology
+    enabled: true
+    publisher_family: wiley
+    journal_name: Journal of Integrative Plant Biology
+    group: plant-core
+    source_strategy: official_feed_or_toc
+    source_locator: https://onlinelibrary.wiley.com/feed/17447909/most-recent
+    source_notes: verified from the RSS spreadsheet and consistent with Wiley journal feed pattern
+    article_scope: all
+    topic_bias:
+      include:
+        - plant-biology
+        - crop
+        - genomics
+        - breeding
+      exclude:
+        - pure-ecology
+
+  - id: nucleic-acids-research
+    enabled: true
+    publisher_family: oxford
+    journal_name: Nucleic Acids Research
+    group: methods-core
+    source_strategy: official_feed_or_toc
+    source_locator:
+      - https://academic.oup.com/rss/site_5127/advanceAccess_3091.xml
+      - https://academic.oup.com/nar/advance-articles
+    source_notes: verified from Oxford Academic advance articles page and linked RSS feed
+    article_scope: all
+    topic_bias:
+      include:
+        - genomics
+        - databases
+        - methods
+        - computational-biology
+      exclude: []
+
+  - id: genome-biology
+    enabled: false
+    publisher_family: springer-nature
+    journal_name: Genome Biology
+    group: methods-core
+    source_strategy: official_feed_or_toc
+    source_locator: https://genomebiology.biomedcentral.com/articles/most-recent/rss.xml
+    article_scope: all
+    topic_bias:
+      include:
+        - genomics
+        - transcriptomics
+        - computational-biology
+        - methods
+      exclude: []
+
+  - id: advanced-science
+    enabled: false
+    publisher_family: wiley
+    journal_name: Advanced Science
+    group: optional-mixed
+    source_strategy: official_feed_or_toc
+    source_locator: https://advanced.onlinelibrary.wiley.com/feed/21983844/most-recent
+    article_scope: all
+    topic_bias:
+      include:
+        - biotechnology
+        - biology
+        - plant-biology
+      exclude:
+        - pure-materials
+        - pure-physics
+        - pure-chemistry
+
+  - id: biorxiv-genomics-bioinformatics
+    enabled: true
+    publisher_family: cold-spring-harbor
+    journal_name: bioRxiv (Genomics And Bioinformatics)
+    group: preprint-core
+    publication_stage: preprint
+    source_strategy: official_feed_or_toc
+    source_locator: https://connect.biorxiv.org/biorxiv_xml.php?subject=genomics+bioinformatics
+    source_notes: verified from the official bioRxiv RSS feed syntax page
+    article_scope: all
+    topic_bias:
+      include:
+        - genomics
+        - bioinformatics
+        - ai-for-bio
+        - methods
+      exclude:
+        - pure-ecology
+
+  - id: biorxiv-genetics-plant-biology
+    enabled: true
+    publisher_family: cold-spring-harbor
+    journal_name: bioRxiv (Genetics And Plant Biology)
+    group: preprint-core
+    publication_stage: preprint
+    source_strategy: official_feed_or_toc
+    source_locator: https://connect.biorxiv.org/biorxiv_xml.php?subject=genetics+plant_biology
+    source_notes: verified from the official bioRxiv RSS feed syntax page
+    article_scope: all
+    topic_bias:
+      include:
+        - genetics
+        - plant-biology
+        - breeding
+        - crop
+      exclude:
+        - pure-ecology
+
+  - id: biorxiv-cell-molecular-biology
+    enabled: true
+    publisher_family: cold-spring-harbor
+    journal_name: bioRxiv (Cell And Molecular Biology)
+    group: preprint-core
+    publication_stage: preprint
+    source_strategy: official_feed_or_toc
+    source_locator: https://connect.biorxiv.org/biorxiv_xml.php?subject=cell_biology+molecular_biology
+    source_notes: verified by live 200 response from the official bioRxiv subject feed endpoint
+    article_scope: all
+    topic_bias:
+      include:
+        - cell-biology
+        - molecular-biology
+        - signaling
+        - protein
+      exclude: []
+
+  - id: medrxiv-genetic-genomic-medicine
+    enabled: false
+    publisher_family: cold-spring-harbor
+    journal_name: medRxiv (Genetic And Genomic Medicine)
+    group: preprint-conditional
+    publication_stage: preprint
+    source_strategy: official_feed_or_toc
+    source_locator: https://connect.medrxiv.org/medrxiv_xml.php?subject=genetic_and_genomic_medicine
+    source_notes: verified from the official medRxiv RSS feed syntax page
+    article_scope: all
+    topic_bias:
+      include:
+        - genetics
+        - genomics
+        - biomedical-ai
+      exclude:
+        - clinical-trial-without-biology-method
+
+  - id: arxiv-q-bio
+    enabled: false
+    publisher_family: arxiv
+    journal_name: arXiv (q-bio selected categories)
+    group: preprint-conditional
+    publication_stage: preprint
+    source_strategy: official_feed_or_toc
+    source_locator: https://export.arxiv.org/api/query?search_query=cat:q-bio.GN+OR+cat:q-bio.BM+OR+cat:q-bio.QM+OR+cat:q-bio.MN&sortBy=submittedDate&sortOrder=descending&max_results=100
+    source_notes: verified by live 200 response from the official arXiv API endpoint; keep disabled until filtering is tuned
+    article_scope: all
+    topic_bias:
+      include:
+        - genomics
+        - bioinformatics
+        - computational-biology
+        - protein
+      exclude:
+        - pure-theory-without-biology
+
+  - id: pnas
+    enabled: true
+    publisher_family: pnas
+    journal_name: PNAS
+    group: flagship-general
+    source_strategy: official_feed_or_toc
+    source_locator: https://www.pnas.org/action/showFeed?type=etoc&feed=rss&jc=pnas
+    source_notes: verified by live 200 response from the official PNAS RSS feed endpoint; preferred over the Cloudflare-protected TOC page
+    article_scope: all
+    topic_bias:
+      include:
+        - biology
+        - plant-biology
+        - genetics
+        - methods
+      exclude:
+        - pure-materials
+        - pure-physics
+        - pure-chemistry
+
+defaults:
+  timezone: Asia/Shanghai
+  delivery_time: "08:00"
+  lookback_hours: 24
+  include_article_types:
+    - article
+    - research-article
+    - review
+    - perspective
+    - protocol
+    - resource
+    - report
+    - brief-communication
+    - tools
+    - database
+    - matters-arising
+    - commentary
+  dedupe_priority:
+    - doi
+    - canonical_url
+    - normalized_title_plus_journal
+
+notes:
+  - Keep `source_locator` nullable in the draft until official feed URLs are verified journal by journal.
+  - Treat the watchlist as editable configuration, not as a fixed taxonomy.
+  - Exclude HGT from the first version.
+  - The RSS spreadsheet from `/Users/mumu/Downloads/rss.xlsx` has been partially incorporated for matching journals in scope.
+  - Keep preprints clearly marked as `publication_stage: preprint` in downstream exports.

@@ -1,0 +1,100 @@
+sources:
+  - id: mesh
+    name: MeSH
+    domain: biomedical_subject_headings
+    provider: U.S. National Library of Medicine
+    type: controlled_vocabulary
+    download_url: https://www.nlm.nih.gov/databases/download/mesh.html
+    formats:
+      - xml
+      - rdf
+      - ascii
+      - marc21
+    update_cadence: annual_for_descriptors_daily_for_scr
+    priority: high
+    use_for:
+      - disease_terms
+      - anatomy_terms
+      - biomedical_phrases
+
+  - id: gene_ontology
+    name: Gene Ontology
+    domain: molecular_function_biological_process_cellular_component
+    provider: Gene Ontology Consortium
+    type: ontology
+    download_url: https://geneontology.org/docs/download-ontology/
+    formats:
+      - obo
+      - owl
+      - json
+    update_cadence: rolling_release
+    priority: high
+    use_for:
+      - function_terms
+      - process_terms
+      - subcellular_terms
+
+  - id: hgnc
+    name: HGNC
+    domain: human_gene_symbols
+    provider: HUGO Gene Nomenclature Committee
+    type: nomenclature
+    download_url: https://hgnc.genenames.org/download/statistics-and-files/
+    formats:
+      - tsv
+      - json
+      - owl
+    update_cadence: monthly
+    priority: high
+    use_for:
+      - approved_human_gene_symbols
+      - previous_symbols
+      - gene_name_normalization
+
+  - id: plant_ontology
+    name: Plant Ontology
+    domain: plant_anatomy_and_development
+    provider: Plant Ontology Consortium / Planteome
+    type: ontology
+    download_url: https://archive.plantontology.org/download
+    repository_url: https://github.com/Planteome/plant-ontology
+    formats:
+      - obo
+      - owl
+      - tab
+    update_cadence: release_based
+    priority: high
+    use_for:
+      - plant_structure_terms
+      - plant_development_terms
+
+  - id: ncbi_taxonomy
+    name: NCBI Taxonomy
+    domain: species_and_lineage
+    provider: NCBI
+    type: taxonomy
+    docs_url: https://www.ncbi.nlm.nih.gov/datasets/docs/v2/reference-docs/command-line/datasets/download/taxonomy/
+    homepage_url: https://www.ncbi.nlm.nih.gov/taxonomy
+    update_cadence: rolling_release
+    priority: medium
+    use_for:
+      - species_names
+      - lineage_normalization
+      - organism_detection
+
+  - id: obo_foundry
+    name: OBO Foundry
+    domain: general_bio_ontologies
+    provider: OBO Foundry
+    type: ontology_index
+    homepage_url: https://obofoundry.org/
+    update_cadence: rolling_release
+    priority: medium
+    use_for:
+      - ontology_discovery
+      - supplemental_biology_vocabularies
+
+notes:
+  - Prefer official downloads or official repositories over third-party mirrors.
+  - Merge downloaded term resources into the local glossary only after daily candidate review.
+  - For operational stability, cache a normalized internal term table instead of querying these resources during email generation.

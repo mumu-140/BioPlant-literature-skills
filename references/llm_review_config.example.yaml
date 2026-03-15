@@ -1,0 +1,38 @@
+provider: http-json
+
+defaults:
+  timeout_seconds: 30
+  keep_threshold: 0.85
+  review_threshold: 0.60
+
+request:
+  method: POST
+  url: https://example-llm-gateway.local/review
+  headers:
+    Content-Type: application/json
+    Authorization: "Bearer {api_key}"
+  json_body:
+    model: bio-reviewer
+    input:
+      title: "{title_en}"
+      abstract: "{abstract}"
+      journal: "{journal}"
+      publication_stage: "{publication_stage}"
+      category: "{category}"
+      tags: "{tags_csv}"
+      instructions: "Return JSON with decision, confidence, reason, and optional category_override."
+  response_json_path: output
+
+response_fields:
+  decision_path: decision
+  confidence_path: confidence
+  reason_path: reason
+  category_override_path: category_override
+
+secrets:
+  api_key_env: LLM_REVIEW_API_KEY
+
+notes:
+  - The service should return one JSON object with fields `decision`, `confidence`, and `reason`.
+  - Allowed decisions are `keep`, `review`, or `reject`.
+  - `category_override` is optional and may be omitted when the original rule-based category is acceptable.

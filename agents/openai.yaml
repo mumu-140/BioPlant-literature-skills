@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bio Literature Digest"
+  short_description: "Track and summarize biology papers daily"
+  default_prompt: "Use $bio-literature-digest to configure a daily digest of new biology, plant biology, and AI-for-bio papers."

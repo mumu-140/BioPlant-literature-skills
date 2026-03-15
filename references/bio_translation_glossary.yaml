@@ -1,0 +1,206 @@
+replacements:
+  - source: single-cell
+    target: 单细胞
+  - source: single nucleus
+    target: 单核
+  - source: spatial transcriptomics
+    target: 空间转录组
+  - source: transcriptome
+    target: 转录组
+  - source: proteome
+    target: 蛋白质组
+  - source: metabolome
+    target: 代谢组
+  - source: epigenome
+    target: 表观基因组
+  - source: chromatin
+    target: 染色质
+  - source: enhancer
+    target: 增强子
+  - source: promoter
+    target: 启动子
+  - source: transcription factor
+    target: 转录因子
+  - source: regulatory network
+    target: 调控网络
+  - source: CRISPR
+    target: CRISPR
+  - source: base editing
+    target: 碱基编辑
+  - source: prime editing
+    target: 先导编辑
+  - source: gene editing
+    target: 基因编辑
+  - source: knockout
+    target: 敲除
+  - source: knockdown
+    target: 敲低
+  - source: overexpression
+    target: 过表达
+  - source: cryo-EM
+    target: 冷冻电镜
+  - source: protein language model
+    target: 蛋白语言模型
+  - source: foundation model
+    target: 基础模型
+  - source: machine learning
+    target: 机器学习
+  - source: deep learning
+    target: 深度学习
+  - source: federated learning
+    target: 联邦学习
+  - source: microbiome
+    target: 微生物组
+  - source: microbiota
+    target: 微生物群
+  - source: gut microbiota
+    target: 肠道微生物群
+  - source: rhizosphere
+    target: 根际
+  - source: phyllosphere
+    target: 叶际
+  - source: stomata
+    target: 气孔
+  - source: guard cell
+    target: 保卫细胞
+  - source: auxin
+    target: 生长素
+  - source: cytokinin
+    target: 细胞分裂素
+  - source: gibberellin
+    target: 赤霉素
+  - source: abscisic acid
+    target: 脱落酸
+  - source: jasmonate
+    target: 茉莉酸
+  - source: salicylic acid
+    target: 水杨酸
+  - source: Arabidopsis
+    target: 拟南芥
+  - source: rice
+    target: 水稻
+  - source: maize
+    target: 玉米
+  - source: wheat
+    target: 小麦
+  - source: soybean
+    target: 大豆
+  - source: tomato
+    target: 番茄
+  - source: barley
+    target: 大麦
+  - source: sorghum
+    target: 高粱
+  - source: chondrocyte
+    target: 软骨细胞
+  - source: macrophage
+    target: 巨噬细胞
+  - source: T cell
+    target: T细胞
+  - source: CD8
+    target: CD8
+  - source: glioma
+    target: 胶质瘤
+  - source: mitosis
+    target: 有丝分裂
+  - source: circadian
+    target: 昼夜节律
+  - source: senescence
+    target: 衰老
+  - source: oxidative stress
+    target: 氧化应激
+  - source: bile acid
+    target: 胆汁酸
+  - source: 单单元格
+    target: 单细胞
+  - source: 单细胞的
+    target: 单细胞
+  - source: 单个细胞
+    target: 单细胞
+  - source: 基准
+    target: 基准测试
+  - source: 工作流
+    target: 工作流程
+  - source: 注释工作流
+    target: 注释流程
+  - source: 数据集
+    target: 数据集
+  - source: 转录组
+    target: 转录组
+  - source: 基因组
+    target: 基因组
+  - source: 蛋白质组
+    target: 蛋白质组
+  - source: 代谢组
+    target: 代谢组
+  - source: 染色质
+    target: 染色质
+  - source: 通路
+    target: 通路
+  - source: 信号传导
+    target: 信号传导
+  - source: 神经网络
+    target: 神经网络
+  - source: 基础模型
+    target: 基础模型
+  - source: 蛋白语言模型
+    target: 蛋白语言模型
+  - source: 植物数据集
+    target: 植物数据集
+  - source: 基因编辑
+    target: 基因编辑
+  - source: 育种
+    target: 育种
+
+candidate_seed_terms:
+  - single-cell atlas
+  - single-cell multi-omics
+  - spatial transcriptomics
+  - single nucleus
+  - transcriptome
+  - proteome
+  - metabolome
+  - epigenome
+  - chromatin accessibility
+  - enhancer
+  - promoter
+  - transcription factor
+  - regulatory network
+  - CRISPR
+  - base editing
+  - prime editing
+  - gene editing
+  - RNA-seq
+  - scRNA-seq
+  - ATAC-seq
+  - ChIP-seq
+  - Hi-C
+  - cryo-EM
+  - protein language model
+  - foundation model
+  - federated learning
+  - microbiome
+  - microbiota
+  - rhizosphere
+  - phyllosphere
+  - guard cell
+  - stomata
+  - auxin
+  - cytokinin
+  - gibberellin
+  - abscisic acid
+  - jasmonate
+  - salicylic acid
+  - Arabidopsis
+  - rice
+  - maize
+  - wheat
+  - soybean
+  - tomato
+  - barley
+  - sorghum
+  - macrophage
+  - chondrocyte
+  - oxidative stress
+  - bile acid
+  - circadian

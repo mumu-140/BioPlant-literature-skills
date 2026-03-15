@@ -1,0 +1,40 @@
+smtp_profiles:
+  qq_mail:
+    enabled: false
+    smtp_host: smtp.qq.com
+    smtp_port: 465
+    security: ssl
+    username: your_account@qq.com
+    password_env: QQ_MAIL_APP_PASSWORD
+    from_email: your_account@qq.com
+    from_name: Bio Literature Digest
+    to_emails:
+      - recipient@example.com
+    notes:
+      - Use an SMTP authorization code or app password, not the login password.
+
+  netease_163:
+    enabled: false
+    smtp_host: smtp.163.com
+    smtp_port: 465
+    security: ssl
+    username: your_account@163.com
+    password_env: NETEASE_163_APP_PASSWORD
+    from_email: your_account@163.com
+    from_name: Bio Literature Digest
+    to_emails:
+      - recipient@example.com
+    notes:
+      - Use SMTP service credentials enabled in mailbox settings.
+
+delivery_defaults:
+  timezone: Asia/Shanghai
+  schedule_time: "08:00"
+  subject_template: "[Bio Digest] {date} Daily Literature Update"
+  attach_csv: true
+  attach_xlsx: true
+  attach_html_copy: false
+
+notes:
+  - Enable only one SMTP profile for the initial deployment.
+  - Keep real secrets out of the repository and load them from environment variables.

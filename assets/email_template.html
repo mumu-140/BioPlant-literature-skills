@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>Bio Literature Digest</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: #1a1f18;
+      background: #eef2e6;
+    }
+    .page {
+      width: 100%;
+      padding: 18px 0;
+      background:
+        radial-gradient(circle at top left, rgba(183, 214, 154, 0.28), transparent 36%),
+        radial-gradient(circle at top right, rgba(208, 184, 124, 0.18), transparent 28%),
+        linear-gradient(180deg, #eef2e6 0%, #f8f6ef 100%);
+    }
+    .container {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 0 6px;
+    }
+    .hero {
+      background: linear-gradient(135deg, #17362b 0%, #284f3e 52%, #8d6c36 100%);
+      color: #f8f5ef;
+      border-radius: 16px;
+      padding: 16px 14px;
+      box-shadow: 0 18px 36px rgba(23, 54, 43, 0.22);
+    }
+    .hero h1 {
+      margin: 0 0 10px;
+      font-size: 24px;
+      line-height: 1.1;
+      letter-spacing: 0.02em;
+    }
+    .hero p {
+      margin: 0;
+      color: rgba(248, 245, 239, 0.86);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+    .section {
+      margin-top: 18px;
+    }
+    .section-title {
+      margin: 0 0 8px;
+      font-size: 16px;
+      color: #203126;
+      letter-spacing: 0.01em;
+    }
+    .section-subtitle {
+      margin: 0 0 10px;
+      color: #5c665a;
+      font-size: 10px;
+    }
+    .group-details {
+      margin: 0 0 10px;
+      padding: 0;
+      border: 1px solid #d9dfcf;
+      border-radius: 16px;
+      background: rgba(255, 252, 244, 0.92);
+      overflow: hidden;
+    }
+    .group-summary {
+      display: block;
+      padding: 10px 11px;
+      background: linear-gradient(180deg, #f7f3e7 0%, #efe9d9 100%);
+      color: #253327;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      list-style: none;
+      line-height: 1.35;
+    }
+    .group-summary::-webkit-details-marker {
+      display: none;
+    }
+    .group-count {
+      float: right;
+      min-width: 28px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: #213f31;
+      color: #f8f5ef;
+      text-align: center;
+      font-size: 8px;
+    }
+    .group-description {
+      margin: 0;
+      padding: 6px 12px 0;
+      color: #687164;
+      font-size: 9px;
+      line-height: 1.45;
+    }
+    .card {
+      margin: 5px 5px 7px;
+      border: 1px solid #dce3d2;
+      border-radius: 14px;
+      background: #fffdf8;
+      box-shadow: 0 14px 26px rgba(54, 70, 50, 0.08);
+      overflow: hidden;
+    }
+    .card-main {
+      display: block;
+      padding: 10px 10px 7px;
+      text-decoration: none;
+      color: inherit;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(249, 247, 239, 0.94) 100%);
+    }
+    .card-main:hover {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(244, 249, 239, 1) 100%);
+    }
+    .card-meta {
+      margin: 0 0 6px;
+      font-size: 8px;
+      color: #64705e;
+      line-height: 1.4;
+    }
+    .badge {
+      display: inline-block;
+      margin-right: 6px;
+      margin-bottom: 3px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 7px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    .badge-stage {
+      background: #dfe9d6;
+      color: #284833;
+    }
+    .badge-category {
+      background: #efe3c7;
+      color: #775523;
+    }
+    .card-title {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.22;
+      color: #16281f;
+    }
+    .card-title-zh {
+      margin: 4px 0 0;
+      font-size: 14px;
+      line-height: 1.22;
+      color: #385446;
+      font-weight: 700;
+    }
+    .card-authors {
+      margin: 5px 0 0;
+      font-size: 9px;
+      line-height: 1.32;
+      color: #2f3b32;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
+    }
+    .card-cta {
+      display: inline-block;
+      margin-top: 7px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #1f4737;
+      color: #f6f2ea;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .card-body {
+      padding: 0 10px 8px;
+    }
+    .abstract-shell {
+      margin-top: 4px;
+      padding: 7px 7px 0;
+      border-radius: 10px;
+      background: #f5f7f1;
+      border: 1px solid #e0e6d8;
+    }
+    .abstract-label {
+      margin: 0 0 8px;
+      color: #506052;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    details {
+      margin: 0;
+    }
+    summary {
+      list-style: none;
+      cursor: pointer;
+      outline: none;
+    }
+    summary::-webkit-details-marker {
+      display: none;
+    }
+    .abstract-preview {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
+      max-height: 2.9em;
+      color: #5d675c;
+      font-size: 9px;
+      line-height: 1.45;
+    }
+    .abstract-toggle {
+      display: inline-block;
+      margin-top: 4px;
+      margin-bottom: 8px;
+      color: #0d6a61;
+      font-size: 9px;
+      font-weight: 700;
+    }
+    .abstract-full {
+      padding: 0 0 8px;
+      color: #4a554a;
+      font-size: 9px;
+      line-height: 1.45;
+    }
+    .card-footer {
+      padding-top: 6px;
+      font-size: 8px;
+      color: #58645a;
+      line-height: 1.45;
+    }
+    .card-footer a {
+      color: #0d6a61;
+      text-decoration: none;
+      font-weight: 700;
+    }
+    .empty-state {
+      padding: 24px;
+      border-radius: 18px;
+      background: #fffdf8;
+      border: 1px solid #dce3d2;
+      color: #5f675d;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    a {
+      color: #0d6a61;
+      text-decoration: none;
+    }
+    @media screen and (max-width: 640px) {
+      .page {
+        padding: 10px 0 14px;
+      }
+      .container {
+        padding: 0 3px;
+      }
+      .hero {
+        border-radius: 14px;
+        padding: 14px 12px;
+      }
+      .hero h1 {
+        font-size: 20px;
+      }
+      .section-title {
+        font-size: 16px;
+      }
+      .group-summary {
+        padding: 10px 10px;
+        font-size: 12px;
+      }
+      .group-description {
+        padding: 6px 10px 0;
+      }
+      .card {
+        margin: 4px 4px 6px;
+        border-radius: 12px;
+      }
+      .card-main {
+        padding: 10px 10px 6px;
+      }
+      .card-body {
+        padding: 0 10px 8px;
+      }
+      .card-title {
+        font-size: 13px;
+      }
+      .card-title-zh {
+        font-size: 13px;
+      }
+      .card-authors {
+        font-size: 8px;
+      }
+      .card-meta,
+      .card-footer,
+      .abstract-full,
+      .abstract-preview {
+        font-size: 8px;
+      }
+      .badge {
+        font-size: 7px;
+        padding: 2px 5px;
+      }
+    }
+${style_override_css}
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="container">
+      <section class="hero">
+        <h1>Daily Bio Literature Digest</h1>
+        <p>${greeting_line}</p>
+        <p style="margin-top:8px;">过去 24 小时内的生物学、植物学与 AI for bio 文献已汇总完成。附件已包含 CSV 与 XLSX 下载表格。</p>
+        <p style="margin-top:10px;">Total records: ${record_count}</p>
+      </section>
+      ${sections}
+    </div>
+  </div>
+</body>
+</html>

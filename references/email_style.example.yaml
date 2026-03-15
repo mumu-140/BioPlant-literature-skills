@@ -1,0 +1,42 @@
+base_css: |
+  .hero h1 {
+    font-size: 22px;
+  }
+
+  .card-title,
+  .card-title-zh {
+    font-size: 13px;
+    line-height: 1.2;
+  }
+
+  .card-authors {
+    font-size: 8px;
+  }
+
+  .container {
+    padding: 0 4px;
+  }
+
+mobile_css: |
+  .hero h1 {
+    font-size: 19px;
+  }
+
+  .card-title,
+  .card-title-zh {
+    font-size: 12px;
+  }
+
+  .card-meta,
+  .card-authors,
+  .abstract-preview,
+  .abstract-full,
+  .card-footer {
+    font-size: 7px;
+  }
+
+notes:
+  - Edit `base_css` to change desktop and tablet email style.
+  - Edit `mobile_css` to change the mobile layout under 640px width.
+  - The content is raw CSS injected at the end of the template, so later rules override earlier defaults.
+  - Common selectors: `.container`, `.hero`, `.group-summary`, `.card`, `.card-main`, `.card-title`, `.card-title-zh`, `.card-authors`, `.abstract-preview`, `.abstract-full`, `.card-footer`.
