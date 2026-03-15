@@ -1,5 +1,4 @@
-# -skills
-每天订阅新的文献，然后发到指定邮箱
+# 每天订阅新的文献，然后发到指定邮箱
 # 最简单的办法，扔给Codex、Claude code、antigravity等软件，让软件帮忙安装、配置、提交！！！
 # Bio Literature Digest 使用说明
 
