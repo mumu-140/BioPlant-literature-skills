@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import tempfile
 import unittest
 from datetime import datetime, timedelta
@@ -28,6 +29,8 @@ class ProductionEntryTest(unittest.TestCase):
             timezone="Asia/Shanghai",
             delivery_time="08:00",
             archive_dir=str(SKILL_DIR / "archives" / "daily-digests"),
+            review_workspace_dir=str(SKILL_DIR / "reviews" / "daily-reviews"),
+            backlog_dir=str(SKILL_DIR / "reviews" / "backlog"),
             retention_days=30,
             input_file=None,
             manual_review_csv=None,
@@ -61,6 +64,8 @@ class ProductionEntryTest(unittest.TestCase):
             timezone="Asia/Shanghai",
             delivery_time="08:00",
             archive_dir=str(SKILL_DIR / "archives" / "daily-digests"),
+            review_workspace_dir=str(SKILL_DIR / "reviews" / "daily-reviews"),
+            backlog_dir=str(SKILL_DIR / "reviews" / "backlog"),
             retention_days=30,
             input_file=None,
             manual_review_csv=None,
@@ -91,6 +96,8 @@ class ProductionEntryTest(unittest.TestCase):
             timezone="Asia/Shanghai",
             delivery_time="08:00",
             archive_dir=str(SKILL_DIR / "archives" / "daily-digests"),
+            review_workspace_dir=str(SKILL_DIR / "reviews" / "daily-reviews"),
+            backlog_dir=str(SKILL_DIR / "reviews" / "backlog"),
             retention_days=30,
             input_file=None,
             manual_review_csv=None,
@@ -110,10 +117,23 @@ class ProductionEntryTest(unittest.TestCase):
             tmpdir_path = Path(tmpdir)
             work_dir = tmpdir_path / "work"
             work_dir.mkdir()
-            for filename in ["digest.html", "digest.csv", "digest.xlsx", "review_queue.csv"]:
+            for filename in [
+                "digest.html",
+                "digest.csv",
+                "digest.xlsx",
+                "review_queue.html",
+                "review_queue.csv",
+                "review_queue.xlsx",
+                "daily_review.html",
+                "daily_review.csv",
+                "daily_review.xlsx",
+                "run_metadata.json",
+            ]:
                 (work_dir / filename).write_text(filename, encoding="utf-8")
 
             archive_dir = tmpdir_path / "archives"
+            review_workspace_dir = tmpdir_path / "reviews"
+            backlog_dir = tmpdir_path / "backlog"
             tz = ZoneInfo("Asia/Shanghai")
             old_date = (datetime.now(tz).date() - timedelta(days=31)).strftime("%Y-%m-%d")
             keep_date = (datetime.now(tz).date() - timedelta(days=29)).strftime("%Y-%m-%d")
@@ -123,6 +143,8 @@ class ProductionEntryTest(unittest.TestCase):
             args = argparse.Namespace(
                 work_dir=str(work_dir),
                 archive_dir=str(archive_dir),
+                review_workspace_dir=str(review_workspace_dir),
+                backlog_dir=str(backlog_dir),
                 retention_days=30,
                 timezone="Asia/Shanghai",
                 window_end="2026-03-15T00:00:00Z",
@@ -133,6 +155,18 @@ class ProductionEntryTest(unittest.TestCase):
             archived_dir = archive_dir / "2026-03-15"
             self.assertTrue((archived_dir / "digest.csv").exists())
             self.assertTrue((archived_dir / "digest.xlsx").exists())
+            self.assertTrue((archived_dir / "review_queue.xlsx").exists())
+            self.assertTrue((archived_dir / "daily_review.csv").exists())
+            self.assertTrue((archived_dir / "run_metadata.json").exists())
+            self.assertTrue((review_workspace_dir / "2026-03-15" / "daily_review.csv").exists())
+            self.assertTrue((review_workspace_dir / "2026-03-15" / "review_manifest.json").exists())
+            manifest = json.loads((review_workspace_dir / "2026-03-15" / "review_manifest.json").read_text(encoding="utf-8"))
+            self.assertTrue(manifest["review_file"].endswith("/daily_review.xlsx"))
+            self.assertTrue(manifest["canonical_review_surface"].endswith("/review_backlog.xlsx"))
+            self.assertTrue((backlog_dir / "review_backlog.csv").exists())
+            self.assertTrue((backlog_dir / "review_backlog.xlsx").exists())
+            self.assertTrue((backlog_dir / "review_backlog.html").exists())
+            self.assertTrue((backlog_dir / "review_backlog_state.json").exists())
             self.assertFalse((archive_dir / old_date).exists())
             self.assertTrue((archive_dir / keep_date).exists())
 

@@ -34,10 +34,15 @@ class ConfigTest(unittest.TestCase):
         required_columns = data["output_schema"]["required_columns"]
         self.assertIn("publication_stage", required_columns)
         self.assertIn("title_en", required_columns)
+        self.assertIn("interest_level", required_columns)
+        self.assertIn("interest_tag", required_columns)
         self.assertIn("title_zh", required_columns)
         self.assertIn("authors", required_columns)
         self.assertIn("summary_zh", required_columns)
         self.assertIn("doi", required_columns)
+        daily_review_columns = data["daily_review_schema"]["required_columns"]
+        self.assertIn("interest_level", daily_review_columns)
+        self.assertIn("interest_tag", daily_review_columns)
         display_priority = data["display_priority"]
         self.assertEqual(display_priority["default_grouping_mode"], "journal")
         self.assertIn("journal", display_priority["available_grouping_modes"])

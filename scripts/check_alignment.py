@@ -11,10 +11,11 @@ except ModuleNotFoundError:
     from scripts.run_production_digest import SKILL_DIR
 
 
-AUTOMATION_PATH = Path.home() / ".codex" / "automations" / "bio-digest-daily" / "automation.toml"
+AUTOMATION_PATH = Path.home() / ".codex" / "automations" / "bio-digest-optimizer" / "automation.toml"
 STALE_CHECKS = [
     ("automation", "last 24 hours", "应改为北京时间前一日 00:00 到当日 08:00 的日报窗口"),
     ("automation", "review queue is empty", "当前生产版允许把不确定项排到末尾后继续发送"),
+    ("automation", "daily_review.csv", "自动化应以 review_backlog.xlsx 为人工审核主入口"),
     ("skill", "last 24 hours relative to the scheduled run time", "技能文档应与日报窗口保持一致"),
     ("skill", "Only send `keep` records", "技能文档应说明生产模式可带 review 项发送并排到最后"),
 ]
@@ -45,6 +46,16 @@ def build_report() -> tuple[list[str], list[str]]:
         issues.append(f"未找到自动化配置: {AUTOMATION_PATH}")
     else:
         notes.append(f"已检测自动化配置: {AUTOMATION_PATH}")
+        required_automation_terms = [
+            "refresh_review_backlog.py",
+            "review_backlog.xlsx",
+            "review_backlog_state.json",
+            "selection-json",
+            "finalize_review_backlog.py",
+        ]
+        for term in required_automation_terms:
+            if term not in automation_text:
+                issues.append(f"automation 缺少关键步骤 `{term}`")
 
     skill_text = read_text(skill_path)
 

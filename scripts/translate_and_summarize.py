@@ -105,6 +105,24 @@ def build_placeholder(record: dict[str, Any]) -> tuple[str, str]:
     return title_zh, summary
 
 
+def normalize_provider_name(value: Any) -> str:
+    return str(value or "").strip().lower()
+
+
+def summarize_error(error: Exception) -> str:
+    message = " ".join(str(error).split())
+    if not message:
+        return error.__class__.__name__
+    return f"{error.__class__.__name__}: {message}"
+
+
+def apply_summary_sentence_limit(summary_zh: str, max_sentences: int) -> str:
+    sentences = [part.strip() for part in summary_zh.replace("！", "。").replace("?", "。").split("。") if part.strip()]
+    if len(sentences) > max_sentences:
+        return "。".join(sentences[:max_sentences]) + "。"
+    return summary_zh
+
+
 def run_external_command(command: str, record: dict[str, Any]) -> tuple[str, str]:
     completed = subprocess.run(
         command,
@@ -424,7 +442,12 @@ def localize_via_tencent_tmt(record: dict[str, Any], config: dict[str, Any]) -> 
     return title_zh, summary_zh
 
 
-def localize_via_google_basic_v2(record: dict[str, Any], config: dict[str, Any]) -> tuple[str, str]:
+def localize_via_google_basic_v2(
+    record: dict[str, Any],
+    config: dict[str, Any],
+    *,
+    allow_fallback: bool = True,
+) -> tuple[str, str]:
     glossary = load_glossary(config)
     google_config = config.get("google_basic_v2", {})
     source_lang = google_config.get("source_lang", "en")
@@ -457,9 +480,129 @@ def localize_via_google_basic_v2(record: dict[str, Any], config: dict[str, Any])
             )
         return title_zh, summary_zh
     except Exception:
-        if fallback_provider == "tencent-tmt":
+        if allow_fallback and fallback_provider == "tencent-tmt":
             return localize_via_tencent_tmt(record, config)
         raise
+
+
+def localize_record(
+    record: dict[str, Any],
+    provider: str,
+    config: dict[str, Any],
+    *,
+    command: str | None = None,
+    allow_fallback: bool = True,
+) -> tuple[str, str]:
+    if provider == "command":
+        if not command:
+            raise ValueError("command provider requires --command")
+        return run_external_command(command, record)
+    if provider == "http-json":
+        return localize_via_http_json(record, config)
+    if provider == "tencent-tmt":
+        return localize_via_tencent_tmt(record, config)
+    if provider == "google-basic-v2":
+        return localize_via_google_basic_v2(record, config, allow_fallback=allow_fallback)
+    return build_placeholder(record)
+
+
+def localize_records(
+    records: list[dict[str, Any]],
+    provider: str,
+    config: dict[str, Any],
+    *,
+    command: str | None = None,
+    max_sentences: int = 4,
+    output_path: Path | None = None,
+) -> list[dict[str, Any]]:
+    runtime_config = config.get("runtime", {}) if isinstance(config.get("runtime"), dict) else {}
+    continue_on_error = bool(runtime_config.get("continue_on_error", True))
+    disable_primary_after_failures = max(1, int(runtime_config.get("disable_primary_after_failures", 2)))
+    checkpoint_every_records = max(1, int(runtime_config.get("checkpoint_every_records", 1)))
+
+    primary_provider = normalize_provider_name(provider) or "placeholder"
+    fallback_provider = ""
+    if primary_provider == "google-basic-v2":
+        fallback_provider = normalize_provider_name(config.get("fallback_provider"))
+    active_provider = primary_provider
+    consecutive_primary_failures = 0
+    output: list[dict[str, Any]] = []
+
+    for index, record in enumerate(records, start=1):
+        title = str(record.get("title_en", "")).strip() or "(untitled)"
+        provider_for_record = active_provider
+        used_provider = provider_for_record
+        try:
+            title_zh, summary_zh = localize_record(
+                record,
+                provider_for_record,
+                config,
+                command=command,
+                allow_fallback=False,
+            )
+            if provider_for_record == primary_provider:
+                consecutive_primary_failures = 0
+        except Exception as primary_error:
+            if provider_for_record == primary_provider:
+                consecutive_primary_failures += 1
+            error_message = summarize_error(primary_error)
+            if fallback_provider and provider_for_record == primary_provider:
+                print(
+                    f"[translate] primary provider={primary_provider} failed for record {index}/{len(records)} "
+                    f"({title}): {error_message}; fallback={fallback_provider}"
+                )
+                try:
+                    title_zh, summary_zh = localize_record(
+                        record,
+                        fallback_provider,
+                        config,
+                        command=command,
+                        allow_fallback=False,
+                    )
+                    used_provider = fallback_provider
+                except Exception as fallback_error:
+                    fallback_message = summarize_error(fallback_error)
+                    if not continue_on_error:
+                        raise
+                    print(
+                        f"[translate] fallback provider={fallback_provider} also failed for record {index}/{len(records)} "
+                        f"({title}): {fallback_message}; using placeholder"
+                    )
+                    title_zh, summary_zh = build_placeholder(record)
+                    used_provider = "placeholder"
+            elif continue_on_error:
+                print(
+                    f"[translate] provider={provider_for_record} failed for record {index}/{len(records)} "
+                    f"({title}): {error_message}; using placeholder"
+                )
+                title_zh, summary_zh = build_placeholder(record)
+                used_provider = "placeholder"
+            else:
+                raise
+
+        if (
+            primary_provider == active_provider
+            and fallback_provider
+            and consecutive_primary_failures >= disable_primary_after_failures
+        ):
+            active_provider = fallback_provider
+            print(
+                f"[translate] switching remaining records to fallback provider={fallback_provider} "
+                f"after {consecutive_primary_failures} consecutive {primary_provider} failures"
+            )
+
+        localized = dict(record)
+        localized["title_zh"] = title_zh
+        localized["summary_zh"] = apply_summary_sentence_limit(summary_zh, max_sentences)
+        output.append(localized)
+
+        if output_path is not None and (index % checkpoint_every_records == 0 or index == len(records)):
+            write_jsonl(output_path, output)
+        print(f"[translate] localized record {index}/{len(records)} using provider={used_provider}")
+
+    if output_path is not None and not records:
+        write_jsonl(output_path, output)
+    return output
 
 
 def main() -> int:
@@ -488,29 +631,14 @@ def main() -> int:
     max_sentences = summary_requirements.get("max_sentences", 4)
 
     records = read_jsonl(Path(args.input))
-    output: list[dict[str, Any]] = []
-    for record in records:
-        if args.provider == "command":
-            title_zh, summary_zh = run_external_command(args.command, record)
-        elif args.provider == "http-json":
-            title_zh, summary_zh = localize_via_http_json(record, provider_config)
-        elif args.provider == "tencent-tmt":
-            title_zh, summary_zh = localize_via_tencent_tmt(record, provider_config)
-        elif args.provider == "google-basic-v2":
-            title_zh, summary_zh = localize_via_google_basic_v2(record, provider_config)
-        else:
-            title_zh, summary_zh = build_placeholder(record)
-
-        sentences = [part.strip() for part in summary_zh.replace("！", "。").replace("?", "。").split("。") if part.strip()]
-        if len(sentences) > max_sentences:
-            summary_zh = "。".join(sentences[:max_sentences]) + "。"
-
-        localized = dict(record)
-        localized["title_zh"] = title_zh
-        localized["summary_zh"] = summary_zh
-        output.append(localized)
-
-    write_jsonl(Path(args.output), output)
+    output = localize_records(
+        records,
+        args.provider,
+        provider_config,
+        command=args.command,
+        max_sentences=max_sentences,
+        output_path=Path(args.output),
+    )
     print(f"Localized {len(output)} records with provider={args.provider}.")
     return 0
 

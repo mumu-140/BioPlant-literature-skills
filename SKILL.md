@@ -38,9 +38,9 @@ For cross-platform local execution, prefer the built-in wrapper:
 python3 scripts/with_env.py -- python3 scripts/run_digest.py ...
 ```
 
-`with_env.py` auto-detects the OS, loads `/.env.local`, and then runs the requested command in that environment. Use it instead of remembering separate `source` commands for macOS, Linux, or Windows.
+`with_env.py` auto-detects the OS, loads `./.env.local`, and then runs the requested command in that environment. Use it instead of remembering separate `source` commands for macOS, Linux, or Windows.
 
-All live secrets must exist only in `/.env.local`. Do not hardcode API keys, SMTP authorization codes, or other secret values in Python scripts, YAML config files, automation files, or test fixtures.
+All live secrets must exist only in `./.env.local`. Do not hardcode API keys, SMTP authorization codes, or other secret values in Python scripts, YAML config files, automation files, or test fixtures.
 
 Run this audit before shipping or migrating the skill:
 
@@ -54,9 +54,23 @@ For scheduled or production delivery, do not call `run_digest.py` directly from 
 python3 scripts/run_production_digest.py
 ```
 
-`run_production_digest.py` is the canonical production entrypoint. It loads `/.env.local`, uses the local email/style/translation configs, applies the scheduled digest window, and keeps manual runs aligned with scheduled runs.
+`run_production_digest.py` is the canonical production entrypoint. It loads `./.env.local`, uses the local email/style/translation configs, applies the scheduled digest window, and keeps manual runs aligned with scheduled runs.
 
-The production entrypoint also archives the daily digest outputs. After each successful run it stores `digest.html`, `digest.csv`, `digest.xlsx`, and `review_queue.csv` in a date-stamped folder and deletes archived folders older than 30 days.
+The production entrypoint also archives the daily digest outputs. After each successful run it stores `digest.html`, `digest.csv`, `digest.xlsx`, `review_queue.csv`, `daily_review.csv`, and `daily_review.xlsx` in a date-stamped folder, syncs the editable review workspace at `reviews/daily-reviews/YYYY-MM-DD/`, updates the active review backlog at `reviews/backlog/review_backlog.xlsx`, and deletes archived folders older than 30 days. For human review, treat `review_backlog.xlsx` as the canonical editable file; `review_backlog.csv` and `review_backlog.html` are derived views, not the source of truth.
+
+For the optimizer layer, do not use a standalone Python maintainer that rewrites rules on its own. Use Codex to read the producer artifacts, validate `run_metadata.json`, inspect `rule_feedback_report.md`, `classification_suggestions.json`, `glossary_candidates.yaml`, `review_queue.csv`, and the active review backlog `reviews/backlog/review_backlog.xlsx` plus `reviews/backlog/review_backlog_state.json`, then update `references/category_rules.yaml` and `references/bio_translation_glossary.yaml` conservatively with a human-readable change summary.
+
+Use this sequence:
+1. Run `python3 scripts/refresh_review_backlog.py` so the active backlog reflects any late human edits in `reviews/daily-reviews/YYYY-MM-DD/`. This refresh prefers `daily_review.xlsx` over `daily_review.csv`, and it must preserve any editable values already present in `reviews/backlog/review_backlog.xlsx`.
+2. Read only backlog rows whose `review_status` is `reviewed_pending_optimization`.
+3. Use the built-in admission tiers:
+   - `apply`: low-risk human feedback that aligns with the current decision/category; Codex may use it directly for conservative rule or glossary updates.
+   - `suggest`: human feedback that changes a decision or category; Codex must validate it against the paper content, existing rules, and other recent examples before updating rules.
+   - `observe`: weak or interest-only feedback; do not update hard rules from it, but it may inform ranking or future pattern observation.
+4. Update the rules/glossary conservatively.
+5. Write a selective batch file such as `reviews/backlog/optimization_selection.json` that lists only the backlog rows Codex actually consumed into stable updates. Do not bulk-consume all reviewed rows, because deferred or ambiguous cases should remain in the backlog and continue accumulating evidence.
+6. Run `python3 scripts/mark_review_backlog_optimized.py --selection-json reviews/backlog/optimization_selection.json` after the Codex optimization succeeds.
+7. Run `python3 scripts/finalize_review_backlog.py` to archive only those consumed rows out of the active backlog, archive the consumed `optimization_selection.json`, clear it from the active backlog root, and rebuild the backlog views.
 
 ## Workflow
 
@@ -179,15 +193,18 @@ The table should contain these columns in this order unless the user changes it:
 1. `journal`
 2. `publish_date`
 3. `category`
-4. `title_en`
-5. `title_zh`
-6. `summary_zh`
-7. `abstract`
-8. `doi`
-9. `article_url`
-10. `tags`
+4. `interest_level`
+5. `interest_tag`
+6. `title_en`
+7. `title_zh`
+8. `summary_zh`
+9. `abstract`
+10. `doi`
+11. `article_url`
+12. `tags`
 
 Group the email body by category. Keep the email body shorter than the attachments by truncating long abstracts or summaries if needed.
+Render `interest_level` as stars in the email body and render `interest_tag` in smaller text near the title metadata.
 
 ### 8. Send by email
 
@@ -231,8 +248,8 @@ The current script bundle is designed to run with Python standard library only. 
 
 If the user wants to stay entirely inside the Codex environment and not configure any external model service, use:
 - `--review-provider placeholder` to create a conservative `review_queue.csv`
-- let Codex or the user edit `review_queue.csv` by filling `review_final_decision`, `review_final_category`, and `reviewer_notes`
-- rerun with `--manual-review-csv /path/to/review_queue.csv`
+- let Codex or the user edit `reviews/backlog/review_backlog.xlsx` by filling `interest_level`, `interest_tag`, `review_final_decision`, `review_final_category`, and `reviewer_notes`
+- if a one-off replay is needed, export the reviewed rows to CSV and rerun with `--manual-review-csv /path/to/manual_review.csv`
 
 Do not send email automatically while `review_queue` is non-empty unless the user explicitly opts in.
 
@@ -272,8 +289,15 @@ Each successful run can also emit:
 - `glossary_candidates.md`
 - `classification_suggestions.json`
 - `classification_suggestions.md`
+- `daily_review.csv`
+- `daily_review.xlsx`
 
-Use those artifacts to review and append new biology terms into `references/bio_translation_glossary.yaml` during daily Codex maintenance.
+Use those artifacts to review and append new biology terms into `references/bio_translation_glossary.yaml` during daily Codex maintenance. If the user wants scheduled optimization, schedule Codex itself to:
+1. optimize rules, sources, and terminology from the latest successful run
+2. inspect whether `reviews/backlog/review_backlog.xlsx` contains newly reviewed rows after refresh
+3. if it changed, learn from `interest_level`, `interest_tag`, `review_final_decision`, `review_final_category`, and `reviewer_notes`
+4. update rule, classification, interest, and tag heuristics conservatively
+5. mark only the rows that were actually consumed into stable decisions; leave deferred rows in the backlog
 Use [terminology_sources.yaml](./references/terminology_sources.yaml) as the official-source shortlist when the user wants downloadable biology vocabularies or ontology resources.
 
 For a Codex-only review loop without external LLM services:
@@ -287,7 +311,7 @@ python3 scripts/run_digest.py \
   --summary-provider placeholder
 ```
 
-Then edit `/tmp/bio-digest-run/review_queue.csv` and rerun:
+Then edit `/tmp/bio-digest-run/daily_review.xlsx` or merge your changes into `reviews/backlog/review_backlog.xlsx`, export a manual-review CSV if needed, and rerun:
 
 ```bash
 python3 scripts/run_digest.py \
@@ -295,7 +319,7 @@ python3 scripts/run_digest.py \
   --input-file /path/to/raw_records.jsonl \
   --skip-email \
   --review-provider placeholder \
-  --manual-review-csv /tmp/bio-digest-run/review_queue.csv \
+  --manual-review-csv /tmp/bio-digest-run/manual_review.csv \
   --summary-provider placeholder
 ```
 

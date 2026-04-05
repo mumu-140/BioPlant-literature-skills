@@ -3,8 +3,12 @@ replacements:
     target: 单细胞
   - source: single nucleus
     target: 单核
+  - source: single-cell atlas
+    target: 单细胞图谱
   - source: spatial transcriptomics
     target: 空间转录组
+  - source: transcriptomics
+    target: 转录组学
   - source: transcriptome
     target: 转录组
   - source: proteome
@@ -23,8 +27,18 @@ replacements:
     target: 转录因子
   - source: regulatory network
     target: 调控网络
+  - source: cis-regulatory element
+    target: 顺式调控元件
+  - source: cis-regulatory elements
+    target: 顺式调控元件
+  - source: pre-enhancer
+    target: 预增强子
+  - source: condensin
+    target: 凝缩素
   - source: CRISPR
     target: CRISPR
+  - source: off-target detection
+    target: 脱靶检测
   - source: base editing
     target: 碱基编辑
   - source: prime editing
@@ -39,8 +53,12 @@ replacements:
     target: 过表达
   - source: cryo-EM
     target: 冷冻电镜
+  - source: eCLIP
+    target: eCLIP
   - source: protein language model
     target: 蛋白语言模型
+  - source: proximity labeling
+    target: 邻近标记
   - source: foundation model
     target: 基础模型
   - source: machine learning
@@ -49,18 +67,38 @@ replacements:
     target: 深度学习
   - source: federated learning
     target: 联邦学习
+  - source: knowledge graph
+    target: 知识图谱
   - source: microbiome
     target: 微生物组
   - source: microbiota
     target: 微生物群
   - source: gut microbiota
     target: 肠道微生物群
+  - source: microRNAs
+    target: 微RNA
+  - source: microRNA
+    target: 微RNA
+  - source: miRNAs
+    target: 微RNA
+  - source: miRNA
+    target: 微RNA
+  - source: ectomycorrhizal
+    target: 外生菌根
+  - source: ammonium transporter
+    target: 铵转运蛋白
   - source: rhizosphere
     target: 根际
   - source: phyllosphere
     target: 叶际
   - source: stomata
     target: 气孔
+  - source: stomatal
+    target: 气孔
+  - source: lipid droplet
+    target: 脂滴
+  - source: lipid droplets
+    target: 脂滴
   - source: guard cell
     target: 保卫细胞
   - source: auxin
@@ -71,12 +109,52 @@ replacements:
     target: 赤霉素
   - source: abscisic acid
     target: 脱落酸
+  - source: ABA signaling
+    target: 脱落酸信号传导
   - source: jasmonate
     target: 茉莉酸
   - source: salicylic acid
     target: 水杨酸
+  - source: seed storability
+    target: 种子贮藏性
+  - source: ER stress
+    target: 内质网应激
+  - source: endoplasmic reticulum stress
+    target: 内质网应激
+  - source: lysosome
+    target: 溶酶体
+  - source: lysosomal
+    target: 溶酶体
+  - source: vacuole
+    target: 液泡
+  - source: vacuoles
+    target: 液泡
   - source: Arabidopsis
     target: 拟南芥
+  - source: phytochrome B
+    target: 光敏色素B
+  - source: seed germination
+    target: 种子萌发
+  - source: heat stress tolerance
+    target: 热胁迫耐受性
+  - source: nuclear envelope
+    target: 核膜
+  - source: triacylglycerol lipase
+    target: 三酰甘油脂肪酶
+  - source: cuticle assembly
+    target: 角质层形成
+  - source: O-methyltransferase
+    target: O-甲基转移酶
+  - source: glycosyltransferase
+    target: 糖基转移酶
+  - source: TurboID
+    target: TurboID
+  - source: PAMP
+    target: 病原相关分子模式
+  - source: pre-harvest sprouting
+    target: 穗发芽
+  - source: telomerase-negative
+    target: 端粒酶阴性
   - source: rice
     target: 水稻
   - source: maize
@@ -95,6 +173,14 @@ replacements:
     target: 软骨细胞
   - source: macrophage
     target: 巨噬细胞
+  - source: Treg cells
+    target: 调节性T细胞
+  - source: Treg cell
+    target: 调节性T细胞
+  - source: Tregs
+    target: 调节性T细胞
+  - source: Treg
+    target: 调节性T细胞
   - source: T cell
     target: T细胞
   - source: CD8
@@ -105,10 +191,118 @@ replacements:
     target: 有丝分裂
   - source: circadian
     target: 昼夜节律
+  - source: turgor
+    target: 膨压
   - source: senescence
     target: 衰老
   - source: oxidative stress
     target: 氧化应激
+  - source: pattern separation
+    target: 模式分离
+  - source: sparse coding
+    target: 稀疏编码
+  - source: electrolocation
+    target: 电定位
+  - source: resistosome
+    target: 抗病小体
+  - source: proof-of-concept study
+    target: 概念验证研究
+  - source: ligand-receptor
+    target: 配体-受体
+  - source: protein fitness
+    target: 蛋白质适应度
+  - source: inductive priors
+    target: 归纳先验
+  - source: single cell foundation model
+    target: 单细胞基础模型
+  - source: spectral flow cytometry
+    target: 光谱流式细胞术
+  - source: non-canonical amino acids
+    target: 非天然氨基酸
+  - source: pangenome graph
+    target: 泛基因组图
+  - source: pangenome reference
+    target: 泛基因组参考
+  - source: contig scaffolding
+    target: contig搭建
+  - source: antibody-antigen complex
+    target: 抗体-抗原复合物
+  - source: RNA modification
+    target: RNA修饰
+  - source: RNA modifications
+    target: RNA修饰
+  - source: RNA secondary structure
+    target: RNA二级结构
+  - source: RNA-seq
+    target: RNA测序
+  - source: ribo-seq
+    target: 核糖体测序
+  - source: ribosome profiling
+    target: 核糖体图谱测序
+  - source: single-cell multi-omic
+    target: 单细胞多组学
+  - source: multi-omic
+    target: 多组学
+  - source: multiomic
+    target: 多组学
+  - source: genotype-by-environment interaction
+    target: 基因型与环境互作
+  - source: genotype x environment interaction
+    target: 基因型与环境互作
+  - source: genotype x environment interactions
+    target: 基因型与环境互作
+  - source: genomic selection
+    target: 基因组选择
+  - source: SNP
+    target: SNP
+  - source: single-nucleotide polymorphism
+    target: 单核苷酸多态性
+  - source: root exudation
+    target: 根系分泌
+  - source: phytate
+    target: 植酸
+  - source: phytic acid
+    target: 植酸
+  - source: plastoquinone
+    target: 质体醌
+  - source: structural variant
+    target: 结构变异
+  - source: structural variants
+    target: 结构变异
+  - source: selenium metabolism
+    target: 硒代谢
+  - source: seed traits
+    target: 种子性状
+  - source: variant effect prediction
+    target: 变异效应预测
+  - source: organoid
+    target: 类器官
+  - source: organoids
+    target: 类器官
+  - source: phylogeny
+    target: 系统发育
+  - source: phylogenies
+    target: 系统发育关系
+  - source: phylogenetic
+    target: 系统发育
+  - source: ligand-receptor analysis
+    target: 配体-受体分析
+  - source: genome instability
+    target: 基因组不稳定性
+  - source: telomere
+    target: 端粒
+  - source: metabolic flexibility
+    target: 代谢灵活性
+  - source: P-body
+    target: P小体
+  - source: P-bodies
+    target: P小体
+  - source: processing body
+    target: P小体
+  - source: processing bodies
+    target: P小体
+  - source: gibberellin signaling
+    target: 赤霉素信号传导
   - source: bile acid
     target: 胆汁酸
   - source: 单单元格
@@ -154,8 +348,22 @@ replacements:
 
 candidate_seed_terms:
   - single-cell atlas
+  - eCLIP
   - single-cell multi-omics
+  - single-cell multi-omic
+  - multi-omic
+  - multiomic
+  - genotype-by-environment interaction
+  - genotype x environment interaction
+  - genomic selection
+  - PAMP
+  - resistosome
+  - root exudation
+  - selenium metabolism
+  - variant effect prediction
+  - seed traits
   - spatial transcriptomics
+  - transcriptomics
   - single nucleus
   - transcriptome
   - proteome
@@ -166,6 +374,9 @@ candidate_seed_terms:
   - promoter
   - transcription factor
   - regulatory network
+  - cis-regulatory element
+  - cis-regulatory elements
+  - condensin
   - CRISPR
   - base editing
   - prime editing
@@ -181,6 +392,8 @@ candidate_seed_terms:
   - federated learning
   - microbiome
   - microbiota
+  - ectomycorrhizal
+  - ammonium transporter
   - rhizosphere
   - phyllosphere
   - guard cell
@@ -191,7 +404,13 @@ candidate_seed_terms:
   - abscisic acid
   - jasmonate
   - salicylic acid
+  - ER stress
+  - vacuole
   - Arabidopsis
+  - O-methyltransferase
+  - glycosyltransferase
+  - pre-harvest sprouting
+  - telomerase-negative
   - rice
   - maize
   - wheat
@@ -204,3 +423,11 @@ candidate_seed_terms:
   - oxidative stress
   - bile acid
   - circadian
+  - pattern separation
+  - sparse coding
+  - electrolocation
+  - proof-of-concept study
+  - ligand-receptor
+  - protein fitness
+  - inductive priors
+  - single cell foundation model

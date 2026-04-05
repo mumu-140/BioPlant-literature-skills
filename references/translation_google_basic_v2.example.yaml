@@ -1,5 +1,5 @@
 provider: google-basic-v2
-glossary_path: /Users/mumu/Documents/skills/bio-literature-digest/references/bio_translation_glossary.yaml
+glossary_path: bio_translation_glossary.yaml
 fallback_provider: tencent-tmt
 
 google_basic_v2:

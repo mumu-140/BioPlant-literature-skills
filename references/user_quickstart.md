@@ -166,6 +166,12 @@ QQ_MAIL_APP_PASSWORD=
 
 ### 第二步：配置邮箱
 
+先复制模板：
+
+```bash
+cp references/email_config.example.yaml references/email_config.local.yaml
+```
+
 编辑：
 
 - `references/email_config.local.yaml`
@@ -197,10 +203,23 @@ QQ_MAIL_APP_PASSWORD=
 - `references/category_rules.yaml`
 - `references/bio_translation_glossary.yaml`
 
+如果你要启用本地样式或真实翻译接口，先复制模板：
+
+```bash
+cp references/email_style.example.yaml references/email_style.local.yaml
+cp references/translation_google_basic_v2.example.yaml references/translation_google_basic_v2.local.yaml
+```
+
+如果你使用腾讯翻译，也可以改为：
+
+```bash
+cp references/translation_tencent_tmt.example.yaml references/translation_tencent_tmt.local.yaml
+```
+
 ## 4. 如何安装
 
 ```bash
-cd /Users/mumu/Documents/skills/bio-literature-digest
+cd /path/to/bio-literature-digest
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
@@ -259,6 +278,7 @@ Secret audit passed. Sensitive values exist only in .env.local.
 - 采用北京时间日报窗口
 - 发邮件
 - 归档日报文件
+- 同步每日审核目录
 - 自动删除 30 天前归档
 
 ## 8. 输出文件在哪
@@ -275,6 +295,9 @@ Secret audit passed. Sensitive values exist only in .env.local.
 - `digest.csv`
 - `digest.xlsx`
 - `review_queue.csv`
+- `daily_review.csv`
+- `daily_review.xlsx`
+- `run_metadata.json`
 - `rule_feedback_report.md`
 - `classification_suggestions.md`
 - `glossary_candidates.md`
@@ -282,10 +305,24 @@ Secret audit passed. Sensitive values exist only in .env.local.
 ### 长期归档文件
 
 - `archives/daily-digests/YYYY-MM-DD/`
+- `reviews/daily-reviews/YYYY-MM-DD/`
+- `reviews/backlog/`
 
 例如：
 
 - `archives/daily-digests/2026-03-15/digest.csv`
+- `reviews/daily-reviews/2026-03-15/daily_review.xlsx`
+- `reviews/backlog/review_backlog.xlsx`
+
+日报产物契约见：
+
+- `references/daily_artifact_contract.md`
+
+检查某次产物是否满足契约：
+
+```bash
+.venv/bin/python3 scripts/validate_daily_artifacts.py --run-dir /tmp/bio-digest-prod
+```
 
 ## 9. 常见修改入口
 
@@ -300,6 +337,27 @@ Secret audit passed. Sensitive values exist only in .env.local.
 ### 想改术语翻译
 
 - `references/bio_translation_glossary.yaml`
+
+### 想跑第二层自动优化
+
+- 让 Codex 先读取 `/tmp/bio-digest-prod` 或 `archives/daily-digests/YYYY-MM-DD/`
+- 先看 `run_metadata.json`、`rule_feedback_report.md`、`classification_suggestions.json`、`glossary_candidates.md`
+- 先运行 `scripts/refresh_review_backlog.py`
+- 再检查 `reviews/backlog/review_backlog.xlsx` 中 `reviewed_pending_optimization` 的行
+- 如果有新审核行，就从 `interest_level`、`interest_tag`、`review_final_decision`、`review_final_category`、`reviewer_notes` 学习
+- 由 Codex 保守更新 `references/category_rules.yaml` 和 `references/bio_translation_glossary.yaml`
+- 把本次真正被 Codex 消费的 backlog 行写到 `reviews/backlog/optimization_selection.json`
+- 再运行 `scripts/mark_review_backlog_optimized.py --selection-json reviews/backlog/optimization_selection.json`
+- 最后运行 `scripts/finalize_review_backlog.py`
+- `finalize_review_backlog.py` 会把本次消费清单一起归档，并从 backlog 根目录清掉，避免下次误复用
+
+### 想做人工审核
+
+- 优先编辑 `reviews/backlog/review_backlog.xlsx`
+- `reviews/daily-reviews/YYYY-MM-DD/daily_review.xlsx` 只作为单日快照和回溯参考
+- 重点填 `interest_level`
+- 重点填 `interest_tag`
+- 如需改分类或保留策略，再填 `review_final_decision`、`review_final_category`、`reviewer_notes`
 
 ### 想改邮件样式
 

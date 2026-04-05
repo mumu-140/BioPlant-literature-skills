@@ -36,7 +36,16 @@ class ManualReviewTest(unittest.TestCase):
             with csv_path.open("w", encoding="utf-8", newline="") as handle:
                 writer = csv.DictWriter(
                     handle,
-                    fieldnames=["journal", "doi", "title_en", "review_final_decision", "review_final_category", "reviewer_notes"],
+                    fieldnames=[
+                        "journal",
+                        "doi",
+                        "title_en",
+                        "interest_level",
+                        "interest_tag",
+                        "review_final_decision",
+                        "review_final_category",
+                        "reviewer_notes",
+                    ],
                 )
                 writer.writeheader()
                 writer.writerow(
@@ -44,6 +53,8 @@ class ManualReviewTest(unittest.TestCase):
                         "journal": "PNAS",
                         "doi": "10.1073/example",
                         "title_en": "Ambiguous example",
+                        "interest_level": "非常感兴趣",
+                        "interest_tag": "基因研究",
                         "review_final_decision": "keep",
                         "review_final_category": "methods-datasets-resources",
                         "reviewer_notes": "Codex confirmed relevance",
@@ -75,3 +86,5 @@ class ManualReviewTest(unittest.TestCase):
             self.assertEqual(len(keep_records), 1)
             self.assertEqual(keep_records[0]["final_decision"], "keep")
             self.assertEqual(keep_records[0]["category"], "methods-datasets-resources")
+            self.assertEqual(keep_records[0]["interest_level"], "非常感兴趣")
+            self.assertEqual(keep_records[0]["interest_tag"], "基因研究")

@@ -1,0 +1,10 @@
+.DS_Store
+.env.local
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+logs/
+archives/
+reviews/
+references/*.local.yaml

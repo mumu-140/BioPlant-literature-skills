@@ -37,6 +37,8 @@ class ExportSortingTest(unittest.TestCase):
                     "publish_date": "2026-03-14T01:00:00Z",
                     "final_decision": "keep",
                     "llm_confidence": 0.95,
+                    "interest_level": "非常感兴趣",
+                    "interest_tag": "组学",
                 },
                 {
                     "source_id": "nature-genetics",
@@ -52,6 +54,8 @@ class ExportSortingTest(unittest.TestCase):
                     "publish_date": "2026-03-14T02:00:00Z",
                     "final_decision": "review",
                     "llm_confidence": 0.62,
+                    "interest_level": "一般",
+                    "interest_tag": "组学",
                 },
             ]
             input_path.write_text(
@@ -83,6 +87,9 @@ class ExportSortingTest(unittest.TestCase):
             with csv_path.open("r", encoding="utf-8", newline="") as handle:
                 rows = list(csv.DictReader(handle))
             self.assertEqual([row["title_en"] for row in rows], ["Certain paper", "Uncertain paper"])
+            html_text = html_path.read_text(encoding="utf-8")
+            self.assertIn("★★★★★", html_text)
+            self.assertIn("组学", html_text)
 
 
 if __name__ == "__main__":

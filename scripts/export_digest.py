@@ -42,6 +42,20 @@ DISPLAY_BUCKETS = [
 ]
 
 BUCKET_ORDER = {bucket_id: index for index, (bucket_id, _, _) in enumerate(DISPLAY_BUCKETS)}
+DEFAULT_INTEREST_LEVELS = {
+    "仅保留": 1,
+    "非常一般": 2,
+    "一般": 3,
+    "感兴趣": 4,
+    "非常感兴趣": 5,
+}
+EDITABLE_REVIEW_COLUMNS = {
+    "interest_level",
+    "interest_tag",
+    "review_final_decision",
+    "review_final_category",
+    "reviewer_notes",
+}
 
 
 def column_letter(index: int) -> str:
@@ -67,6 +81,34 @@ def safe_value(record: dict[str, Any], key: str) -> str:
     return str(value or "")
 
 
+def interest_score_map(rules: dict[str, Any]) -> dict[str, int]:
+    profile = rules.get("interest_profile", {})
+    levels = profile.get("levels", [])
+    if not isinstance(levels, list):
+        return DEFAULT_INTEREST_LEVELS
+    score_map: dict[str, int] = {}
+    for item in levels:
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get("label", "")).strip()
+        score = item.get("score")
+        if label and isinstance(score, int):
+            score_map[label] = score
+    return score_map or DEFAULT_INTEREST_LEVELS
+
+
+def normalize_interest_level(value: str, score_map: dict[str, int]) -> str:
+    normalized = str(value or "").strip()
+    if normalized in score_map:
+        return normalized
+    return ""
+
+
+def render_interest_stars(score: int) -> str:
+    bounded = max(1, min(5, score))
+    return "★" * bounded + "☆" * (5 - bounded)
+
+
 def format_publish_date(value: str) -> str:
     parsed = parse_datetime_guess(value)
     if parsed is None:
@@ -90,6 +132,80 @@ def build_display_context(rules: dict[str, Any]) -> dict[str, set[str]]:
         "attachment_only_source_ids": set(visual_filters.get("attachment_only_source_ids", [])),
         "attachment_only_keywords": list(visual_filters.get("attachment_only_keywords", [])),
     }
+
+
+def record_text(record: dict[str, Any]) -> str:
+    return " ".join(
+        [
+            safe_value(record, "journal"),
+            safe_value(record, "title_en"),
+            safe_value(record, "title_zh"),
+            safe_value(record, "summary_zh"),
+            safe_value(record, "abstract"),
+            safe_value(record, "tags"),
+        ]
+    ).lower()
+
+
+def matches_annotation_rule(record: dict[str, Any], rule: dict[str, Any], context: dict[str, Any]) -> bool:
+    text = record_text(record)
+    source_ids = {str(item) for item in rule.get("source_ids", [])}
+    category_ids = {str(item) for item in rule.get("category_ids", [])}
+    publication_stages = {str(item) for item in rule.get("publication_stages", [])}
+    final_decisions = {str(item) for item in rule.get("final_decisions", [])}
+    if source_ids and str(record.get("source_id", "")) not in source_ids:
+        return False
+    if category_ids and str(record.get("category", "")) not in category_ids:
+        return False
+    if publication_stages and str(record.get("publication_stage", "")) not in publication_stages:
+        return False
+    if final_decisions and str(record.get("final_decision", "")) not in final_decisions:
+        return False
+    if rule.get("require_plant_priority") and not is_plant_priority(record, context):
+        return False
+    keywords = [str(item) for item in rule.get("keywords", [])]
+    if keywords and not keyword_hits(text, keywords):
+        return False
+    return True
+
+
+def infer_interest_level(record: dict[str, Any], rules: dict[str, Any], context: dict[str, Any], score_map: dict[str, int]) -> str:
+    manual_level = normalize_interest_level(safe_value(record, "interest_level"), score_map)
+    if manual_level:
+        return manual_level
+    profile = rules.get("interest_profile", {})
+    for rule in profile.get("rules", []):
+        if isinstance(rule, dict) and matches_annotation_rule(record, rule, context):
+            level = normalize_interest_level(str(rule.get("level", "")), score_map)
+            if level:
+                return level
+    default_level = normalize_interest_level(str(profile.get("default_level", "")), score_map)
+    return default_level or "一般"
+
+
+def infer_interest_tag(record: dict[str, Any], rules: dict[str, Any], context: dict[str, Any]) -> str:
+    manual_tag = str(record.get("interest_tag", "") or "").strip()
+    if manual_tag:
+        return manual_tag
+    taxonomy = rules.get("interest_tag_taxonomy", {})
+    for rule in taxonomy.get("rules", []):
+        if isinstance(rule, dict) and matches_annotation_rule(record, rule, context):
+            label = str(rule.get("label", "")).strip()
+            if label:
+                return label
+    return str(taxonomy.get("default_label", "其他") or "其他").strip()
+
+
+def enrich_record(record: dict[str, Any], rules: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    enriched = dict(record)
+    score_map = interest_score_map(rules)
+    interest_level = infer_interest_level(enriched, rules, context, score_map)
+    interest_score = score_map.get(interest_level, DEFAULT_INTEREST_LEVELS.get(interest_level, 3))
+    enriched["interest_level"] = interest_level
+    enriched["interest_score"] = interest_score
+    enriched["interest_stars"] = render_interest_stars(interest_score)
+    enriched["interest_tag"] = infer_interest_tag(enriched, rules, context)
+    return enriched
 
 
 def is_plant_priority(record: dict[str, Any], context: dict[str, set[str]]) -> bool:
@@ -147,7 +263,8 @@ def record_display_sort_key(record: dict[str, Any], context: dict[str, Any]) -> 
     timestamp, title = publish_sort_key(record)
     decision_bucket, confidence_bucket = review_rank(record)
     plant_bucket = 0 if is_plant_priority(record, context) else 1
-    return (plant_bucket, decision_bucket, confidence_bucket, -timestamp, title.lower())
+    interest_bucket = -int(record.get("interest_score", 3) or 3)
+    return (plant_bucket, interest_bucket, decision_bucket, confidence_bucket, -timestamp, title.lower())
 
 
 def journal_rank(records: list[dict[str, Any]], context: dict[str, Any]) -> tuple[int, int, str]:
@@ -220,6 +337,9 @@ def render_record_card(record: dict[str, Any]) -> str:
     category = record.get("category", "other") or "other"
     tags = safe_value(record, "tags")
     tag_html = f"<span>{html.escape(tags)}</span>" if tags else ""
+    interest_level = safe_value(record, "interest_level")
+    interest_stars = safe_value(record, "interest_stars")
+    interest_tag = safe_value(record, "interest_tag")
     meta_parts = [
         f'<span class="badge badge-stage">{html.escape(STAGE_LABELS.get(stage, stage.title()))}</span>',
         f'<span class="badge badge-category">{html.escape(CATEGORY_LABELS.get(category, category.title()))}</span>',
@@ -230,10 +350,24 @@ def render_record_card(record: dict[str, Any]) -> str:
         meta_parts.append(tag_html)
     cta_html = '<span class="card-cta">Open Article</span>'
     author_html = f'<p class="card-authors">{authors_line}</p>' if authors_line else ""
+    interest_html = ""
+    if interest_level and interest_stars:
+        interest_html = (
+            "<div class=\"card-interest-row\">"
+            f"<span class=\"interest-stars\" title=\"{html.escape(interest_level)}\">{html.escape(interest_stars)}</span>"
+            f"<span class=\"interest-level\">{html.escape(interest_level)}</span>"
+            + (
+                f"<span class=\"interest-tag\">{html.escape(interest_tag)}</span>"
+                if interest_tag
+                else ""
+            )
+            + "</div>"
+        )
     header_inner = (
         f'<p class="card-meta">{" · ".join(meta_parts)}</p>'
         f"<h3 class=\"card-title\">{title_en}</h3>"
         f"<p class=\"card-title-zh\">{title_zh}</p>"
+        f"{interest_html}"
         f"{author_html}"
         f"{cta_html}"
     )
@@ -347,7 +481,14 @@ def render_digest_cards(
     )
 
 
-def render_html_table(records: list[dict[str, Any]], columns: list[str], template_text: str, style_override_css: str) -> str:
+def render_html_table(
+    records: list[dict[str, Any]],
+    columns: list[str],
+    template_text: str,
+    style_override_css: str,
+    rules: dict[str, Any],
+) -> str:
+    option_map = review_option_map(rules, columns)
     grouped: dict[str, dict[str, list[dict[str, Any]]]] = defaultdict(lambda: defaultdict(list))
     for record in records:
         stage = record.get("publication_stage", "journal") or "journal"
@@ -367,7 +508,31 @@ def render_html_table(records: list[dict[str, Any]], columns: list[str], templat
                     value = record.get(column, "")
                     if isinstance(value, list):
                         value = ", ".join(str(item) for item in value)
-                    if column == "doi" and value:
+                    if column in option_map:
+                        options = option_map[column]
+                        current = str(value)
+                        rendered_options = ['<option value=""></option>']
+                        normalized_existing = {str(item) for item in options}
+                        if current and current not in normalized_existing:
+                            rendered_options.append(
+                                f'<option value="{html.escape(current)}" selected>{html.escape(current)}</option>'
+                            )
+                        for option in options:
+                            selected = ' selected' if current == option else ''
+                            rendered_options.append(
+                                f'<option value="{html.escape(option)}"{selected}>{html.escape(option)}</option>'
+                            )
+                        value_html = (
+                            f'<select data-column="{html.escape(column)}">'
+                            f'{"".join(rendered_options)}'
+                            "</select>"
+                        )
+                    elif column == "reviewer_notes":
+                        value_html = (
+                            f'<textarea data-column="{html.escape(column)}" rows="3">'
+                            f"{html.escape(str(value))}</textarea>"
+                        )
+                    elif column == "doi" and value:
                         display = html.escape(str(value))
                         href = html.escape(f"https://doi.org/{value}")
                         value_html = f'<a href="{href}">{display}</a>'
@@ -376,7 +541,7 @@ def render_html_table(records: list[dict[str, Any]], columns: list[str], templat
                         value_html = f'<a href="{href}">link</a>'
                     else:
                         value_html = html.escape(str(value))
-                    cells.append(f"<td>{value_html}</td>")
+                    cells.append(f'<td data-column="{html.escape(column)}">{value_html}</td>')
                 rows.append("<tr>" + "".join(cells) + "</tr>")
             header_html = "".join(f"<th>{html.escape(column)}</th>" for column in columns)
             stage_sections.append(
@@ -387,12 +552,25 @@ def render_html_table(records: list[dict[str, Any]], columns: list[str], templat
         sections.append("".join(stage_sections))
     if not sections:
         sections.append('<section class="section"><div class="empty-state">No records available.</div></section>')
+    review_toolbar = ""
+    if option_map:
+        option_text = "；".join(
+            f"{column}: {', '.join(options)}" for column, options in option_map.items() if options
+        )
+        review_toolbar = (
+            "<section class=\"section\">"
+            "<div class=\"review-toolbar\">"
+            "<button type=\"button\" onclick=\"exportReviewCsv()\">导出审核 CSV</button>"
+            f"<p class=\"section-subtitle\">下拉可选项: {html.escape(option_text)}</p>"
+            "</div>"
+            "</section>"
+        )
     greeting_template = "待审队列"
     return Template(template_text).safe_substitute(
-        sections="".join(sections),
+        sections=review_toolbar + "".join(sections),
         record_count=str(len(records)),
         greeting_line=greeting_template,
-        style_override_css=style_override_css,
+        style_override_css=style_override_css + build_review_table_css(),
     )
 
 
@@ -411,10 +589,48 @@ def build_style_override_css(style_config: dict[str, Any]) -> str:
     return "\n" + "\n\n".join(blocks) + "\n"
 
 
-def write_csv(path: str | Path, records: list[dict[str, Any]], columns: list[str]) -> None:
+def review_option_map(rules: dict[str, Any], columns: list[str]) -> dict[str, list[str]]:
+    categories = rules.get("categories", {})
+    interest_profile = rules.get("interest_profile", {})
+    interest_taxonomy = rules.get("interest_tag_taxonomy", {})
+    level_options = [
+        str(item.get("label", "")).strip()
+        for item in interest_profile.get("levels", [])
+        if isinstance(item, dict) and str(item.get("label", "")).strip()
+    ]
+    tag_options = [str(item).strip() for item in interest_taxonomy.get("labels", []) if str(item).strip()]
+    if isinstance(categories, dict):
+        category_options = [str(item).strip() for item in categories.keys() if str(item).strip()]
+    else:
+        category_options = [
+            str(item.get("id", "")).strip()
+            for item in categories
+            if isinstance(item, dict) and str(item.get("id", "")).strip()
+        ]
+    decisions = ["keep", "review", "reject"]
+    all_options = {
+        "interest_level": level_options,
+        "interest_tag": tag_options,
+        "review_final_decision": decisions,
+        "review_final_category": category_options,
+    }
+    return {column: all_options[column] for column in columns if column in all_options}
+
+
+def csv_columns_with_options(columns: list[str], option_map: dict[str, list[str]]) -> list[str]:
+    expanded: list[str] = []
+    for column in columns:
+        expanded.append(column)
+        if column in option_map:
+            expanded.append(f"{column}_options")
+    return expanded
+
+
+def write_csv(path: str | Path, records: list[dict[str, Any]], columns: list[str], option_map: dict[str, list[str]]) -> None:
     path_obj = ensure_parent_dir(path)
+    csv_columns = csv_columns_with_options(columns, option_map)
     with path_obj.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=columns)
+        writer = csv.DictWriter(handle, fieldnames=csv_columns)
         writer.writeheader()
         for record in records:
             row = {}
@@ -423,10 +639,30 @@ def write_csv(path: str | Path, records: list[dict[str, Any]], columns: list[str
                 if isinstance(value, list):
                     value = ", ".join(str(item) for item in value)
                 row[column] = value
+                if column in option_map:
+                    row[f"{column}_options"] = " | ".join(option_map[column])
             writer.writerow(row)
 
 
-def write_xlsx(path: str | Path, records: list[dict[str, Any]], columns: list[str]) -> None:
+def build_xlsx_data_validations(columns: list[str], row_count: int, option_map: dict[str, list[str]]) -> str:
+    validations: list[str] = []
+    for column, options in option_map.items():
+        if not options or row_count <= 0:
+            continue
+        column_index = columns.index(column) + 1
+        column_ref = column_letter(column_index)
+        escaped_options = ",".join(option.replace('"', '""') for option in options)
+        validations.append(
+            f'<dataValidation type="list" allowBlank="1" showErrorMessage="1" sqref="{column_ref}2:{column_ref}{row_count + 1}">'
+            f"<formula1>&quot;{escape(escaped_options)}&quot;</formula1>"
+            "</dataValidation>"
+        )
+    if not validations:
+        return ""
+    return f'<dataValidations count="{len(validations)}">{"".join(validations)}</dataValidations>'
+
+
+def write_xlsx(path: str | Path, records: list[dict[str, Any]], columns: list[str], option_map: dict[str, list[str]]) -> None:
     sheet_rows = [columns]
     for record in records:
         row = []
@@ -444,6 +680,8 @@ def write_xlsx(path: str | Path, records: list[dict[str, Any]], columns: list[st
             ref = f"{column_letter(column_index)}{row_index}"
             cells.append(f'<c r="{ref}" t="inlineStr"><is><t>{escape(value)}</t></is></c>')
         rows_xml.append(f'<row r="{row_index}">{"".join(cells)}</row>')
+
+    data_validations_xml = build_xlsx_data_validations(columns, len(records), option_map)
 
     workbook_files = {
         "[Content_Types].xml": """<?xml version="1.0" encoding="UTF-8"?>
@@ -487,7 +725,9 @@ def write_xlsx(path: str | Path, records: list[dict[str, Any]], columns: list[st
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
   <sheetData>"""
             + "".join(rows_xml)
-            + """</sheetData>
+            + """</sheetData>"""
+            + data_validations_xml
+            + """
 </worksheet>
 """
         ),
@@ -497,6 +737,73 @@ def write_xlsx(path: str | Path, records: list[dict[str, Any]], columns: list[st
     with zipfile.ZipFile(path_obj, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for name, content in workbook_files.items():
             archive.writestr(name, content)
+
+
+def build_review_table_script() -> str:
+    return """
+<script>
+function exportReviewCsv() {
+  const table = document.querySelector('table');
+  if (!table) return;
+  const rows = Array.from(table.querySelectorAll('tr'));
+  const csv = rows.map((row) => {
+    const cells = Array.from(row.querySelectorAll('th,td')).map((cell) => {
+      const control = cell.querySelector('select, textarea');
+      const raw = control ? control.value : cell.textContent;
+      const value = String(raw || '').replace(/\\r?\\n/g, ' ').trim();
+      return '"' + value.replace(/"/g, '""') + '"';
+    });
+    return cells.join(',');
+  }).join('\\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'review_table_edited.csv';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+</script>
+"""
+
+
+def build_review_table_css() -> str:
+    return """
+.review-toolbar {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px solid #d9dfcf;
+  border-radius: 14px;
+  background: rgba(255, 252, 244, 0.92);
+}
+.review-toolbar button {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: #1f4737;
+  color: #f6f2ea;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+table select,
+table textarea {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  border: 1px solid #d9dfcf;
+  border-radius: 8px;
+  background: #fffdf8;
+  padding: 4px 6px;
+  box-sizing: border-box;
+}
+table textarea {
+  min-height: 70px;
+  resize: vertical;
+}
+"""
 
 
 def main() -> int:
@@ -520,13 +827,13 @@ def main() -> int:
         ["journal", "publish_date", "category", "title_en", "title_zh", "summary_zh", "abstract", "doi", "article_url", "tags"],
     )
     normalized_records: list[dict[str, Any]] = []
+    context = build_display_context(rules)
     for record in records:
         enriched = dict(record)
         if not enriched.get("publish_date"):
             enriched["publish_date"] = enriched.get("published_at", "")
-        normalized_records.append(enriched)
+        normalized_records.append(enrich_record(enriched, rules, context))
     stage_sort = {"journal": 0, "preprint": 1}
-    context = build_display_context(rules)
     grouping_mode = args.grouping_mode or str(context.get("default_grouping_mode", "journal"))
     normalized_records.sort(
         key=lambda item: (
@@ -545,13 +852,15 @@ def main() -> int:
     style_override_css = ""
     if args.style_config:
         style_override_css = build_style_override_css(load_yaml_file(args.style_config) or {})
+    option_map = review_option_map(rules, columns) if args.schema_key != "output_schema" else {}
     if args.schema_key == "output_schema":
         html_body = render_digest_cards(normalized_records, template_text, rules, grouping_mode, style_override_css)
     else:
-        html_body = render_html_table(normalized_records, columns, template_text, style_override_css)
+        html_body = render_html_table(normalized_records, columns, template_text, style_override_css, rules)
+        html_body = html_body.replace("</body>", build_review_table_script() + "\n</body>")
     ensure_parent_dir(args.html_output).write_text(html_body, encoding="utf-8")
-    write_csv(args.csv_output, normalized_records, columns)
-    write_xlsx(args.xlsx_output, normalized_records, columns)
+    write_csv(args.csv_output, normalized_records, columns, option_map)
+    write_xlsx(args.xlsx_output, normalized_records, columns, option_map)
     print(f"Exported {len(normalized_records)} records.")
     return 0
 

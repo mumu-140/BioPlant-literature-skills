@@ -27,7 +27,9 @@ def load_decisions(path: Path) -> dict[tuple[str, str], dict[str, str]]:
             final_decision = (row.get("review_final_decision") or "").strip().lower()
             final_category = (row.get("review_final_category") or "").strip()
             reviewer_notes = (row.get("reviewer_notes") or "").strip()
-            if not final_decision and not final_category and not reviewer_notes:
+            interest_level = (row.get("interest_level") or "").strip()
+            interest_tag = (row.get("interest_tag") or "").strip()
+            if not final_decision and not final_category and not reviewer_notes and not interest_level and not interest_tag:
                 continue
             key_record = {
                 "doi": row.get("doi"),
@@ -39,6 +41,8 @@ def load_decisions(path: Path) -> dict[tuple[str, str], dict[str, str]]:
                 "review_final_decision": final_decision,
                 "review_final_category": final_category,
                 "reviewer_notes": reviewer_notes,
+                "interest_level": interest_level,
+                "interest_tag": interest_tag,
             }
     return decisions
 
@@ -70,6 +74,10 @@ def main() -> int:
             updated["manual_review_applied"] = True
             updated["manual_review_decision"] = final_decision
             updated["reviewer_notes"] = decision.get("reviewer_notes", "")
+            if decision.get("interest_level"):
+                updated["interest_level"] = decision["interest_level"]
+            if decision.get("interest_tag"):
+                updated["interest_tag"] = decision["interest_tag"]
             if decision.get("review_final_category"):
                 updated["category_original"] = updated.get("category")
                 updated["category"] = decision["review_final_category"]

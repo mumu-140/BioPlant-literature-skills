@@ -36,7 +36,7 @@ mobile_css: |
   }
 
 notes:
-  - Edit `base_css` to change desktop and tablet email style.
-  - Edit `mobile_css` to change the mobile layout under 640px width.
-  - The content is raw CSS injected at the end of the template, so later rules override earlier defaults.
-  - Common selectors: `.container`, `.hero`, `.group-summary`, `.card`, `.card-main`, `.card-title`, `.card-title-zh`, `.card-authors`, `.abstract-preview`, `.abstract-full`, `.card-footer`.
+  - "Edit `base_css` to change desktop and tablet email style."
+  - "Edit `mobile_css` to change the mobile layout under 640px width."
+  - "The content is raw CSS injected at the end of the template, so later rules override earlier defaults."
+  - "Common selectors: `.container`, `.hero`, `.group-summary`, `.card`, `.card-main`, `.card-title`, `.card-title-zh`, `.card-authors`, `.abstract-preview`, `.abstract-full`, `.card-footer`."

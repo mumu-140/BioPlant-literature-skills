@@ -621,5 +621,5 @@ notes:
   - Keep `source_locator` nullable in the draft until official feed URLs are verified journal by journal.
   - Treat the watchlist as editable configuration, not as a fixed taxonomy.
   - Exclude HGT from the first version.
-  - The RSS spreadsheet from `/Users/mumu/Downloads/rss.xlsx` has been partially incorporated for matching journals in scope.
+  - A local RSS spreadsheet was partially incorporated when drafting the journal list; keep validating feed URLs journal by journal.
   - Keep preprints clearly marked as `publication_stage: preprint` in downstream exports.

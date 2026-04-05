@@ -34,6 +34,7 @@ relevance_filter:
     - gene
     - genome
     - genomic
+    - transcriptomics
     - cell
     - cells
     - chromosome
@@ -41,6 +42,9 @@ relevance_filter:
     - transcriptome
     - transcriptomic
     - single-cell
+    - single-cell multi-omic
+    - multi-omic
+    - multiomic
     - multi-omics
     - proteome
     - protein
@@ -52,10 +56,12 @@ relevance_filter:
     - breeding
     - crop
     - plant
+    - maize
     - root
     - leaf
     - seed
     - photosynthesis
+    - gibberellin
     - pathogen
     - immunity
     - microbiome
@@ -78,14 +84,25 @@ relevance_filter:
     - bile acid
     - enterocyte
     - enterocytes
+    - microRNA
+    - miRNA
+    - pamp
+    - resistosome
+    - root exudation
     - senescence
     - senescent
     - circadian
     - salivation
     - nociceptive
     - oxidative stress
+    - ER stress
+    - endoplasmic reticulum stress
+    - lysosome
+    - lysosomal
+    - vacuole
     - glioma
     - t cell
+    - treg
     - cd8
     - precision agriculture
     - federated learning
@@ -103,6 +120,21 @@ relevance_filter:
     - protocol
     - assay
     - sequencing
+    - genotype-by-environment interaction
+    - genotype x environment interaction
+    - genomic selection
+    - pangenome reference
+    - structural variant
+    - structural variants
+    - rna modification
+    - rna modifications
+    - organoid
+    - organoids
+    - ribo-seq
+    - ribosome profiling
+    - off-target detection
+    - stomatal
+    - phytochrome
 
   ai_keep_keywords:
     - machine learning
@@ -172,6 +204,9 @@ relevance_filter:
     - pnas
     - advanced-science
     - arxiv-q-bio
+    - new-phytologist
+    - journal-of-integrative-plant-biology
+    - the-plant-cell
 
   conditional_journals:
     - Nature Machine Intelligence
@@ -184,16 +219,29 @@ categories:
     label: Omics
     description: Genomics, transcriptomics, epigenomics, metabolomics, proteomics, single-cell, and multi-omics studies.
     keywords:
+      - single-cell atlas
+      - atlas
       - genome
       - genomic
+      - transcriptomics
+      - spatial transcriptomics
       - transcriptome
       - transcriptomic
+      - rna-seq
       - epigenome
       - epigenomic
       - proteome
       - metabolome
       - single-cell
+      - single-cell multi-omic
+      - multi-omic
+      - multiomic
       - multi-omics
+      - pangenome graph
+      - pangenome reference
+      - structural variant
+      - structural variants
+      - contig scaffolding
 
   - id: gene-function-regulation
     label: Gene Function And Regulation
@@ -209,6 +257,8 @@ categories:
       - gene conversion
       - transcription factor
       - regulatory network
+      - cis-regulatory element
+      - cis-regulatory elements
       - enhancer
       - promoter
       - chromatin
@@ -218,6 +268,8 @@ categories:
       - auxin response factor
       - variant
       - variants
+      - rna modification
+      - rna modifications
       - mitosis
       - chondrocyte
       - chondrocytes
@@ -235,11 +287,15 @@ categories:
       - trait improvement
       - domestication
       - crop engineering
+      - genomic selection
+      - genotype-by-environment interaction
+      - genotype x environment interaction
 
   - id: protein-structure-function
     label: Protein Structure And Function
     description: Protein structure, enzyme mechanism, folding, interaction, design, and functional biochemistry.
     keywords:
+      - condensin
       - protein
       - enzyme
       - structure
@@ -278,6 +334,7 @@ categories:
       - workflow
       - toolbox
       - profiling
+      - proximity labeling
       - screening
       - assay
       - benchmark
@@ -289,12 +346,14 @@ categories:
       - sensors
       - diagnostic
       - diagnosis
+      - variant effect prediction
       - colorimetric
       - electrochemical
       - theranostic
       - theranostics
       - interfacing
       - deeprootlab
+      - spectral flow cytometry
 
   - id: plant-biology
     label: Plant Biology
@@ -302,15 +361,28 @@ categories:
     keywords:
       - plant
       - crop
+      - maize
       - root
       - leaf
       - seed
       - flowering
+      - seed germination
+      - phytochrome
       - photosynthesis
+      - resistosome
       - stomata
+      - stomatal
+      - root exudation
       - phytohormone
       - auxin
+      - gibberellin
+      - rhizosphere
+      - mycorrhizal
+      - ectomycorrhizal
       - arabidopsis
+      - tomato
+      - wheat
+      - soybean
       - embryogenesis
       - wax accumulation
       - guard cell
@@ -339,6 +411,11 @@ categories:
       - enterocyte
       - enterocytes
       - autophagy
+      - ER stress
+      - endoplasmic reticulum stress
+      - lysosome
+      - lysosomal
+      - vacuole
       - mitochondria
       - senescence
       - senescent
@@ -366,8 +443,10 @@ categories:
       - biofilms
       - host-pathogen
       - microbiota
+      - PAMP
       - bile acid
       - t cell
+      - treg
       - cd8
       - antigen
       - macrophage
@@ -390,6 +469,8 @@ output_schema:
     - publish_date
     - publication_stage
     - category
+    - interest_level
+    - interest_tag
     - title_en
     - title_zh
     - authors
@@ -421,6 +502,8 @@ review_queue_schema:
     - publish_date
     - publication_stage
     - category
+    - interest_level
+    - interest_tag
     - title_en
     - llm_decision
     - llm_confidence
@@ -429,6 +512,124 @@ review_queue_schema:
     - doi
     - article_url
     - tags
+
+daily_review_schema:
+  required_columns:
+    - source_id
+    - journal
+    - publish_date
+    - publication_stage
+    - category
+    - interest_level
+    - interest_tag
+    - title_en
+    - title_zh
+    - summary_zh
+    - abstract
+    - doi
+    - article_url
+    - tags
+    - llm_decision
+    - llm_confidence
+    - llm_reason
+    - review_final_decision
+    - review_final_category
+    - reviewer_notes
+
+interest_profile:
+  default_level: 一般
+  levels:
+    - label: 仅保留
+      score: 1
+    - label: 非常一般
+      score: 2
+    - label: 一般
+      score: 3
+    - label: 感兴趣
+      score: 4
+    - label: 非常感兴趣
+      score: 5
+  rules:
+    - level: 非常感兴趣
+      source_ids:
+        - nature
+        - science
+        - cell
+        - pnas
+        - nature-genetics
+        - nature-plants
+        - nature-biotechnology
+        - nature-methods
+      require_plant_priority: true
+    - level: 感兴趣
+      source_ids:
+        - nature
+        - science
+        - cell
+        - pnas
+        - nature-genetics
+        - nature-plants
+        - nature-biotechnology
+        - nature-methods
+        - nature-communications
+        - science-advances
+        - cell-reports
+    - level: 感兴趣
+      category_ids:
+        - omics
+        - gene-function-regulation
+        - genome-editing-breeding
+        - protein-structure-function
+        - ai-computational-biology
+        - plant-biology
+    - level: 非常一般
+      final_decisions:
+        - review
+
+interest_tag_taxonomy:
+  default_label: 其他
+  labels:
+    - 生物学工具技术
+    - 模型
+    - 生物设计
+    - 组学
+    - 基因研究
+    - 蛋白研究
+    - 生物通络
+    - 其他
+  rules:
+    - label: 生物学工具技术
+      category_ids:
+        - methods-datasets-resources
+    - label: 生物学工具技术
+      keywords:
+        - eclip
+    - label: 模型
+      category_ids:
+        - ai-computational-biology
+    - label: 生物设计
+      category_ids:
+        - genome-editing-breeding
+      keywords:
+        - design
+        - engineering
+        - base editing
+        - prime editing
+        - breeding
+    - label: 组学
+      category_ids:
+        - omics
+    - label: 基因研究
+      category_ids:
+        - gene-function-regulation
+    - label: 蛋白研究
+      category_ids:
+        - protein-structure-function
+    - label: 生物通络
+      category_ids:
+        - cell-development-signaling
+        - microbe-immunity
+        - plant-biology
 
 notes:
   - Assign exactly one category per paper.

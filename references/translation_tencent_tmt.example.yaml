@@ -1,5 +1,5 @@
 provider: tencent-tmt
-glossary_path: /Users/mumu/Documents/skills/bio-literature-digest/references/bio_translation_glossary.yaml
+glossary_path: bio_translation_glossary.yaml
 
 tencent_tmt:
   endpoint: https://tmt.tencentcloudapi.com/

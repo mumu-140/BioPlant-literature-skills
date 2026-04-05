@@ -174,6 +174,60 @@ class TranslationHttpTest(unittest.TestCase):
         self.assertEqual(request.get_header("X-tc-action"), "TextTranslate")
         self.assertTrue(request.get_header("Authorization", "").startswith("TC3-HMAC-SHA256"))
 
+    def test_localize_records_switches_remaining_records_to_fallback_after_primary_failures(self) -> None:
+        module = load_module()
+        records = [
+            {
+                "journal": "Nature Methods",
+                "title_en": "Paper 1",
+                "abstract": "Abstract 1",
+                "category": "methods-datasets-resources",
+                "publication_stage": "journal",
+            },
+            {
+                "journal": "Nature Methods",
+                "title_en": "Paper 2",
+                "abstract": "Abstract 2",
+                "category": "methods-datasets-resources",
+                "publication_stage": "journal",
+            },
+            {
+                "journal": "Nature Methods",
+                "title_en": "Paper 3",
+                "abstract": "Abstract 3",
+                "category": "methods-datasets-resources",
+                "publication_stage": "journal",
+            },
+        ]
+        config = {
+            "fallback_provider": "tencent-tmt",
+            "runtime": {
+                "disable_primary_after_failures": 2,
+                "checkpoint_every_records": 1,
+            },
+        }
+
+        google_calls: list[str] = []
+        tencent_calls: list[str] = []
+
+        def fake_google(record, _config, *, allow_fallback=True):  # type: ignore[override]
+            google_calls.append(record["title_en"])
+            raise TimeoutError("google timed out")
+
+        def fake_tencent(record, _config):  # type: ignore[override]
+            tencent_calls.append(record["title_en"])
+            return (f"ZH:{record['title_en']}", f"ZH:{record['abstract']}")
+
+        with mock.patch.object(module, "localize_via_google_basic_v2", side_effect=fake_google):
+            with mock.patch.object(module, "localize_via_tencent_tmt", side_effect=fake_tencent):
+                localized = module.localize_records(records, "google-basic-v2", config, max_sentences=4)
+
+        self.assertEqual(len(localized), 3)
+        self.assertEqual(google_calls, ["Paper 1", "Paper 2"])
+        self.assertEqual(tencent_calls, ["Paper 1", "Paper 2", "Paper 3"])
+        self.assertEqual(localized[2]["title_zh"], "ZH:Paper 3")
+        self.assertEqual(localized[2]["summary_zh"], "ZH:Abstract 3")
+
 
 if __name__ == "__main__":
     unittest.main()
