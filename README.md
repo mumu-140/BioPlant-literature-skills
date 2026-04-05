@@ -137,3 +137,8 @@ Secret audit passed. Sensitive values exist only in .env.local.
 更详细的使用说明见：
 
 - `references/user_quickstart.md`
+---
+
+## Acknowledgments
+---
+Special thanks to the **[Linux.do](https://linux.do/)** community for your support and feedback.
