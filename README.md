@@ -140,5 +140,4 @@ Secret audit passed. Sensitive values exist only in .env.local.
 ---
 
 ## Acknowledgments
----
 Special thanks to the **[Linux.do](https://linux.do/)** community for your support and feedback.
