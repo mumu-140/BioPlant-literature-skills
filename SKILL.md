@@ -35,7 +35,9 @@ Load these config files before implementing or revising the pipeline:
 - [email_config.example.yaml](./config/integrations/email_config.example.yaml) for SMTP config shape.
 - [translation_config.example.yaml](./config/integrations/translation_config.example.yaml) for HTTP-based translation providers such as Google-, Bing-, or Youdao-compatible gateways.
 - [llm_review_config.example.yaml](./config/integrations/llm_review_config.example.yaml) for running LLM relevance review outside Codex through an HTTP or command adapter.
-- [production.local.yaml](./config/runtime/production.local.yaml) for environment file, work/archive/review paths, provider defaults, and sidecar settings.
+- [production.example.yaml](./config/runtime/production.example.yaml) for the portable runtime baseline (paths, timezone, delivery defaults, and sidecar shape).
+
+If `./config/runtime/production.local.yaml` exists, treat it as the machine-local override of `production.example.yaml` and do not commit it.
 
 For isolated local development, create and use a skill-local virtual environment:
 
