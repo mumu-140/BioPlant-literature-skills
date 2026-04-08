@@ -27,7 +27,7 @@ class HarnessTest(unittest.TestCase):
             (root / "ops" / "launchd" / "bio-digest-daily.plist").write_text("generated\n", encoding="utf-8")
             email_literal = "real.user" + "@" + "qq.com"
             path_literal = "/" + "Users/" + "someone/private"
-            label_literal = "com" + "." + "mumu" + ".demo"
+            label_literal = "com" + "." + "private-team" + ".demo"
             (root / "scripts" / "bad.py").write_text(
                 f"EMAIL='{email_literal}'\nPATH='{path_literal}'\nLABEL='{label_literal}'\n",
                 encoding="utf-8",

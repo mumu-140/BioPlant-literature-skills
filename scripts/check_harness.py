@@ -21,10 +21,10 @@ ALLOWED_DOC_PATH_MARKERS = {"/path/to/", "/private/tmp/bio-literature-digest", "
 
 PRIVATE_EMAIL_RE = re.compile(r"\b[A-Z0-9._%+-]+@(?!(?:example\.com|example\.org|test\.invalid)\b)[A-Z0-9.-]+\.[A-Z]{2,}\b", re.I)
 ABSOLUTE_USER_PATH_RE = re.compile(r"(/Users/[^/\s]+|/home/[^/\s]+|[A-Za-z]:\\\\Users\\\\[^\\\s]+)")
-PERSONAL_HOST_RE = re.compile(r"\b(?:accept\.yangsen666\.cloud|yangsen666\.cloud)\b", re.I)
+PERSONAL_HOST_RE = re.compile(r"\b(?!example\.com\b|example\.org\b|test\.invalid\b)(?:[A-Z0-9-]+\.)+(?:cloud|site|top|xyz)\b", re.I)
 LEGACY_STRUCTURE_RE = re.compile(r"\breferences/")
 PERSONAL_PROFILE_RE = re.compile(r"\bqq_mail\b")
-PERSONAL_LABEL_RE = re.compile(r"\bcom\.mumu\.")
+PERSONAL_LABEL_RE = re.compile(r"\bcom\.(?!example\b)[A-Z0-9-]+\.", re.I)
 PERSONAL_SMTP_RE = re.compile(r"\bsmtp\.qq\.com\b", re.I)
 
 

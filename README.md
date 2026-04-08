@@ -6,7 +6,7 @@
    抓取、过滤、分类、翻译、导出、发邮件、归档
 2. Review + Codex optimizer
    人工在 backlog 审核，Codex 读取 backlog 做保守规则优化
-3. [web界面](https://github.com/mumu-140/bio-literature-digest-web/edit/main),需要的话可以部署
+3. web 界面（同级项目 `skills/bio-literature-digest-web`），需要的话可以部署
 
 ## 目录
 
