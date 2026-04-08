@@ -15,7 +15,7 @@
 - `config/integrations/`
   邮件、样式、翻译、外部 LLM 配置
 - `config/runtime/`
-  运行时路径、时区、发送时间、默认 provider
+  运行时路径、时区、发送时间、默认 provider、database 同步开关
 - `assets/`
   邮件模板
 - `scripts/`
@@ -36,6 +36,13 @@
 ```bash
 .venv/bin/python3 scripts/run_production_digest.py
 ```
+
+数据库同步（SQLite）：
+
+- 配置位置：`config/runtime/production.local.yaml` 的 `database` 段
+- 同步脚本：`scripts/sync_digest_db.py`
+- 默认入库文件：`digest.csv`、`review_queue.csv`、`daily_review.csv`
+- 默认库路径建议：`archives/db/bio_digest.sqlite3`
 
 人工审核：
 
@@ -79,3 +86,6 @@
 
 ## Acknowledgments
 Special thanks to the **[Linux.do](https://linux.do/)** community for your support and feedback.
+
+## Linux DO Declaration
+Linux DO 声明：本仓库开源基线按 Linux 运维（Deployment Operator）约束设计。文档与示例配置中的域名、路径、账号均为占位值，部署前必须替换为真实环境值。

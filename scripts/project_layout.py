@@ -32,6 +32,8 @@ def canonical_paths() -> dict[str, Path]:
         "terminology_sources": CONTENT_CONFIG_DIR / "terminology_sources.yaml",
         "email_config_example": INTEGRATIONS_CONFIG_DIR / "email_config.example.yaml",
         "email_config_local": INTEGRATIONS_CONFIG_DIR / "email_config.local.yaml",
+        "users_config_example": INTEGRATIONS_CONFIG_DIR / "users.example.yaml",
+        "users_config_local": INTEGRATIONS_CONFIG_DIR / "users.local.yaml",
         "email_style_example": INTEGRATIONS_CONFIG_DIR / "email_style.example.yaml",
         "email_style_local": INTEGRATIONS_CONFIG_DIR / "email_style.local.yaml",
         "translation_config_example": INTEGRATIONS_CONFIG_DIR / "translation_config.example.yaml",
@@ -72,6 +74,7 @@ def default_runtime_config() -> dict[str, Any]:
             "watchlist": str(paths["watchlist"]),
             "rules": str(paths["rules"]),
             "email_config": str(paths["email_config_local"]),
+            "users_config": str(paths["users_config_local"]),
             "style_config": str(paths["email_style_local"]),
             "template": str(paths["email_template"]),
             "summary_config": str(paths["translation_google_local"]),
@@ -90,6 +93,10 @@ def default_runtime_config() -> dict[str, Any]:
             "base_url": "",
             "sync_enabled": False,
             "project_root": "${SKILL_DIR}/../bio-literature-digest-web",
+        },
+        "database": {
+            "enabled": False,
+            "sqlite_path": "${SKILL_DIR}/bio-literature-config/data/shared/bio_digest.sqlite3",
         },
         "scheduler": {
             "launchd": {

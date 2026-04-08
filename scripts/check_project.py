@@ -25,6 +25,8 @@ DEFAULT_TESTS = [
     "tests.test_harness",
     "tests.test_launchd_generator",
     "tests.test_production_entry",
+    "tests.test_send_email_recipients",
+    "tests.test_sync_digest_db",
 ]
 
 

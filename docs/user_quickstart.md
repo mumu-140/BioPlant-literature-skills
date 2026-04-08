@@ -67,6 +67,8 @@ QQ_MAIL_APP_PASSWORD=
 - `review_provider`
 - `summary_provider`
 - `web.sync_enabled`
+- `database.enabled`
+- `database.sqlite_path`
 
 生产脚本默认从这里取路径和默认参数，不再要求把这些值写死在脚本里。
 
@@ -83,6 +85,7 @@ QQ_MAIL_APP_PASSWORD=
 常改这几个：
 
 - `config/integrations/email_config.local.yaml`
+- `config/integrations/users.local.yaml`
 - `config/integrations/email_style.local.yaml`
 - `config/integrations/translation_google_basic_v2.local.yaml`
 - `config/integrations/translation_tencent_tmt.local.yaml`
@@ -128,6 +131,7 @@ pip install -r requirements.txt
 - 归档到 `archives/daily-digests/YYYY-MM-DD/`
 - 同步每日审核快照到 `reviews/daily-reviews/YYYY-MM-DD/`
 - 刷新 active backlog 到 `reviews/backlog/`
+- 如果 `database.enabled=true`，把 `digest/review_queue/daily_review` 同步入 SQLite
 
 ### 本地样例测试
 
@@ -147,6 +151,7 @@ pip install -r requirements.txt
   --localized-input /path/to/work-dir/localized_records.jsonl \
   --style-config config/integrations/email_style.local.yaml \
   --email-config config/integrations/email_config.local.yaml \
+  --users-config config/integrations/users.local.yaml \
   --smtp-profile primary_smtp
 ```
 
@@ -214,6 +219,7 @@ pip install -r requirements.txt
 - `archives/daily-digests/YYYY-MM-DD/`
 - `reviews/daily-reviews/YYYY-MM-DD/`
 - `reviews/backlog/`
+- `archives/db/bio_digest.sqlite3`（当启用 database 同步时）
 
 产物契约见：
 
@@ -248,10 +254,11 @@ pip install -r requirements.txt
 1. 建 `.venv`
 2. 填 `.env.local`
 3. 改 `config/runtime/production.local.yaml`
-4. 改 `config/integrations/email_config.local.yaml`
-5. 改 `config/content/journal_watchlist.yaml`
-6. 运行 `scripts/audit_secrets.py`
-7. 运行 `scripts/run_production_digest.py`
+4. 改 `config/integrations/users.local.yaml`
+5. 改 `config/integrations/email_config.local.yaml`（只放 SMTP 参数）
+6. 改 `config/content/journal_watchlist.yaml`
+7. 运行 `scripts/audit_secrets.py`
+8. 运行 `scripts/run_production_digest.py`
 
 如果只记一条命令，记这个：
 

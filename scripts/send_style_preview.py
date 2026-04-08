@@ -23,6 +23,7 @@ def main() -> int:
     parser.add_argument("--template", default=str(CANONICAL_PATHS["email_template"]))
     parser.add_argument("--style-config", default=str(CANONICAL_PATHS["email_style_local"]))
     parser.add_argument("--email-config", default=str(CANONICAL_PATHS["email_config_local"]))
+    parser.add_argument("--users-config", default=str(CANONICAL_PATHS["users_config_local"]))
     parser.add_argument(
         "--smtp-profile",
         default=str(RUNTIME_DEFAULTS.get("delivery", {}).get("smtp_profile", "") or "primary_smtp"),
@@ -71,6 +72,8 @@ def main() -> int:
             args.email_config,
             "--profile",
             args.smtp_profile,
+            "--users-config",
+            args.users_config,
             "--html-body",
             str(html_path),
             "--csv-attachment",

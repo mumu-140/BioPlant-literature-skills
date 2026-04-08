@@ -1,5 +1,6 @@
 .env.local
 config/**/*.local.yaml
+bio-literature-config/
 ops/launchd/*.plist
 !ops/launchd/*.plist.template
 archives/

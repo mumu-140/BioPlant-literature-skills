@@ -44,11 +44,12 @@ def build_report() -> tuple[list[str], list[str]]:
 
     env_path = SKILL_DIR / ".env.local"
     email_config = CANONICAL_PATHS["email_config_local"]
+    users_config = CANONICAL_PATHS["users_config_local"]
     style_config = CANONICAL_PATHS["email_style_local"]
     google_config = CANONICAL_PATHS["translation_google_local"]
     skill_path = SKILL_DIR / "SKILL.md"
 
-    for required_path in [env_path, email_config, style_config]:
+    for required_path in [env_path, email_config, users_config, style_config]:
         if not required_path.exists():
             issues.append(f"缺少本地生产配置: {required_path}")
 

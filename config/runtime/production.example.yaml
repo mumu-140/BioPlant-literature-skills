@@ -9,6 +9,7 @@ paths:
   watchlist: ${SKILL_DIR}/config/content/journal_watchlist.yaml
   rules: ${SKILL_DIR}/config/content/category_rules.yaml
   email_config: ${SKILL_DIR}/config/integrations/email_config.local.yaml
+  users_config: ${SKILL_DIR}/config/integrations/users.local.yaml
   style_config: ${SKILL_DIR}/config/integrations/email_style.local.yaml
   template: ${SKILL_DIR}/assets/email_template.html
   summary_config: ${SKILL_DIR}/config/integrations/translation_google_basic_v2.local.yaml
@@ -27,6 +28,10 @@ web:
   base_url: ""
   sync_enabled: false
   project_root: ${SKILL_DIR}/../bio-literature-digest-web
+
+database:
+  enabled: false
+  sqlite_path: ${SKILL_DIR}/bio-literature-config/data/shared/bio_digest.sqlite3
 
 scheduler:
   launchd:

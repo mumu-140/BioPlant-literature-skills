@@ -144,6 +144,7 @@ def apply_runtime_defaults(args: argparse.Namespace) -> argparse.Namespace:
     providers = config.get("providers", {})
     environment = config.get("environment", {})
     web = config.get("web", {})
+    database = config.get("database", {})
 
     if not getattr(args, "env_file", None):
         args.env_file = str(environment.get("env_file", "") or "")
@@ -161,6 +162,8 @@ def apply_runtime_defaults(args: argparse.Namespace) -> argparse.Namespace:
         args.rules = str(paths.get("rules", "") or CANONICAL_PATHS["rules"])
     if not getattr(args, "email_config", None):
         args.email_config = str(paths.get("email_config", "") or CANONICAL_PATHS["email_config_local"])
+    if not getattr(args, "users_config", None):
+        args.users_config = str(paths.get("users_config", "") or CANONICAL_PATHS["users_config_local"])
     if not getattr(args, "style_config", None):
         args.style_config = str(paths.get("style_config", "") or CANONICAL_PATHS["email_style_local"])
     if not getattr(args, "template", None):
@@ -188,6 +191,10 @@ def apply_runtime_defaults(args: argparse.Namespace) -> argparse.Namespace:
         args.web_project_root = str(web.get("project_root", "") or "")
     if not getattr(args, "sync_web_explicit", False):
         args.sync_web = bool(web.get("sync_enabled", False))
+    if not getattr(args, "database_path", None):
+        args.database_path = str(database.get("sqlite_path", "") or "")
+    if not getattr(args, "sync_db_explicit", False):
+        args.sync_db = bool(database.get("enabled", False))
 
     args.runtime_defaults = config
     return args
@@ -215,6 +222,15 @@ def resolve_web_sync_settings(project_root: Path | None = None) -> SimpleNamespa
 
 def build_command(args: argparse.Namespace) -> list[str]:
     integrations_dir = CANONICAL_PATHS["email_config_local"].parent
+    email_config = Path(
+        str(getattr(args, "email_config", "") or CANONICAL_PATHS["email_config_local"])
+    ).resolve()
+    users_config = Path(
+        str(getattr(args, "users_config", "") or CANONICAL_PATHS["users_config_local"])
+    ).resolve()
+    style_config = Path(
+        str(getattr(args, "style_config", "") or CANONICAL_PATHS["email_style_local"])
+    ).resolve()
     watchlist = Path(str(getattr(args, "watchlist", "") or CANONICAL_PATHS["watchlist"])).resolve()
     rules = Path(str(getattr(args, "rules", "") or CANONICAL_PATHS["rules"])).resolve()
     template = Path(str(getattr(args, "template", "") or CANONICAL_PATHS["email_template"])).resolve()
@@ -228,11 +244,13 @@ def build_command(args: argparse.Namespace) -> list[str]:
         "--rules",
         str(rules),
         "--email-config",
-        str(Path(args.email_config).resolve()),
+        str(email_config),
+        "--users-config",
+        str(users_config),
         "--smtp-profile",
         args.smtp_profile,
         "--style-config",
-        str(Path(args.style_config).resolve()),
+        str(style_config),
         "--template",
         str(template),
         "--window-mode",
@@ -766,7 +784,7 @@ def sync_review_workspace(args: argparse.Namespace, archive_date: str) -> None:
     sync_review_backlog(args, archive_date, target_dir)
 
 
-def archive_outputs(args: argparse.Namespace) -> None:
+def archive_outputs(args: argparse.Namespace) -> str:
     work_dir = Path(args.work_dir).resolve()
     archive_root = Path(args.archive_dir).resolve()
     archive_date = resolve_archive_date(args)
@@ -802,6 +820,7 @@ def archive_outputs(args: argparse.Namespace) -> None:
             continue
         if child_date <= cutoff_date:
             shutil.rmtree(child)
+    return archive_date
 
 
 def resolve_web_sync_args(args: argparse.Namespace) -> SimpleNamespace:
@@ -840,6 +859,23 @@ def sync_web_digest(args: argparse.Namespace, run_dir: Path) -> None:
     print("[production] syncing web digest:", " ".join(command))
     subprocess.run(command, check=True)
     verify_web_digest_sync(args, run_dir)
+
+
+def sync_digest_database(args: argparse.Namespace, run_dir: Path, archive_date: str) -> None:
+    if not args.database_path:
+        raise SystemExit("database sync is enabled but database_path is empty in runtime config")
+    command = [
+        default_python(),
+        str(SCRIPT_DIR / "sync_digest_db.py"),
+        "--run-dir",
+        str(run_dir.resolve()),
+        "--db-path",
+        str(Path(args.database_path).resolve()),
+        "--archive-date",
+        archive_date,
+    ]
+    print("[production] syncing digest database:", " ".join(command))
+    subprocess.run(command, check=True)
 
 
 def resolve_web_sqlite_path(env_file: Path) -> Path:
@@ -898,6 +934,7 @@ def main() -> int:
     parser.add_argument("--rules")
     parser.add_argument("--template")
     parser.add_argument("--email-config")
+    parser.add_argument("--users-config")
     parser.add_argument("--smtp-profile")
     parser.add_argument("--style-config")
     parser.add_argument("--summary-provider")
@@ -919,6 +956,9 @@ def main() -> int:
     parser.add_argument("--web-backend-env-file")
     parser.add_argument("--sync-web", action="store_true", default=False)
     parser.add_argument("--no-sync-web", action="store_false", dest="sync_web")
+    parser.add_argument("--database-path")
+    parser.add_argument("--sync-db", action="store_true", default=False)
+    parser.add_argument("--no-sync-db", action="store_false", dest="sync_db")
     parser.add_argument("--retention-days", type=int, default=30)
     parser.add_argument("--input-file")
     parser.add_argument("--manual-review-csv")
@@ -930,6 +970,7 @@ def main() -> int:
     args = parser.parse_args()
 
     args.sync_web_explicit = ("--sync-web" in sys.argv) or ("--no-sync-web" in sys.argv)
+    args.sync_db_explicit = ("--sync-db" in sys.argv) or ("--no-sync-db" in sys.argv)
     args.allow_review_pending_explicit = (
         ("--allow-review-pending" in sys.argv) or ("--no-allow-review-pending" in sys.argv)
     )
@@ -947,7 +988,9 @@ def main() -> int:
         completed = subprocess.run(command)
         should_archive = completed.returncode == 0 or should_archive_failed_run(work_dir)
         if should_archive:
-            archive_outputs(args)
+            archive_date = archive_outputs(args)
+            if args.sync_db:
+                sync_digest_database(args, work_dir, archive_date)
             if completed.returncode == 0 and args.sync_web:
                 sync_web_digest(args, work_dir)
         return completed.returncode

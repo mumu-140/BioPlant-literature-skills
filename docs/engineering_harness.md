@@ -10,6 +10,10 @@
 
 ## 固定放置规则
 
+### 0. 项目根位置
+
+只允许在 `skills/` 目录下维护项目仓库。禁止把活动项目目录放在 `workspace/` 根层（例如 `workspace/bio-literature-digest`）。
+
 ### 1. 密钥与账号
 
 只允许放在以下位置：
@@ -68,6 +72,7 @@
 - 默认 provider
 - sidecar 开关
 - scheduler 参数
+- database 开关和 sqlite 路径
 
 ### 5. 脚本
 

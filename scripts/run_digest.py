@@ -54,6 +54,7 @@ def main() -> int:
     parser.add_argument("--watchlist", default=str(CANONICAL_PATHS["watchlist"]))
     parser.add_argument("--rules", default=str(CANONICAL_PATHS["rules"]))
     parser.add_argument("--email-config", default=str(CANONICAL_PATHS["email_config_example"]))
+    parser.add_argument("--users-config", default=str(CANONICAL_PATHS["users_config_local"]))
     parser.add_argument("--template", default=str(CANONICAL_PATHS["email_template"]))
     parser.add_argument("--style-config", default=str(CANONICAL_PATHS["email_style_local"]))
     parser.add_argument("--input-file", help="Optional pre-fetched raw JSONL file")
@@ -203,6 +204,7 @@ def main() -> int:
                 "review_provider": args.review_provider,
                 "summary_provider": args.summary_provider,
                 "smtp_profile": args.smtp_profile or "",
+                "users_config": str(Path(args.users_config).resolve()),
             },
             "email_status": email_status,
             "counts": build_counts(),
@@ -528,6 +530,8 @@ def main() -> int:
                     args.email_config,
                     "--profile",
                     args.smtp_profile,
+                    "--users-config",
+                    args.users_config,
                     "--html-body",
                     str(html_path),
                     "--csv-attachment",

@@ -2,17 +2,12 @@
 from __future__ import annotations
 
 import argparse
-import base64
-import hashlib
-import hmac
-import json
 import mimetypes
 import os
 import re
 import smtplib
 import sys
 import time
-from datetime import datetime, timedelta
 from email.message import EmailMessage
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
@@ -45,81 +40,106 @@ def add_or_replace_query(url: str, **params: str) -> str:
     return urlunparse(parsed._replace(query=urlencode(query_items, doseq=True)))
 
 
-def load_simple_env(path: Path) -> dict[str, str]:
-    if not path.exists():
-        return {}
-    values: dict[str, str] = {}
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
+def parse_bool(value: object, default: bool = True) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def normalize_email(value: object) -> str:
+    return str(value or "").strip().lower()
+
+
+def dedupe_emails(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        normalized = normalize_email(value)
+        if not normalized or normalized in seen:
             continue
-        key, value = line.split("=", 1)
-        values[key.strip()] = value.strip()
-    return values
+        seen.add(normalized)
+        result.append(normalized)
+    return result
 
 
-def resolve_web_backend_env_path(explicit_path: str | None = None) -> Path | None:
+def resolve_users_config_path(explicit_path: str | None = None) -> Path:
     if explicit_path:
         return Path(explicit_path).resolve()
-    from_env = str(os.environ.get("BIO_DIGEST_WEB_BACKEND_ENV_FILE", "") or "").strip()
-    if from_env:
-        return Path(from_env).resolve()
     runtime = load_runtime_config()
-    web_root = str(runtime.get("web", {}).get("project_root", "") or "").strip()
-    if not web_root:
-        return None
-    tools_dir = Path(web_root).resolve() / "tools"
-    if str(tools_dir) not in sys.path:
-        sys.path.insert(0, str(tools_dir))
-    try:
-        from instance_paths import get_instance_paths  # type: ignore
-    except ModuleNotFoundError:
-        return None
-    return get_instance_paths(Path(web_root).resolve()).backend_env_file
+    configured_path = str(runtime.get("paths", {}).get("users_config", "") or "").strip()
+    if configured_path:
+        return Path(configured_path).resolve()
+    return (SKILL_DIR / "config" / "integrations" / "users.local.yaml").resolve()
 
 
-def build_email_login_token(email: str, web_backend_env_path: Path | None) -> str:
-    env_values = load_simple_env(web_backend_env_path) if web_backend_env_path else {}
-    session_secret = env_values.get("SESSION_SECRET", "change-me")
-    ttl_hours = int(env_values.get("EMAIL_LOGIN_TTL_HOURS", "168"))
-    expires_at = datetime.utcnow() + timedelta(hours=ttl_hours)
-    payload = {
-        "sub": email.strip().lower(),
-        "kind": "email-login",
-        "exp": int(expires_at.timestamp()),
-    }
-    payload_bytes = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
-    encoded_payload = base64.urlsafe_b64encode(payload_bytes).decode("utf-8").rstrip("=")
-    signature = hmac.new(session_secret.encode("utf-8"), payload_bytes, hashlib.sha256).digest()
-    encoded_signature = base64.urlsafe_b64encode(signature).decode("utf-8").rstrip("=")
-    return f"{encoded_payload}.{encoded_signature}"
+def load_profile_recipients_from_users_config(users_config_path: Path, smtp_profile: str) -> list[str]:
+    if not users_config_path.exists():
+        return []
+    payload = load_yaml_file(users_config_path) or {}
+    if not isinstance(payload, dict):
+        return []
+    users = payload.get("users")
+    if not isinstance(users, list):
+        return []
+    recipients: list[str] = []
+    for user in users:
+        if not isinstance(user, dict):
+            continue
+        email = normalize_email(user.get("email"))
+        if not email:
+            continue
+        if not parse_bool(user.get("is_active"), default=True):
+            continue
+        if not parse_bool(user.get("receives_digest"), default=True):
+            continue
+        profile = str(user.get("smtp_profile", "") or "").strip()
+        if profile and profile != smtp_profile:
+            continue
+        recipients.append(email)
+    return dedupe_emails(recipients)
 
 
-def personalized_login_url(url: str, recipient: str, web_backend_env_path: Path | None) -> str:
-    token = build_email_login_token(recipient, web_backend_env_path)
+def resolve_recipients(profile: dict[str, object], *, smtp_profile: str, users_config_path: Path) -> list[str]:
+    recipients = load_profile_recipients_from_users_config(users_config_path, smtp_profile)
+    if recipients:
+        return recipients
+    override = profile.get("to_emails_override")
+    if isinstance(override, list):
+        recipients = dedupe_emails([str(email) for email in override if email])
+        if recipients:
+            return recipients
+    fallback = profile.get("to_emails", [])
+    if isinstance(fallback, list):
+        return dedupe_emails([str(email) for email in fallback if email])
+    return []
+
+
+def personalized_login_url(url: str, recipient: str) -> str:
     parsed = urlparse(url)
     if parsed.path.endswith("/digests/today"):
-        return add_or_replace_query(urlunparse(parsed._replace(path="/login", query="")), next="/digests/today", email=recipient, token=token)
+        return add_or_replace_query(urlunparse(parsed._replace(path="/login", query="")), next="/digests/today", email=recipient)
     if parsed.path.endswith("/login"):
         next_path = dict(parse_qsl(parsed.query, keep_blank_values=True)).get("next", "/digests/today")
-        return add_or_replace_query(url, next=next_path, email=recipient, token=token)
+        return add_or_replace_query(url, next=next_path, email=recipient)
     return url
 
 
-def personalize_html_body(html_body: str, recipient: str, web_backend_env_path: Path | None) -> str:
+def personalize_html_body(html_body: str, recipient: str) -> str:
     def replace_href(match: re.Match[str]) -> str:
-        return f'href="{personalized_login_url(match.group(1), recipient, web_backend_env_path)}"'
+        return f'href="{personalized_login_url(match.group(1), recipient)}"'
 
     return re.sub(r'href="(https://[^"]+/(?:login\?[^"]*|digests/today[^"]*))"', replace_href, html_body)
 
 
-def personalize_text_body(text_body: str, recipient: str, html_body: str, web_backend_env_path: Path | None) -> str:
+def personalize_text_body(text_body: str, recipient: str, html_body: str) -> str:
     match = re.search(r'href="(https://[^"]+/login\?[^"]*)"', html_body)
     if not match:
         return text_body
     return (
         f"{text_body}\n\nWeb login for {recipient}: "
-        f"{personalized_login_url(match.group(1), recipient, web_backend_env_path)}"
+        f"{personalized_login_url(match.group(1), recipient)}"
     )
 
 
@@ -154,7 +174,10 @@ def main() -> int:
     parser.add_argument("--xlsx-attachment", required=True, help="XLSX file attachment")
     parser.add_argument("--subject", required=True, help="Email subject")
     parser.add_argument("--text-body", default="See attached daily literature digest.", help="Plain-text fallback")
-    parser.add_argument("--web-backend-env-file", help="Optional backend .env file used to personalize email login links")
+    parser.add_argument(
+        "--users-config",
+        help="Path to users.local.yaml (single source of recipient accounts).",
+    )
     parser.add_argument("--max-attempts", type=int, default=3, help="SMTP max attempts for transient network failures")
     parser.add_argument("--retry-sleep-seconds", type=int, default=20, help="Sleep seconds between SMTP retries")
     args = parser.parse_args()
@@ -170,11 +193,14 @@ def main() -> int:
     if not password:
         raise SystemExit(f"Missing SMTP secret in environment variable: {password_env}")
 
-    recipients = [email for email in profile.get("to_emails", []) if email]
+    users_config_path = resolve_users_config_path(args.users_config)
+    recipients = resolve_recipients(profile, smtp_profile=args.profile, users_config_path=users_config_path)
     if not recipients:
-        raise SystemExit(f"No recipients configured for profile: {args.profile}")
+        raise SystemExit(
+            f"No recipients configured for profile: {args.profile}. "
+            f"Checked users config: {users_config_path} and profile fallback fields to_emails_override/to_emails."
+        )
     html_body = Path(args.html_body).read_text(encoding="utf-8")
-    web_backend_env_path = resolve_web_backend_env_path(args.web_backend_env_file)
 
     smtp_host = profile["smtp_host"]
     smtp_port = int(profile["smtp_port"])
@@ -187,14 +213,14 @@ def main() -> int:
     def send_all(server: smtplib.SMTP, pending: list[str]) -> None:
         server.login(profile["username"], password)
         for recipient in list(pending):
-            recipient_html_body = personalize_html_body(html_body, recipient, web_backend_env_path)
+            recipient_html_body = personalize_html_body(html_body, recipient)
             message = build_message(
                 subject=args.subject,
                 from_name=profile.get("from_name", ""),
                 from_email=profile["from_email"],
                 recipient=recipient,
                 html_body=recipient_html_body,
-                text_body=personalize_text_body(args.text_body, recipient, recipient_html_body, web_backend_env_path),
+                text_body=personalize_text_body(args.text_body, recipient, recipient_html_body),
                 csv_attachment=args.csv_attachment,
                 xlsx_attachment=args.xlsx_attachment,
             )

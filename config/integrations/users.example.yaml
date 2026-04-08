@@ -1,0 +1,26 @@
+users:
+  - uid: UDI-0001
+    email: member@example.com
+    name: Example Member
+    role: member
+    group: internal
+    is_active: true
+    receives_digest: true
+    smtp_profile: primary_smtp
+    tags:
+      - biology
+      - reviewer
+
+  - uid: UDI-0002
+    email: admin@example.com
+    name: Example Admin
+    role: admin
+    group: internal
+    is_active: true
+    receives_digest: true
+    smtp_profile: primary_smtp
+
+notes:
+  - users is the single source of truth for recipients and account bootstrap.
+  - keep SMTP credentials in email_config.local.yaml only.
+  - group maps to web user_group (internal or outsider).

@@ -8,8 +8,8 @@ smtp_profiles:
     password_env: SMTP_APP_PASSWORD
     from_email: your_account@example.com
     from_name: Bio Literature Digest
-    to_emails:
-      - recipient@example.com
+    # Legacy fallback only. Prefer config/integrations/users.local.yaml as recipient source.
+    to_emails: []
     notes:
       - Use an SMTP authorization code or app password, not the login password.
 
@@ -22,8 +22,8 @@ smtp_profiles:
     password_env: SMTP_BACKUP_APP_PASSWORD
     from_email: your_backup_account@example.com
     from_name: Bio Literature Digest
-    to_emails:
-      - recipient@example.com
+    # Legacy fallback only. Prefer config/integrations/users.local.yaml as recipient source.
+    to_emails: []
     notes:
       - Optional backup SMTP profile.
 
@@ -38,3 +38,4 @@ delivery_defaults:
 notes:
   - Enable only one SMTP profile for the initial deployment.
   - Keep real secrets out of the repository and load them from environment variables.
+  - Recipients should be managed in config/integrations/users.local.yaml.
