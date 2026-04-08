@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -14,7 +15,15 @@ from zoneinfo import ZoneInfo
 
 from scripts.project_layout import canonical_paths
 from scripts import run_production_digest
-from scripts.run_production_digest import SKILL_DIR, archive_outputs, build_command, should_archive_failed_run
+from scripts.run_production_digest import (
+    RUN_LOCK_FILENAME,
+    SKILL_DIR,
+    acquire_run_lock,
+    archive_outputs,
+    build_command,
+    release_run_lock,
+    should_archive_failed_run,
+)
 
 
 FIXTURE_PATH = Path(__file__).resolve().parent / "fixtures" / "sample_raw.jsonl"
@@ -22,6 +31,34 @@ CANONICAL_PATHS = canonical_paths()
 
 
 class ProductionEntryTest(unittest.TestCase):
+    def test_acquire_run_lock_rejects_active_pid(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="bio-lock-active-") as tmpdir:
+            work_dir = Path(tmpdir)
+            lock_path = work_dir / RUN_LOCK_FILENAME
+            lock_path.write_text(
+                json.dumps({"pid": os.getpid(), "started_at_utc": "2026-04-08T00:00:00Z"}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            with self.assertRaises(SystemExit):
+                acquire_run_lock(work_dir, stale_hours=12)
+
+    def test_acquire_run_lock_reclaims_stale_lock(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="bio-lock-stale-") as tmpdir:
+            work_dir = Path(tmpdir)
+            lock_path = work_dir / RUN_LOCK_FILENAME
+            lock_path.write_text(
+                json.dumps({"pid": 999999, "started_at_utc": "2026-04-01T00:00:00Z"}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            stale_time = datetime.now().timestamp() - 7200
+            os.utime(lock_path, (stale_time, stale_time))
+
+            acquired = acquire_run_lock(work_dir, stale_hours=1)
+            payload = json.loads(acquired.read_text(encoding="utf-8"))
+            self.assertEqual(payload["pid"], os.getpid())
+            release_run_lock(acquired)
+            self.assertFalse(acquired.exists())
+
     def test_build_command_uses_local_configs_and_schedule_defaults(self) -> None:
         args = argparse.Namespace(
             work_dir="/tmp/prod-run",

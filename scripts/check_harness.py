@@ -103,7 +103,7 @@ def build_report(project_root: Path | None = None) -> tuple[list[str], list[str]
             continue
 
         relative = path.relative_to(root)
-        if relative.as_posix() in {"scripts/check_harness.py", "docs/engineering_harness.md"}:
+        if relative.as_posix() in {"scripts/check_harness.py", "scripts/check_alignment.py", "docs/engineering_harness.md"}:
             continue
         if LEGACY_STRUCTURE_RE.search(text):
             issues.append(f"{relative} 仍引用旧结构 `references/`")

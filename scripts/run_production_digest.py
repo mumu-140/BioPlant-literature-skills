@@ -11,6 +11,7 @@ import sqlite3
 import shutil
 import subprocess
 import sys
+import time
 import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -55,12 +56,81 @@ HUMAN_OVERRIDE_COLUMNS = [
     "review_final_category",
     "reviewer_notes",
 ]
+RUN_LOCK_FILENAME = ".run_production_digest.lock"
 
 
 def default_python() -> str:
     if VENV_PYTHON.exists():
         return str(VENV_PYTHON)
     return sys.executable
+
+
+def load_lock_payload(path: Path) -> dict[str, object]:
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def is_pid_running(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def acquire_run_lock(work_dir: Path, stale_hours: int) -> Path:
+    stale_seconds = max(1, stale_hours) * 3600
+    work_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = work_dir / RUN_LOCK_FILENAME
+    payload = {
+        "pid": os.getpid(),
+        "started_at_utc": current_timestamp_utc(),
+    }
+    attempts = 0
+    while attempts < 2:
+        attempts += 1
+        try:
+            fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, ensure_ascii=False, indent=2)
+                handle.write("\n")
+            return lock_path
+        except FileExistsError:
+            existing = load_lock_payload(lock_path)
+            existing_pid = int(existing.get("pid") or 0)
+            active = is_pid_running(existing_pid)
+            stale = False
+            try:
+                stale = (time.time() - lock_path.stat().st_mtime) > stale_seconds
+            except OSError:
+                stale = True
+            if not active or stale:
+                try:
+                    lock_path.unlink()
+                    continue
+                except FileNotFoundError:
+                    continue
+            raise SystemExit(
+                f"another run is active (pid={existing_pid}). lock={lock_path}; "
+                "retry later or remove stale lock manually"
+            )
+    raise SystemExit(f"failed to acquire run lock after cleanup attempts: {lock_path}")
+
+
+def release_run_lock(lock_path: Path) -> None:
+    try:
+        existing = load_lock_payload(lock_path)
+        if int(existing.get("pid") or 0) not in {0, os.getpid()}:
+            return
+        lock_path.unlink(missing_ok=True)
+    except OSError:
+        return
 
 
 def default_web_project_root() -> Path:
@@ -856,6 +926,7 @@ def main() -> int:
     parser.add_argument("--no-allow-review-pending", action="store_false", dest="allow_review_pending")
     parser.add_argument("--skip-email", action="store_true")
     parser.add_argument("--print-command", action="store_true")
+    parser.add_argument("--lock-stale-hours", type=int, default=12)
     args = parser.parse_args()
 
     args.sync_web_explicit = ("--sync-web" in sys.argv) or ("--no-sync-web" in sys.argv)
@@ -870,14 +941,18 @@ def main() -> int:
     print("[production] command:", " ".join(command))
     if args.print_command:
         return 0
-    completed = subprocess.run(command)
     work_dir = Path(args.work_dir).resolve()
-    should_archive = completed.returncode == 0 or should_archive_failed_run(work_dir)
-    if should_archive:
-        archive_outputs(args)
-        if completed.returncode == 0 and args.sync_web:
-            sync_web_digest(args, work_dir)
-    return completed.returncode
+    lock_path = acquire_run_lock(work_dir, args.lock_stale_hours)
+    try:
+        completed = subprocess.run(command)
+        should_archive = completed.returncode == 0 or should_archive_failed_run(work_dir)
+        if should_archive:
+            archive_outputs(args)
+            if completed.returncode == 0 and args.sync_web:
+                sync_web_digest(args, work_dir)
+        return completed.returncode
+    finally:
+        release_run_lock(lock_path)
 
 
 if __name__ == "__main__":

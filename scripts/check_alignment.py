@@ -25,6 +25,8 @@ STALE_CHECKS = [
     ("automation", "last 24 hours", "应改为北京时间前一日 00:00 到当日 08:00 的日报窗口"),
     ("automation", "review queue is empty", "当前生产版允许把不确定项排到末尾后继续发送"),
     ("automation", "daily_review.csv", "自动化应以 review_backlog.xlsx 为人工审核主入口"),
+    ("automation", "references/category_rules.yaml", "自动化应更新 config/content/category_rules.yaml"),
+    ("automation", "references/bio_translation_glossary.yaml", "自动化应更新 config/content/bio_translation_glossary.yaml"),
     ("skill", "last 24 hours relative to the scheduled run time", "技能文档应与日报窗口保持一致"),
     ("skill", "Only send `keep` records", "技能文档应说明生产模式可带 review 项发送并排到最后"),
 ]
@@ -61,6 +63,8 @@ def build_report() -> tuple[list[str], list[str]]:
             "review_backlog_state.json",
             "selection-json",
             "finalize_review_backlog.py",
+            "config/content/category_rules.yaml",
+            "config/content/bio_translation_glossary.yaml",
         ]
         for term in required_automation_terms:
             if term not in automation_text:

@@ -11,6 +11,7 @@ import os
 import re
 import smtplib
 import sys
+import time
 from datetime import datetime, timedelta
 from email.message import EmailMessage
 from pathlib import Path
@@ -154,6 +155,8 @@ def main() -> int:
     parser.add_argument("--subject", required=True, help="Email subject")
     parser.add_argument("--text-body", default="See attached daily literature digest.", help="Plain-text fallback")
     parser.add_argument("--web-backend-env-file", help="Optional backend .env file used to personalize email login links")
+    parser.add_argument("--max-attempts", type=int, default=3, help="SMTP max attempts for transient network failures")
+    parser.add_argument("--retry-sleep-seconds", type=int, default=20, help="Sleep seconds between SMTP retries")
     args = parser.parse_args()
 
     config = load_yaml_file(args.config) or {}
@@ -177,10 +180,13 @@ def main() -> int:
     smtp_port = int(profile["smtp_port"])
     security = profile.get("security", "ssl")
     sent_recipients: list[str] = []
+    pending_recipients = list(recipients)
+    max_attempts = max(1, int(args.max_attempts))
+    retry_sleep_seconds = max(0, int(args.retry_sleep_seconds))
 
-    def send_all(server: smtplib.SMTP) -> None:
+    def send_all(server: smtplib.SMTP, pending: list[str]) -> None:
         server.login(profile["username"], password)
-        for recipient in recipients:
+        for recipient in list(pending):
             recipient_html_body = personalize_html_body(html_body, recipient, web_backend_env_path)
             message = build_message(
                 subject=args.subject,
@@ -196,14 +202,45 @@ def main() -> int:
             if refused:
                 raise SystemExit(f"SMTP refused recipients: {refused}")
             sent_recipients.append(recipient)
+            pending.remove(recipient)
 
-    if security == "ssl":
-        with smtplib.SMTP_SSL(smtp_host, smtp_port) as server:
-            send_all(server)
-    else:
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
-            send_all(server)
+    def send_once(pending: list[str]) -> None:
+        if security == "ssl":
+            with smtplib.SMTP_SSL(smtp_host, smtp_port) as server:
+                send_all(server, pending)
+        else:
+            with smtplib.SMTP(smtp_host, smtp_port) as server:
+                server.starttls()
+                send_all(server, pending)
+
+    transient_errors = (
+        OSError,
+        TimeoutError,
+        smtplib.SMTPConnectError,
+        smtplib.SMTPServerDisconnected,
+        smtplib.SMTPHeloError,
+    )
+    for attempt in range(1, max_attempts + 1):
+        try:
+            send_once(pending_recipients)
+            if not pending_recipients:
+                break
+        except transient_errors as exc:
+            if attempt >= max_attempts:
+                raise
+            print(
+                f"[warn] SMTP transient failure attempt {attempt}/{max_attempts}: {exc}. "
+                f"Retrying in {retry_sleep_seconds}s for remaining {len(pending_recipients)} recipients.",
+                file=sys.stderr,
+            )
+            if retry_sleep_seconds:
+                time.sleep(retry_sleep_seconds)
+            continue
+
+    if pending_recipients:
+        raise SystemExit(
+            f"SMTP did not deliver to all recipients after {max_attempts} attempts; pending: {', '.join(pending_recipients)}"
+        )
 
     print(f"Sent digest email via profile {args.profile} to {', '.join(sent_recipients)}.")
     return 0
