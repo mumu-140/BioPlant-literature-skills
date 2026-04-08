@@ -445,6 +445,7 @@ def render_digest_cards(
     rules: dict[str, Any],
     grouping_mode: str,
     style_override_css: str,
+    web_digest_button: str,
 ) -> str:
     context = build_display_context(rules)
     visible_records = [record for record in records if not should_hide_from_visual_digest(record, context)]
@@ -478,6 +479,7 @@ def render_digest_cards(
         record_count=str(len(visible_records)),
         greeting_line=greeting_line,
         style_override_css=style_override_css,
+        web_digest_button=web_digest_button,
     )
 
 
@@ -487,6 +489,7 @@ def render_html_table(
     template_text: str,
     style_override_css: str,
     rules: dict[str, Any],
+    web_digest_button: str,
 ) -> str:
     option_map = review_option_map(rules, columns)
     grouped: dict[str, dict[str, list[dict[str, Any]]]] = defaultdict(lambda: defaultdict(list))
@@ -571,6 +574,26 @@ def render_html_table(
         record_count=str(len(records)),
         greeting_line=greeting_template,
         style_override_css=style_override_css + build_review_table_css(),
+        web_digest_button=web_digest_button,
+    )
+
+
+def build_web_digest_button(web_base_url: str) -> str:
+    base = str(web_base_url or "").strip().rstrip("/")
+    if not base:
+        return ""
+    login_url = html.escape(f"{base}/login?next=/digests/today")
+    base_label = html.escape(base)
+    return (
+        '<div class="hero-access">'
+        '<p class="hero-access-kicker">Web Access</p>'
+        '<p class="hero-access-title">网页端已同步更新，邮件里的入口会指向对应账户。</p>'
+        f'<p class="hero-access-copy">主入口：<a class="hero-access-url" href="{login_url}">{base_label}</a></p>'
+        '<div class="hero-links">'
+        f'<a class="hero-link" href="{login_url}">立即打开网页端</a>'
+        f'<a class="hero-link" href="{login_url}">查看今日文献表格</a>'
+        "</div>"
+        "</div>"
     )
 
 
@@ -817,6 +840,7 @@ def main() -> int:
     parser.add_argument("--schema-key", default="output_schema", help="Schema section in category_rules.yaml")
     parser.add_argument("--grouping-mode", choices=["journal", "priority"], help="Override digest grouping mode")
     parser.add_argument("--style-config", help="Optional YAML file with CSS overrides for email styling")
+    parser.add_argument("--web-base-url", default="", help="Optional web digest base URL")
     args = parser.parse_args()
 
     records = read_jsonl(Path(args.input))
@@ -852,11 +876,12 @@ def main() -> int:
     style_override_css = ""
     if args.style_config:
         style_override_css = build_style_override_css(load_yaml_file(args.style_config) or {})
+    web_digest_button = build_web_digest_button(args.web_base_url) if args.schema_key == "output_schema" else ""
     option_map = review_option_map(rules, columns) if args.schema_key != "output_schema" else {}
     if args.schema_key == "output_schema":
-        html_body = render_digest_cards(normalized_records, template_text, rules, grouping_mode, style_override_css)
+        html_body = render_digest_cards(normalized_records, template_text, rules, grouping_mode, style_override_css, web_digest_button)
     else:
-        html_body = render_html_table(normalized_records, columns, template_text, style_override_css, rules)
+        html_body = render_html_table(normalized_records, columns, template_text, style_override_css, rules, web_digest_button)
         html_body = html_body.replace("</body>", build_review_table_script() + "\n</body>")
     ensure_parent_dir(args.html_output).write_text(html_body, encoding="utf-8")
     write_csv(args.csv_output, normalized_records, columns, option_map)

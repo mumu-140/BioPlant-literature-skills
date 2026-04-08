@@ -8,10 +8,12 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from scripts.project_layout import canonical_paths
 
 
 SKILL_DIR = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = SKILL_DIR / "scripts"
+CANONICAL_PATHS = canonical_paths()
 
 
 class VisualDigestFilterTest(unittest.TestCase):
@@ -66,7 +68,7 @@ class VisualDigestFilterTest(unittest.TestCase):
                     "--input",
                     str(input_path),
                     "--rules",
-                    str(SKILL_DIR / "references" / "category_rules.yaml"),
+                    str(CANONICAL_PATHS["rules"]),
                     "--html-output",
                     str(html_path),
                     "--csv-output",

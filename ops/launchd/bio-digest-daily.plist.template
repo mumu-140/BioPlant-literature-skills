@@ -2,24 +2,23 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <!-- Replace /ABSOLUTE/PATH/TO/bio-literature-digest with your real repository path before loading. -->
   <key>Label</key>
-  <string>com.example.bio-digest-daily</string>
+  <string>__LABEL__</string>
 
   <key>ProgramArguments</key>
   <array>
-    <string>/ABSOLUTE/PATH/TO/bio-literature-digest/scripts/run_production_digest_launchd.sh</string>
+    <string>__WRAPPER_SCRIPT__</string>
   </array>
 
   <key>WorkingDirectory</key>
-  <string>/ABSOLUTE/PATH/TO/bio-literature-digest</string>
+  <string>__WORKING_DIRECTORY__</string>
 
   <key>StartCalendarInterval</key>
   <dict>
     <key>Hour</key>
-    <integer>8</integer>
+    <integer>__HOUR__</integer>
     <key>Minute</key>
-    <integer>0</integer>
+    <integer>__MINUTE__</integer>
   </dict>
 
   <key>RunAtLoad</key>
@@ -29,9 +28,9 @@
   <false/>
 
   <key>StandardOutPath</key>
-  <string>/ABSOLUTE/PATH/TO/bio-literature-digest/logs/launchd/bio-digest-daily.stdout.log</string>
+  <string>__STDOUT_LOG__</string>
   <key>StandardErrorPath</key>
-  <string>/ABSOLUTE/PATH/TO/bio-literature-digest/logs/launchd/bio-digest-daily.stderr.log</string>
+  <string>__STDERR_LOG__</string>
 
   <key>EnvironmentVariables</key>
   <dict>

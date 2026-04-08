@@ -1,10 +1,11 @@
-.DS_Store
 .env.local
+config/**/*.local.yaml
+ops/launchd/*.plist
+!ops/launchd/*.plist.template
+archives/
+reviews/
+logs/
+.DS_Store
 .venv/
 __pycache__/
 *.pyc
-.pytest_cache/
-logs/
-archives/
-reviews/
-references/*.local.yaml

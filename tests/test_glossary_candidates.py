@@ -7,10 +7,12 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from scripts.project_layout import canonical_paths
 
 
 SKILL_DIR = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = SKILL_DIR / "scripts"
+CANONICAL_PATHS = canonical_paths()
 
 
 class GlossaryCandidatesTest(unittest.TestCase):
@@ -38,7 +40,7 @@ class GlossaryCandidatesTest(unittest.TestCase):
                     "--input",
                     str(input_path),
                     "--glossary",
-                    str(SKILL_DIR / "references" / "bio_translation_glossary.yaml"),
+                    str(CANONICAL_PATHS["glossary"]),
                     "--yaml-output",
                     str(yaml_output),
                     "--report-output",

@@ -9,9 +9,18 @@ try:
     from run_production_digest import SKILL_DIR
 except ModuleNotFoundError:
     from scripts.run_production_digest import SKILL_DIR
+try:
+    from project_layout import canonical_paths
+except ModuleNotFoundError:
+    from scripts.project_layout import canonical_paths
+try:
+    from check_harness import build_report as build_harness_report
+except ModuleNotFoundError:
+    from scripts.check_harness import build_report as build_harness_report
 
 
 AUTOMATION_PATH = Path.home() / ".codex" / "automations" / "bio-digest-optimizer" / "automation.toml"
+CANONICAL_PATHS = canonical_paths()
 STALE_CHECKS = [
     ("automation", "last 24 hours", "应改为北京时间前一日 00:00 到当日 08:00 的日报窗口"),
     ("automation", "review queue is empty", "当前生产版允许把不确定项排到末尾后继续发送"),
@@ -32,9 +41,9 @@ def build_report() -> tuple[list[str], list[str]]:
     notes: list[str] = []
 
     env_path = SKILL_DIR / ".env.local"
-    email_config = SKILL_DIR / "references" / "email_config.local.yaml"
-    style_config = SKILL_DIR / "references" / "email_style.local.yaml"
-    google_config = SKILL_DIR / "references" / "translation_google_basic_v2.local.yaml"
+    email_config = CANONICAL_PATHS["email_config_local"]
+    style_config = CANONICAL_PATHS["email_style_local"]
+    google_config = CANONICAL_PATHS["translation_google_local"]
     skill_path = SKILL_DIR / "SKILL.md"
 
     for required_path in [env_path, email_config, style_config]:
@@ -73,6 +82,10 @@ def build_report() -> tuple[list[str], list[str]]:
         "生产入口命令: "
         f"{sys.executable} {SKILL_DIR / 'scripts' / 'run_production_digest.py'}"
     )
+
+    harness_issues, harness_notes = build_harness_report(SKILL_DIR)
+    issues.extend(harness_issues)
+    notes.extend(f"harness: {note}" for note in harness_notes)
     return issues, notes
 
 

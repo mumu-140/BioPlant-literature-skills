@@ -16,6 +16,10 @@ from typing import Any
 import os
 
 from common import load_yaml_file, read_jsonl, write_jsonl
+try:
+    from project_layout import expand_config_value
+except ModuleNotFoundError:
+    from scripts.project_layout import expand_config_value
 
 
 CATEGORY_LABELS = {
@@ -41,7 +45,7 @@ _LAST_GOOGLE_REQUEST_TS = 0.0
 
 
 def load_glossary(config: dict[str, Any]) -> dict[str, Any]:
-    glossary_path = config.get("glossary_path")
+    glossary_path = expand_config_value(config.get("glossary_path"))
     if not glossary_path:
         return {}
     glossary = load_yaml_file(glossary_path) or {}

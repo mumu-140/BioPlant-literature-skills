@@ -10,10 +10,13 @@ from datetime import datetime
 from pathlib import Path
 
 from common import compute_scheduled_digest_window, current_timestamp_utc, isoformat_utc, load_yaml_file
+from project_layout import canonical_paths, expand_config_value, load_runtime_config
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_DIR = SCRIPT_DIR.parent
 PYTHON = sys.executable
+CANONICAL_PATHS = canonical_paths()
+RUNTIME_DEFAULTS = load_runtime_config()
 
 
 def run_step(label: str, command: list[str]) -> None:
@@ -45,23 +48,14 @@ def merge_jsonl(output_path: Path, input_paths: list[Path]) -> int:
     return len(merged_lines)
 
 
-def resolve_summary_glossary_path(config_path: str | None, glossary_path: str) -> str:
-    if not glossary_path:
-        return ""
-    glossary_path_obj = Path(glossary_path)
-    if glossary_path_obj.is_absolute() or not config_path:
-        return str(glossary_path_obj)
-    return str((Path(config_path).resolve().parent / glossary_path_obj).resolve())
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run the end-to-end digest pipeline.")
     parser.add_argument("--work-dir", required=True, help="Output directory for this run")
-    parser.add_argument("--watchlist", default=str(SKILL_DIR / "references" / "journal_watchlist.yaml"))
-    parser.add_argument("--rules", default=str(SKILL_DIR / "references" / "category_rules.yaml"))
-    parser.add_argument("--email-config", default=str(SKILL_DIR / "references" / "email_config.example.yaml"))
-    parser.add_argument("--template", default=str(SKILL_DIR / "assets" / "email_template.html"))
-    parser.add_argument("--style-config", default=str(SKILL_DIR / "references" / "email_style.example.yaml"))
+    parser.add_argument("--watchlist", default=str(CANONICAL_PATHS["watchlist"]))
+    parser.add_argument("--rules", default=str(CANONICAL_PATHS["rules"]))
+    parser.add_argument("--email-config", default=str(CANONICAL_PATHS["email_config_example"]))
+    parser.add_argument("--template", default=str(CANONICAL_PATHS["email_template"]))
+    parser.add_argument("--style-config", default=str(CANONICAL_PATHS["email_style_local"]))
     parser.add_argument("--input-file", help="Optional pre-fetched raw JSONL file")
     parser.add_argument("--smtp-profile", help="SMTP profile to use for sending")
     parser.add_argument("--skip-email", action="store_true", help="Skip the email sending step")
@@ -79,6 +73,11 @@ def main() -> int:
     parser.add_argument("--window-end", help="Explicit UTC window end, e.g. 2026-03-15T00:00:00Z")
     parser.add_argument("--timezone", help="Timezone used for scheduled digest windows")
     parser.add_argument("--delivery-time", help="Scheduled digest delivery time in HH:MM")
+    parser.add_argument(
+        "--web-base-url",
+        default=str(RUNTIME_DEFAULTS.get("web", {}).get("base_url", "") or ""),
+        help="Web digest base URL for links embedded in the email",
+    )
     args = parser.parse_args()
 
     run_dir = Path(args.work_dir).resolve()
@@ -116,8 +115,16 @@ def main() -> int:
     glossary_candidates_report_path = run_dir / "glossary_candidates.md"
     watchlist_data = load_yaml_file(args.watchlist) or {}
     watchlist_defaults = watchlist_data.get("defaults", {})
-    digest_timezone = args.timezone or watchlist_defaults.get("timezone", "Asia/Shanghai")
-    delivery_time = args.delivery_time or watchlist_defaults.get("delivery_time", "08:00")
+    digest_timezone = (
+        args.timezone
+        or str(RUNTIME_DEFAULTS.get("delivery", {}).get("timezone", "") or "")
+        or watchlist_defaults.get("timezone", "Asia/Shanghai")
+    )
+    delivery_time = (
+        args.delivery_time
+        or str(RUNTIME_DEFAULTS.get("delivery", {}).get("delivery_time", "") or "")
+        or watchlist_defaults.get("delivery_time", "08:00")
+    )
     window_start = ""
     window_end = ""
     current_step = "setup"
@@ -419,10 +426,7 @@ def main() -> int:
         glossary_path = ""
         if args.summary_config:
             summary_config_data = load_yaml_file(args.summary_config) or {}
-            glossary_path = resolve_summary_glossary_path(
-                args.summary_config,
-                str(summary_config_data.get("glossary_path", "") or ""),
-            )
+            glossary_path = str(expand_config_value(summary_config_data.get("glossary_path", "")) or "")
         if glossary_path:
             run_pipeline_step(
                 "build_glossary_candidates",
@@ -458,6 +462,8 @@ def main() -> int:
                 args.template,
                 "--style-config",
                 args.style_config,
+                "--web-base-url",
+                args.web_base_url,
             ],
         )
         run_pipeline_step(

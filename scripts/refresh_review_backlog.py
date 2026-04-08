@@ -6,14 +6,27 @@ import json
 from pathlib import Path
 
 try:
-    from run_production_digest import DEFAULT_REVIEW_WORKSPACE_DIR, DEFAULT_BACKLOG_DIR, DEFAULT_ARCHIVE_DIR, sync_review_backlog
+    from run_production_digest import DEFAULT_ARCHIVE_DIR, DEFAULT_BACKLOG_DIR, DEFAULT_REVIEW_WORKSPACE_DIR, sync_review_backlog
 except ModuleNotFoundError:
-    from scripts.run_production_digest import DEFAULT_REVIEW_WORKSPACE_DIR, DEFAULT_BACKLOG_DIR, DEFAULT_ARCHIVE_DIR, sync_review_backlog
+    from scripts.run_production_digest import (
+        DEFAULT_ARCHIVE_DIR,
+        DEFAULT_BACKLOG_DIR,
+        DEFAULT_REVIEW_WORKSPACE_DIR,
+        sync_review_backlog,
+    )
 
 try:
     from common import current_timestamp_utc
 except ModuleNotFoundError:
     from scripts.common import current_timestamp_utc
+try:
+    from project_layout import DEFAULT_RUNTIME_CONFIG_PATH, load_runtime_config
+except ModuleNotFoundError:
+    from scripts.project_layout import DEFAULT_RUNTIME_CONFIG_PATH, load_runtime_config
+
+
+RUNTIME_DEFAULTS = load_runtime_config(DEFAULT_RUNTIME_CONFIG_PATH)
+DEFAULT_TIMEZONE = str(RUNTIME_DEFAULTS.get("delivery", {}).get("timezone", "Asia/Shanghai"))
 
 
 def refresh_backlog(review_workspace_dir: Path, backlog_dir: Path, archive_dir: Path, timezone_name: str) -> dict[str, object]:
@@ -42,7 +55,7 @@ def main() -> int:
     parser.add_argument("--review-workspace-dir", default=str(DEFAULT_REVIEW_WORKSPACE_DIR))
     parser.add_argument("--backlog-dir", default=str(DEFAULT_BACKLOG_DIR))
     parser.add_argument("--archive-dir", default=str(DEFAULT_ARCHIVE_DIR))
-    parser.add_argument("--timezone", default="Asia/Shanghai")
+    parser.add_argument("--timezone", default=DEFAULT_TIMEZONE)
     args = parser.parse_args()
 
     result = refresh_backlog(

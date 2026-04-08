@@ -235,6 +235,8 @@ replacements:
     target: RNA二级结构
   - source: RNA-seq
     target: RNA测序
+  - source: genomic prediction
+    target: 基因组预测
   - source: ribo-seq
     target: 核糖体测序
   - source: ribosome profiling
@@ -253,6 +255,12 @@ replacements:
     target: 基因型与环境互作
   - source: genomic selection
     target: 基因组选择
+  - source: apomictic
+    target: 无融合生殖的
+  - source: apomixis
+    target: 无融合生殖
+  - source: diploidization
+    target: 二倍体化
   - source: SNP
     target: SNP
   - source: single-nucleotide polymorphism
@@ -269,6 +277,14 @@ replacements:
     target: 结构变异
   - source: structural variants
     target: 结构变异
+  - source: telomere-to-telomere
+    target: 端粒到端粒
+  - source: transposable element
+    target: 转座元件
+  - source: transposable elements
+    target: 转座元件
+  - source: transertion
+    target: 转录-翻译-膜插入耦联
   - source: selenium metabolism
     target: 硒代谢
   - source: seed traits

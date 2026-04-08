@@ -9,6 +9,10 @@ from pathlib import Path
 from typing import Any
 
 from common import load_yaml_file, read_jsonl
+try:
+    from project_layout import expand_config_value
+except ModuleNotFoundError:
+    from scripts.project_layout import expand_config_value
 
 
 TERM_PATTERN = re.compile(r"\b[a-z][a-z0-9-]{2,}(?:\s+[a-z0-9-]{2,}){0,3}\b", re.IGNORECASE)
@@ -42,7 +46,7 @@ def main() -> int:
     args = parser.parse_args()
 
     records = read_jsonl(Path(args.input))
-    glossary = load_yaml_file(args.glossary) or {}
+    glossary = load_yaml_file(expand_config_value(args.glossary)) or {}
     known_terms = existing_terms(glossary if isinstance(glossary, dict) else {})
     seed_terms = [normalize_term(str(term)) for term in (glossary.get("candidate_seed_terms", []) if isinstance(glossary, dict) else [])]
 

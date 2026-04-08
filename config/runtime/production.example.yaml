@@ -1,0 +1,37 @@
+environment:
+  env_file: ${SKILL_DIR}/.env.local
+
+paths:
+  work_dir: /private/tmp/bio-literature-digest
+  archive_dir: ${SKILL_DIR}/archives/daily-digests
+  review_workspace_dir: ${SKILL_DIR}/reviews/daily-reviews
+  backlog_dir: ${SKILL_DIR}/reviews/backlog
+  watchlist: ${SKILL_DIR}/config/content/journal_watchlist.yaml
+  rules: ${SKILL_DIR}/config/content/category_rules.yaml
+  email_config: ${SKILL_DIR}/config/integrations/email_config.local.yaml
+  style_config: ${SKILL_DIR}/config/integrations/email_style.local.yaml
+  template: ${SKILL_DIR}/assets/email_template.html
+  summary_config: ${SKILL_DIR}/config/integrations/translation_google_basic_v2.local.yaml
+
+delivery:
+  smtp_profile: primary_smtp
+  timezone: Asia/Shanghai
+  delivery_time: "08:00"
+  allow_review_pending: true
+
+providers:
+  review_provider: placeholder
+  summary_provider: google-basic-v2
+
+web:
+  base_url: ""
+  sync_enabled: false
+  project_root: ${SKILL_DIR}/../bio-literature-digest-web
+
+scheduler:
+  launchd:
+    label: org.example.bio-digest-daily
+    wrapper_script: ${SKILL_DIR}/scripts/run_production_digest_launchd.sh
+    working_directory: ${SKILL_DIR}
+    stdout_log: ${SKILL_DIR}/logs/launchd/bio-digest-daily.stdout.log
+    stderr_log: ${SKILL_DIR}/logs/launchd/bio-digest-daily.stderr.log

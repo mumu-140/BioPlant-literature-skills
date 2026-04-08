@@ -27,6 +27,14 @@ try:
     from common import current_timestamp_utc
 except ModuleNotFoundError:
     from scripts.common import current_timestamp_utc
+try:
+    from project_layout import DEFAULT_RUNTIME_CONFIG_PATH, load_runtime_config
+except ModuleNotFoundError:
+    from scripts.project_layout import DEFAULT_RUNTIME_CONFIG_PATH, load_runtime_config
+
+
+RUNTIME_DEFAULTS = load_runtime_config(DEFAULT_RUNTIME_CONFIG_PATH)
+DEFAULT_TIMEZONE = str(RUNTIME_DEFAULTS.get("delivery", {}).get("timezone", "Asia/Shanghai"))
 
 
 def finalize_backlog(backlog_dir: Path, timezone_name: str) -> dict[str, object]:
@@ -119,7 +127,7 @@ def finalize_backlog(backlog_dir: Path, timezone_name: str) -> dict[str, object]
 def main() -> int:
     parser = argparse.ArgumentParser(description="Archive optimized review backlog rows and rebuild active backlog views.")
     parser.add_argument("--backlog-dir", default=str(DEFAULT_BACKLOG_DIR))
-    parser.add_argument("--timezone", default="Asia/Shanghai")
+    parser.add_argument("--timezone", default=DEFAULT_TIMEZONE)
     args = parser.parse_args()
 
     backlog_dir = Path(args.backlog_dir).resolve()

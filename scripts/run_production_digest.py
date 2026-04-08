@@ -5,13 +5,16 @@ import argparse
 import csv
 import hashlib
 import json
+import os
 import re
+import sqlite3
 import shutil
 import subprocess
 import sys
 import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from xml.etree import ElementTree
 from zoneinfo import ZoneInfo
 
@@ -24,14 +27,22 @@ try:
     from common import canonicalize_doi, canonicalize_url, current_timestamp_utc, load_yaml_file, normalize_title
 except ModuleNotFoundError:
     from scripts.common import canonicalize_doi, canonicalize_url, current_timestamp_utc, load_yaml_file, normalize_title
+try:
+    from project_layout import DEFAULT_RUNTIME_CONFIG_PATH, canonical_paths, load_runtime_config
+except ModuleNotFoundError:
+    from scripts.project_layout import DEFAULT_RUNTIME_CONFIG_PATH, canonical_paths, load_runtime_config
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 VENV_PYTHON = SKILL_DIR / ".venv" / "bin" / "python3"
-DEFAULT_WORK_DIR = Path("/tmp/bio-digest-prod")
-DEFAULT_ARCHIVE_DIR = SKILL_DIR / "archives" / "daily-digests"
-DEFAULT_REVIEW_WORKSPACE_DIR = SKILL_DIR / "reviews" / "daily-reviews"
-DEFAULT_BACKLOG_DIR = SKILL_DIR / "reviews" / "backlog"
+CANONICAL_PATHS = canonical_paths()
+RUNTIME_DEFAULTS = load_runtime_config(DEFAULT_RUNTIME_CONFIG_PATH)
+DEFAULT_WORK_DIR = Path(str(RUNTIME_DEFAULTS.get("paths", {}).get("work_dir", "/private/tmp/bio-literature-digest")))
+DEFAULT_ARCHIVE_DIR = Path(str(RUNTIME_DEFAULTS.get("paths", {}).get("archive_dir", SKILL_DIR / "archives" / "daily-digests")))
+DEFAULT_REVIEW_WORKSPACE_DIR = Path(
+    str(RUNTIME_DEFAULTS.get("paths", {}).get("review_workspace_dir", SKILL_DIR / "reviews" / "daily-reviews"))
+)
+DEFAULT_BACKLOG_DIR = Path(str(RUNTIME_DEFAULTS.get("paths", {}).get("backlog_dir", SKILL_DIR / "reviews" / "backlog")))
 EDITABLE_REVIEW_COLUMNS = [
     "interest_level",
     "interest_tag",
@@ -52,26 +63,108 @@ def default_python() -> str:
     return sys.executable
 
 
-def default_style_config_path() -> Path:
-    local_path = SKILL_DIR / "references" / "email_style.local.yaml"
-    if local_path.exists():
-        return local_path
-    return SKILL_DIR / "references" / "email_style.example.yaml"
+def default_web_project_root() -> Path:
+    return Path(os.environ.get("BIO_DIGEST_WEB_ROOT", str(SKILL_DIR.parent / "bio-literature-digest-web"))).resolve()
+
+
+def apply_runtime_defaults(args: argparse.Namespace) -> argparse.Namespace:
+    config = load_runtime_config(args.runtime_config)
+    paths = config.get("paths", {})
+    delivery = config.get("delivery", {})
+    providers = config.get("providers", {})
+    environment = config.get("environment", {})
+    web = config.get("web", {})
+
+    if not getattr(args, "env_file", None):
+        args.env_file = str(environment.get("env_file", "") or "")
+    if not getattr(args, "work_dir", None):
+        args.work_dir = str(paths.get("work_dir", "") or "")
+    if not getattr(args, "archive_dir", None):
+        args.archive_dir = str(paths.get("archive_dir", "") or "")
+    if not getattr(args, "review_workspace_dir", None):
+        args.review_workspace_dir = str(paths.get("review_workspace_dir", "") or "")
+    if not getattr(args, "backlog_dir", None):
+        args.backlog_dir = str(paths.get("backlog_dir", "") or "")
+    if not getattr(args, "watchlist", None):
+        args.watchlist = str(paths.get("watchlist", "") or CANONICAL_PATHS["watchlist"])
+    if not getattr(args, "rules", None):
+        args.rules = str(paths.get("rules", "") or CANONICAL_PATHS["rules"])
+    if not getattr(args, "email_config", None):
+        args.email_config = str(paths.get("email_config", "") or CANONICAL_PATHS["email_config_local"])
+    if not getattr(args, "style_config", None):
+        args.style_config = str(paths.get("style_config", "") or CANONICAL_PATHS["email_style_local"])
+    if not getattr(args, "template", None):
+        args.template = str(paths.get("template", "") or CANONICAL_PATHS["email_template"])
+    if not getattr(args, "summary_config", None):
+        args.summary_config = str(paths.get("summary_config", "") or CANONICAL_PATHS["translation_google_local"])
+
+    if not getattr(args, "smtp_profile", None):
+        args.smtp_profile = str(delivery.get("smtp_profile", "") or "primary_smtp")
+    if not getattr(args, "timezone", None):
+        args.timezone = str(delivery.get("timezone", "") or "Asia/Shanghai")
+    if not getattr(args, "delivery_time", None):
+        args.delivery_time = str(delivery.get("delivery_time", "") or "08:00")
+    if not getattr(args, "allow_review_pending_explicit", False):
+        args.allow_review_pending = bool(delivery.get("allow_review_pending", True))
+
+    if not getattr(args, "review_provider", None):
+        args.review_provider = str(providers.get("review_provider", "") or "placeholder")
+    if not getattr(args, "summary_provider", None):
+        args.summary_provider = str(providers.get("summary_provider", "") or "google-basic-v2")
+
+    if not getattr(args, "web_base_url", None):
+        args.web_base_url = str(web.get("base_url", "") or "")
+    if not getattr(args, "web_project_root", None):
+        args.web_project_root = str(web.get("project_root", "") or "")
+    if not getattr(args, "sync_web_explicit", False):
+        args.sync_web = bool(web.get("sync_enabled", False))
+
+    args.runtime_defaults = config
+    return args
+
+
+def resolve_web_sync_settings(project_root: Path | None = None) -> SimpleNamespace:
+    resolved_root = (project_root or default_web_project_root()).resolve()
+    tools_dir = resolved_root / "tools"
+    if str(tools_dir) not in sys.path:
+        sys.path.insert(0, str(tools_dir))
+    try:
+        from instance_paths import get_instance_paths  # type: ignore
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(f"Missing web tooling module under {tools_dir}: instance_paths") from exc
+
+    instance_paths = get_instance_paths(resolved_root)
+    backend_dir = resolved_root / "backend"
+    return SimpleNamespace(
+        project_root=resolved_root,
+        importer=backend_dir / "import_digest_run.py",
+        importer_python=backend_dir / ".venv" / "bin" / "python",
+        backend_env_file=instance_paths.backend_env_file,
+    )
 
 
 def build_command(args: argparse.Namespace) -> list[str]:
-    references_dir = SKILL_DIR / "references"
+    integrations_dir = CANONICAL_PATHS["email_config_local"].parent
+    watchlist = Path(str(getattr(args, "watchlist", "") or CANONICAL_PATHS["watchlist"])).resolve()
+    rules = Path(str(getattr(args, "rules", "") or CANONICAL_PATHS["rules"])).resolve()
+    template = Path(str(getattr(args, "template", "") or CANONICAL_PATHS["email_template"])).resolve()
     command = [
         default_python(),
         str(SCRIPT_DIR / "run_digest.py"),
         "--work-dir",
         str(Path(args.work_dir).resolve()),
+        "--watchlist",
+        str(watchlist),
+        "--rules",
+        str(rules),
         "--email-config",
         str(Path(args.email_config).resolve()),
         "--smtp-profile",
         args.smtp_profile,
         "--style-config",
         str(Path(args.style_config).resolve()),
+        "--template",
+        str(template),
         "--window-mode",
         args.window_mode,
         "--timezone",
@@ -81,6 +174,9 @@ def build_command(args: argparse.Namespace) -> list[str]:
         "--review-provider",
         args.review_provider,
     ]
+    web_base_url = str(getattr(args, "web_base_url", "") or "").strip()
+    if web_base_url:
+        command.extend(["--web-base-url", web_base_url])
 
     if args.window_mode == "lookback":
         command.extend(["--lookback-hours", str(args.lookback_hours)])
@@ -104,22 +200,14 @@ def build_command(args: argparse.Namespace) -> list[str]:
     summary_provider = args.summary_provider
     summary_config = Path(args.summary_config).resolve() if args.summary_config else None
     if not summary_provider:
-        google_config = references_dir / "translation_google_basic_v2.local.yaml"
-        google_example_config = references_dir / "translation_google_basic_v2.example.yaml"
-        tencent_config = references_dir / "translation_tencent_tmt.local.yaml"
-        tencent_example_config = references_dir / "translation_tencent_tmt.example.yaml"
+        google_config = integrations_dir / "translation_google_basic_v2.local.yaml"
+        tencent_config = integrations_dir / "translation_tencent_tmt.local.yaml"
         if google_config.exists():
             summary_provider = "google-basic-v2"
             summary_config = google_config
-        elif google_example_config.exists():
-            summary_provider = "google-basic-v2"
-            summary_config = google_example_config
         elif tencent_config.exists():
             summary_provider = "tencent-tmt"
             summary_config = tencent_config
-        elif tencent_example_config.exists():
-            summary_provider = "tencent-tmt"
-            summary_config = tencent_example_config
         else:
             summary_provider = "placeholder"
 
@@ -136,6 +224,33 @@ def resolve_archive_date(args: argparse.Namespace) -> str:
         window_end = datetime.fromisoformat(args.window_end.replace("Z", "+00:00"))
         return window_end.astimezone(tz).strftime("%Y-%m-%d")
     return datetime.now(tz).strftime("%Y-%m-%d")
+
+
+def load_run_metadata(path: Path) -> dict[str, object]:
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+
+
+def should_archive_failed_run(work_dir: Path) -> bool:
+    metadata = load_run_metadata(work_dir / "run_metadata.json")
+    if not metadata:
+        return False
+    if metadata.get("status") != "failed":
+        return False
+    if metadata.get("failed_step") != "send_email":
+        return False
+    required_outputs = [
+        work_dir / "digest.html",
+        work_dir / "digest.csv",
+        work_dir / "digest.xlsx",
+        work_dir / "daily_review.xlsx",
+        work_dir / "run_metadata.json",
+    ]
+    return all(path.exists() for path in required_outputs)
 
 
 def review_record_key(row: dict[str, str]) -> tuple[str, str]:
@@ -412,20 +527,22 @@ def export_backlog_views(
         write_csv,
         write_xlsx,
     )
-    rules = json.loads(json.dumps(load_yaml_file(SKILL_DIR / "references" / "category_rules.yaml") or {}))
-    template_text = (SKILL_DIR / "assets" / "email_template.html").read_text(encoding="utf-8")
-    style_override_css = build_style_override_css(load_yaml_file(default_style_config_path()) or {})
+    rules = json.loads(json.dumps(load_yaml_file(CANONICAL_PATHS["rules"]) or {}))
+    template_text = CANONICAL_PATHS["email_template"].read_text(encoding="utf-8")
+    style_override_css = build_style_override_css(load_yaml_file(CANONICAL_PATHS["email_style_local"]) or {})
     option_map = review_option_map(rules, fieldnames)
     write_csv(csv_path, loaded_rows, fieldnames, option_map)
     write_xlsx(xlsx_path, loaded_rows, fieldnames, option_map)
-    html_body = render_html_table(loaded_rows, fieldnames, template_text, style_override_css, rules)
+    html_body = render_html_table(loaded_rows, fieldnames, template_text, style_override_css, rules, "")
     html_body = html_body.replace("</body>", build_review_table_script() + "\n</body>")
     html_path.write_text(html_body, encoding="utf-8")
 
 
 def sync_review_backlog(args: argparse.Namespace, archive_date: str, target_dir: Path) -> None:
     backlog_root = Path(args.backlog_dir).resolve()
-    archive_root = Path(getattr(args, "archive_dir", str(DEFAULT_ARCHIVE_DIR))).resolve()
+    runtime_defaults = getattr(args, "runtime_defaults", {}) or {}
+    runtime_archive_dir = str(runtime_defaults.get("paths", {}).get("archive_dir", "") or "")
+    archive_root = Path(str(getattr(args, "archive_dir", "") or runtime_archive_dir or (SKILL_DIR / "archives" / "daily-digests"))).resolve()
     active_csv = backlog_root / "review_backlog.csv"
     active_html = backlog_root / "review_backlog.html"
     active_xlsx = backlog_root / "review_backlog.xlsx"
@@ -617,33 +734,121 @@ def archive_outputs(args: argparse.Namespace) -> None:
             shutil.rmtree(child)
 
 
+def resolve_web_sync_args(args: argparse.Namespace) -> SimpleNamespace:
+    explicit_root = Path(args.web_project_root).resolve() if getattr(args, "web_project_root", None) else None
+    defaults = resolve_web_sync_settings(explicit_root)
+    return SimpleNamespace(
+        project_root=defaults.project_root,
+        importer=Path(args.web_importer).resolve() if getattr(args, "web_importer", None) else defaults.importer,
+        importer_python=(
+            Path(args.web_importer_python).resolve()
+            if getattr(args, "web_importer_python", None)
+            else defaults.importer_python
+        ),
+        backend_env_file=(
+            Path(args.web_backend_env_file).resolve()
+            if getattr(args, "web_backend_env_file", None)
+            else defaults.backend_env_file
+        ),
+    )
+
+
+def sync_web_digest(args: argparse.Namespace, run_dir: Path) -> None:
+    settings = resolve_web_sync_args(args)
+    importer_path = settings.importer
+    importer_python = settings.importer_python
+    if not importer_path.exists():
+        raise FileNotFoundError(f"Missing web importer script: {importer_path}")
+    if not importer_python.exists():
+        raise FileNotFoundError(f"Missing web importer python: {importer_python}")
+    command = [
+        str(importer_python),
+        str(importer_path),
+        "--run-dir",
+        str(run_dir.resolve()),
+    ]
+    print("[production] syncing web digest:", " ".join(command))
+    subprocess.run(command, check=True)
+    verify_web_digest_sync(args, run_dir)
+
+
+def resolve_web_sqlite_path(env_file: Path) -> Path:
+    database_url = ""
+    for raw_line in env_file.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if key.strip() == "DATABASE_URL":
+            database_url = value.strip()
+            break
+    if not database_url.startswith("sqlite:///"):
+        raise ValueError(f"Only sqlite DATABASE_URL is supported for verification, got: {database_url}")
+    sqlite_path = database_url.removeprefix("sqlite:///")
+    return Path(sqlite_path).resolve()
+
+
+def verify_web_digest_sync(args: argparse.Namespace, run_dir: Path) -> None:
+    env_file = resolve_web_sync_args(args).backend_env_file
+    if not env_file.exists():
+        raise FileNotFoundError(f"Missing web backend env file for sync verification: {env_file}")
+    db_path = resolve_web_sqlite_path(env_file)
+    digest_csv = run_dir / "digest.csv"
+    run_metadata = json.loads((run_dir / "run_metadata.json").read_text(encoding="utf-8"))
+    expected_date = resolve_archive_date(args)
+    expected_rows = 0
+    with digest_csv.open("r", encoding="utf-8", newline="") as handle:
+        expected_rows = sum(1 for _ in csv.DictReader(handle))
+    with sqlite3.connect(str(db_path)) as connection:
+        row = connection.execute(
+            "select count(*) from paper_daily_entries where digest_date = ?",
+            (expected_date,),
+        ).fetchone()
+    actual_rows = int(row[0] if row else 0)
+    if actual_rows != expected_rows:
+        raise RuntimeError(
+            f"Web digest sync mismatch for {expected_date}: expected {expected_rows} rows from {digest_csv}, got {actual_rows} rows in {db_path}"
+        )
+    print(
+        "[production] verified web sync:",
+        expected_date,
+        f"{actual_rows} rows",
+        "matches digest.csv and email artifacts",
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Stable production entry point for scheduled or manual digest runs."
     )
-    parser.add_argument("--env-file", default=str(SKILL_DIR / ".env.local"))
-    parser.add_argument("--work-dir", default=str(DEFAULT_WORK_DIR))
-    parser.add_argument(
-        "--email-config",
-        default=str(SKILL_DIR / "references" / "email_config.local.yaml"),
-    )
-    parser.add_argument("--smtp-profile", default="qq_mail")
-    parser.add_argument(
-        "--style-config",
-        default=str(SKILL_DIR / "references" / "email_style.local.yaml"),
-    )
+    parser.add_argument("--runtime-config", default=str(DEFAULT_RUNTIME_CONFIG_PATH))
+    parser.add_argument("--env-file")
+    parser.add_argument("--work-dir")
+    parser.add_argument("--watchlist")
+    parser.add_argument("--rules")
+    parser.add_argument("--template")
+    parser.add_argument("--email-config")
+    parser.add_argument("--smtp-profile")
+    parser.add_argument("--style-config")
     parser.add_argument("--summary-provider")
     parser.add_argument("--summary-config")
-    parser.add_argument("--review-provider", default="placeholder")
+    parser.add_argument("--review-provider")
     parser.add_argument("--window-mode", choices=["schedule", "lookback"], default="schedule")
     parser.add_argument("--lookback-hours", type=int, default=24)
     parser.add_argument("--window-start")
     parser.add_argument("--window-end")
-    parser.add_argument("--timezone", default="Asia/Shanghai")
-    parser.add_argument("--delivery-time", default="08:00")
-    parser.add_argument("--archive-dir", default=str(DEFAULT_ARCHIVE_DIR))
-    parser.add_argument("--review-workspace-dir", default=str(DEFAULT_REVIEW_WORKSPACE_DIR))
-    parser.add_argument("--backlog-dir", default=str(DEFAULT_BACKLOG_DIR))
+    parser.add_argument("--timezone")
+    parser.add_argument("--delivery-time")
+    parser.add_argument("--web-base-url")
+    parser.add_argument("--archive-dir")
+    parser.add_argument("--review-workspace-dir")
+    parser.add_argument("--backlog-dir")
+    parser.add_argument("--web-project-root")
+    parser.add_argument("--web-importer")
+    parser.add_argument("--web-importer-python")
+    parser.add_argument("--web-backend-env-file")
+    parser.add_argument("--sync-web", action="store_true", default=False)
+    parser.add_argument("--no-sync-web", action="store_false", dest="sync_web")
     parser.add_argument("--retention-days", type=int, default=30)
     parser.add_argument("--input-file")
     parser.add_argument("--manual-review-csv")
@@ -653,6 +858,12 @@ def main() -> int:
     parser.add_argument("--print-command", action="store_true")
     args = parser.parse_args()
 
+    args.sync_web_explicit = ("--sync-web" in sys.argv) or ("--no-sync-web" in sys.argv)
+    args.allow_review_pending_explicit = (
+        ("--allow-review-pending" in sys.argv) or ("--no-allow-review-pending" in sys.argv)
+    )
+    args = apply_runtime_defaults(args)
+
     load_env_file(Path(args.env_file).resolve())
     command = build_command(args)
     print("[production] running stable digest entrypoint")
@@ -660,8 +871,12 @@ def main() -> int:
     if args.print_command:
         return 0
     completed = subprocess.run(command)
-    if completed.returncode == 0:
+    work_dir = Path(args.work_dir).resolve()
+    should_archive = completed.returncode == 0 or should_archive_failed_run(work_dir)
+    if should_archive:
         archive_outputs(args)
+        if completed.returncode == 0 and args.sync_web:
+            sync_web_digest(args, work_dir)
     return completed.returncode
 
 

@@ -7,20 +7,26 @@ import sys
 import tempfile
 from pathlib import Path
 
+from project_layout import canonical_paths, load_runtime_config
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_DIR = SCRIPT_DIR.parent
 PYTHON = sys.executable
+CANONICAL_PATHS = canonical_paths()
+RUNTIME_DEFAULTS = load_runtime_config()
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Render a digest with a chosen style config and send it as a preview email.")
     parser.add_argument("--localized-input", required=True, help="Localized JSONL file to render")
-    parser.add_argument("--rules", default=str(SKILL_DIR / "references" / "category_rules.yaml"))
-    parser.add_argument("--template", default=str(SKILL_DIR / "assets" / "email_template.html"))
-    parser.add_argument("--style-config", default=str(SKILL_DIR / "references" / "email_style.local.yaml"))
-    parser.add_argument("--email-config", default=str(SKILL_DIR / "references" / "email_config.local.yaml"))
-    parser.add_argument("--smtp-profile", default="qq_mail")
+    parser.add_argument("--rules", default=str(CANONICAL_PATHS["rules"]))
+    parser.add_argument("--template", default=str(CANONICAL_PATHS["email_template"]))
+    parser.add_argument("--style-config", default=str(CANONICAL_PATHS["email_style_local"]))
+    parser.add_argument("--email-config", default=str(CANONICAL_PATHS["email_config_local"]))
+    parser.add_argument(
+        "--smtp-profile",
+        default=str(RUNTIME_DEFAULTS.get("delivery", {}).get("smtp_profile", "") or "primary_smtp"),
+    )
     parser.add_argument("--subject", default="Bio Digest Style Preview")
     parser.add_argument("--work-dir", help="Optional output directory")
     args = parser.parse_args()

@@ -7,10 +7,12 @@ import unittest
 from pathlib import Path
 
 import yaml
+from scripts.project_layout import canonical_paths
 
 
 SKILL_DIR = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = SKILL_DIR / "scripts" / "filter_bio_relevance.py"
+CANONICAL_PATHS = canonical_paths()
 
 
 def load_module():
@@ -28,8 +30,8 @@ def load_module():
 class FilterRulesTest(unittest.TestCase):
     def test_nature_news_is_rejected_by_editorial_doi(self) -> None:
         module = load_module()
-        rules = yaml.safe_load((SKILL_DIR / "references" / "category_rules.yaml").read_text(encoding="utf-8"))
-        watchlist = yaml.safe_load((SKILL_DIR / "references" / "journal_watchlist.yaml").read_text(encoding="utf-8"))
+        rules = yaml.safe_load(CANONICAL_PATHS["rules"].read_text(encoding="utf-8"))
+        watchlist = yaml.safe_load(CANONICAL_PATHS["watchlist"].read_text(encoding="utf-8"))
         watchlist["by_id"] = {journal["id"]: journal for journal in watchlist["journals"]}
         record = {
             "source_id": "nature",
@@ -46,8 +48,8 @@ class FilterRulesTest(unittest.TestCase):
 
     def test_cell_biology_paper_is_not_rejected_by_strict_source_rule(self) -> None:
         module = load_module()
-        rules = yaml.safe_load((SKILL_DIR / "references" / "category_rules.yaml").read_text(encoding="utf-8"))
-        watchlist = yaml.safe_load((SKILL_DIR / "references" / "journal_watchlist.yaml").read_text(encoding="utf-8"))
+        rules = yaml.safe_load(CANONICAL_PATHS["rules"].read_text(encoding="utf-8"))
+        watchlist = yaml.safe_load(CANONICAL_PATHS["watchlist"].read_text(encoding="utf-8"))
         watchlist["by_id"] = {journal["id"]: journal for journal in watchlist["journals"]}
         record = {
             "source_id": "cell",
@@ -63,8 +65,8 @@ class FilterRulesTest(unittest.TestCase):
 
     def test_species_distribution_ecology_is_hard_rejected(self) -> None:
         module = load_module()
-        rules = yaml.safe_load((SKILL_DIR / "references" / "category_rules.yaml").read_text(encoding="utf-8"))
-        watchlist = yaml.safe_load((SKILL_DIR / "references" / "journal_watchlist.yaml").read_text(encoding="utf-8"))
+        rules = yaml.safe_load(CANONICAL_PATHS["rules"].read_text(encoding="utf-8"))
+        watchlist = yaml.safe_load(CANONICAL_PATHS["watchlist"].read_text(encoding="utf-8"))
         watchlist["by_id"] = {journal["id"]: journal for journal in watchlist["journals"]}
         record = {
             "source_id": "pnas",
@@ -81,8 +83,8 @@ class FilterRulesTest(unittest.TestCase):
 
     def test_nature_communications_requires_direct_bio_signal(self) -> None:
         module = load_module()
-        rules = yaml.safe_load((SKILL_DIR / "references" / "category_rules.yaml").read_text(encoding="utf-8"))
-        watchlist = yaml.safe_load((SKILL_DIR / "references" / "journal_watchlist.yaml").read_text(encoding="utf-8"))
+        rules = yaml.safe_load(CANONICAL_PATHS["rules"].read_text(encoding="utf-8"))
+        watchlist = yaml.safe_load(CANONICAL_PATHS["watchlist"].read_text(encoding="utf-8"))
         watchlist["by_id"] = {journal["id"]: journal for journal in watchlist["journals"]}
         record = {
             "source_id": "nature-communications",
@@ -98,8 +100,8 @@ class FilterRulesTest(unittest.TestCase):
 
     def test_nature_communications_rejects_ecology_without_bio_signal(self) -> None:
         module = load_module()
-        rules = yaml.safe_load((SKILL_DIR / "references" / "category_rules.yaml").read_text(encoding="utf-8"))
-        watchlist = yaml.safe_load((SKILL_DIR / "references" / "journal_watchlist.yaml").read_text(encoding="utf-8"))
+        rules = yaml.safe_load(CANONICAL_PATHS["rules"].read_text(encoding="utf-8"))
+        watchlist = yaml.safe_load(CANONICAL_PATHS["watchlist"].read_text(encoding="utf-8"))
         watchlist["by_id"] = {journal["id"]: journal for journal in watchlist["journals"]}
         record = {
             "source_id": "nature-communications",

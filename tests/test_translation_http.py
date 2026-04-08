@@ -8,9 +8,11 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from scripts.project_layout import canonical_paths
 
 SKILL_DIR = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = SKILL_DIR / "scripts" / "translate_and_summarize.py"
+CANONICAL_PATHS = canonical_paths()
 
 
 def load_module():
@@ -51,7 +53,7 @@ class TranslationHttpTest(unittest.TestCase):
             "tags": ["single-cell", "benchmark"],
         }
         config = {
-            "glossary_path": str(SKILL_DIR / "references" / "bio_translation_glossary.yaml"),
+            "glossary_path": str(CANONICAL_PATHS["glossary"]),
             "google_basic_v2": {
                 "endpoint": "https://translation.googleapis.com/language/translate/v2",
                 "api_key_env": "GOOGLE_TRANSLATE_API_KEY",
@@ -133,7 +135,7 @@ class TranslationHttpTest(unittest.TestCase):
             "tags": ["single-cell", "benchmark"],
         }
         config = {
-            "glossary_path": str(SKILL_DIR / "references" / "bio_translation_glossary.yaml"),
+            "glossary_path": str(CANONICAL_PATHS["glossary"]),
             "tencent_tmt": {
                 "endpoint": "https://tmt.tencentcloudapi.com/",
                 "host": "tmt.tencentcloudapi.com",

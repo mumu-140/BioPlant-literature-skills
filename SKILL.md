@@ -16,12 +16,26 @@ Default operating assumptions for this skill:
 - Include all article types unless the user narrows scope later.
 - Prefer QQ Mail or 163 Mail SMTP for delivery.
 
-Load these reference files before implementing or revising the pipeline:
-- [journal_watchlist.yaml](./references/journal_watchlist.yaml) for the first-pass journal universe and source strategy.
-- [category_rules.yaml](./references/category_rules.yaml) for fixed categories, relevance filters, and output requirements.
-- [email_config.example.yaml](./references/email_config.example.yaml) for SMTP config shape.
-- [translation_config.example.yaml](./references/translation_config.example.yaml) for HTTP-based translation providers such as Google-, Bing-, or Youdao-compatible gateways.
-- [llm_review_config.example.yaml](./references/llm_review_config.example.yaml) for running LLM relevance review outside Codex through an HTTP or command adapter.
+Project layout is intentionally split by information type:
+- `config/content/`: watchlist, rules, glossary, terminology sources
+- `config/integrations/`: email, style, translation, external review providers
+- `config/runtime/`: machine-local runtime paths and delivery defaults
+- `assets/`: presentation templates
+- `scripts/`: executable pipeline and maintenance entrypoints
+- `docs/`: operator-facing docs and artifact contract
+- `ops/`: scheduler and deployment assets
+- `reviews/`: human review workspace and active backlog
+- `archives/`: immutable run outputs
+
+Before modifying scripts, configs, docs, scheduler assets, or adding/removing files, read [engineering_harness.md](./docs/engineering_harness.md). Treat it as the mandatory placement and secrecy contract for this project. After changes, run `python3 scripts/check_project.py`. Use `python3 scripts/check_harness.py` and `python3 scripts/check_alignment.py` only when isolating a specific layer.
+
+Load these config files before implementing or revising the pipeline:
+- [journal_watchlist.yaml](./config/content/journal_watchlist.yaml) for the first-pass journal universe and source strategy.
+- [category_rules.yaml](./config/content/category_rules.yaml) for fixed categories, relevance filters, and output requirements.
+- [email_config.example.yaml](./config/integrations/email_config.example.yaml) for SMTP config shape.
+- [translation_config.example.yaml](./config/integrations/translation_config.example.yaml) for HTTP-based translation providers such as Google-, Bing-, or Youdao-compatible gateways.
+- [llm_review_config.example.yaml](./config/integrations/llm_review_config.example.yaml) for running LLM relevance review outside Codex through an HTTP or command adapter.
+- [production.local.yaml](./config/runtime/production.local.yaml) for environment file, work/archive/review paths, provider defaults, and sidecar settings.
 
 For isolated local development, create and use a skill-local virtual environment:
 
@@ -56,9 +70,11 @@ python3 scripts/run_production_digest.py
 
 `run_production_digest.py` is the canonical production entrypoint. It loads `./.env.local`, uses the local email/style/translation configs, applies the scheduled digest window, and keeps manual runs aligned with scheduled runs.
 
-The production entrypoint also archives the daily digest outputs. After each successful run it stores `digest.html`, `digest.csv`, `digest.xlsx`, `review_queue.csv`, `daily_review.csv`, and `daily_review.xlsx` in a date-stamped folder, syncs the editable review workspace at `reviews/daily-reviews/YYYY-MM-DD/`, updates the active review backlog at `reviews/backlog/review_backlog.xlsx`, and deletes archived folders older than 30 days. For human review, treat `review_backlog.xlsx` as the canonical editable file; `review_backlog.csv` and `review_backlog.html` are derived views, not the source of truth.
+Treat any web-app sync as an optional sidecar, not part of the producer critical path. The default production run should complete the digest, local exports, email, archive, review workspace sync, and backlog refresh even when the web importer is absent or unhealthy. Only enable web sync explicitly when the separate web deployment and its Python environment are known-good.
 
-For the optimizer layer, do not use a standalone Python maintainer that rewrites rules on its own. Use Codex to read the producer artifacts, validate `run_metadata.json`, inspect `rule_feedback_report.md`, `classification_suggestions.json`, `glossary_candidates.yaml`, `review_queue.csv`, and the active review backlog `reviews/backlog/review_backlog.xlsx` plus `reviews/backlog/review_backlog_state.json`, then update `references/category_rules.yaml` and `references/bio_translation_glossary.yaml` conservatively with a human-readable change summary.
+The production entrypoint also archives the daily digest outputs. After each successful run it stores `digest.html`, `digest.csv`, `digest.xlsx`, `review_queue.csv`, `daily_review.csv`, and `daily_review.xlsx` in a date-stamped folder, syncs the editable review workspace at `reviews/daily-reviews/YYYY-MM-DD/`, updates the active review backlog at `reviews/backlog/review_backlog.xlsx`, and deletes archived folders older than 30 days. If `send_email` fails after the exports are already generated, still archive the run artifacts and review surfaces so the failed run remains debuggable and can be replayed manually. For human review, treat `review_backlog.xlsx` as the canonical editable file; `review_backlog.csv` and `review_backlog.html` are derived views, not the source of truth.
+
+For the optimizer layer, do not use a standalone Python maintainer that rewrites rules on its own. Use Codex to read the producer artifacts, validate `run_metadata.json`, inspect `rule_feedback_report.md`, `classification_suggestions.json`, `glossary_candidates.yaml`, `review_queue.csv`, and the active review backlog `reviews/backlog/review_backlog.xlsx` plus `reviews/backlog/review_backlog_state.json`, then update `config/content/category_rules.yaml` and `config/content/bio_translation_glossary.yaml` conservatively with a human-readable change summary.
 
 Use this sequence:
 1. Run `python3 scripts/refresh_review_backlog.py` so the active backlog reflects any late human edits in `reviews/daily-reviews/YYYY-MM-DD/`. This refresh prefers `daily_review.xlsx` over `daily_review.csv`, and it must preserve any editable values already present in `reviews/backlog/review_backlog.xlsx`.
@@ -78,7 +94,7 @@ Follow this order unless the user explicitly requests a different design.
 
 ### 1. Build or update the source registry
 
-Use `references/journal_watchlist.yaml` as the single source of truth for:
+Use `config/content/journal_watchlist.yaml` as the single source of truth for:
 - journals to monitor
 - whether each source is enabled
 - source family and retrieval strategy
@@ -143,7 +159,7 @@ Use keyword rules first, then use an LLM pass to resolve borderline cases.
 
 ### 5. Classify into fixed categories
 
-Assign each retained paper to exactly one fixed category from `references/category_rules.yaml`.
+Assign each retained paper to exactly one fixed category from `config/content/category_rules.yaml`.
 
 Prefer deterministic keyword or journal cues first. Use an LLM pass only to break ties or classify ambiguous items. If the paper still does not fit cleanly, assign `other`.
 
@@ -208,7 +224,7 @@ Render `interest_level` as stars in the email body and render `interest_tag` in 
 
 ### 8. Send by email
 
-Use SMTP with per-provider settings from `references/email_config.example.yaml`.
+Use SMTP with per-provider settings from `config/integrations/email_config.example.yaml`.
 
 Default delivery assumptions:
 - provider is QQ Mail or 163 Mail
@@ -269,9 +285,9 @@ For a production-style run with model review outside Codex, add:
 python3 scripts/run_digest.py \
   --work-dir /tmp/bio-digest-run \
   --review-provider http-json \
-  --review-config references/llm_review_config.example.yaml \
+  --review-config config/integrations/llm_review_config.example.yaml \
   --summary-provider http-json \
-  --summary-config references/translation_config.example.yaml
+  --summary-config config/integrations/translation_config.example.yaml
 ```
 
 For Google-first translation with Tencent fallback, use:
@@ -281,7 +297,7 @@ python3 scripts/run_digest.py \
   --work-dir /tmp/bio-digest-run \
   --review-provider placeholder \
   --summary-provider google-basic-v2 \
-  --summary-config references/translation_google_basic_v2.local.yaml
+  --summary-config config/integrations/translation_google_basic_v2.local.yaml
 ```
 
 Each successful run can also emit:
@@ -292,13 +308,13 @@ Each successful run can also emit:
 - `daily_review.csv`
 - `daily_review.xlsx`
 
-Use those artifacts to review and append new biology terms into `references/bio_translation_glossary.yaml` during daily Codex maintenance. If the user wants scheduled optimization, schedule Codex itself to:
+Use those artifacts to review and append new biology terms into `config/content/bio_translation_glossary.yaml` during daily Codex maintenance. If the user wants scheduled optimization, schedule Codex itself to:
 1. optimize rules, sources, and terminology from the latest successful run
 2. inspect whether `reviews/backlog/review_backlog.xlsx` contains newly reviewed rows after refresh
 3. if it changed, learn from `interest_level`, `interest_tag`, `review_final_decision`, `review_final_category`, and `reviewer_notes`
 4. update rule, classification, interest, and tag heuristics conservatively
 5. mark only the rows that were actually consumed into stable decisions; leave deferred rows in the backlog
-Use [terminology_sources.yaml](./references/terminology_sources.yaml) as the official-source shortlist when the user wants downloadable biology vocabularies or ontology resources.
+Use [terminology_sources.yaml](./config/content/terminology_sources.yaml) as the official-source shortlist when the user wants downloadable biology vocabularies or ontology resources.
 
 For a Codex-only review loop without external LLM services:
 

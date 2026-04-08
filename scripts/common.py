@@ -41,15 +41,7 @@ def load_yaml_file(path: str | Path) -> Any:
             "-ryaml",
             "-rjson",
             "-e",
-            (
-                "payload = YAML.safe_load("
-                "File.read(ARGV[0]), "
-                "permitted_classes: [], "
-                "permitted_symbols: [], "
-                "aliases: false"
-                "); "
-                "print JSON.dump(payload)"
-            ),
+            "print JSON.dump(YAML.load_file(ARGV[0]))",
             str(path_obj),
         ]
         completed = subprocess.run(

@@ -5,15 +5,16 @@ import unittest
 from pathlib import Path
 
 import yaml
+from scripts.project_layout import canonical_paths
 
 
 SKILL_DIR = Path(__file__).resolve().parents[1]
-REFERENCES_DIR = SKILL_DIR / "references"
+CANONICAL_PATHS = canonical_paths()
 
 
 class ConfigTest(unittest.TestCase):
     def test_watchlist_has_unique_ids_and_names(self) -> None:
-        data = yaml.safe_load((REFERENCES_DIR / "journal_watchlist.yaml").read_text(encoding="utf-8"))
+        data = yaml.safe_load(CANONICAL_PATHS["watchlist"].read_text(encoding="utf-8"))
         journals = data["journals"]
         ids = [journal["id"] for journal in journals]
         names = [journal["journal_name"] for journal in journals]
@@ -25,7 +26,7 @@ class ConfigTest(unittest.TestCase):
             self.assertIn("topic_bias", journal)
 
     def test_category_rules_have_other_fallback_and_required_columns(self) -> None:
-        data = yaml.safe_load((REFERENCES_DIR / "category_rules.yaml").read_text(encoding="utf-8"))
+        data = yaml.safe_load(CANONICAL_PATHS["rules"].read_text(encoding="utf-8"))
         categories = data["categories"]
         category_ids = [category["id"] for category in categories]
         self.assertIn("other", category_ids)

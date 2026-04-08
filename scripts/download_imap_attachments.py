@@ -116,13 +116,13 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Download matching attachments from an IMAP inbox.")
     parser.add_argument("--imap-host", default="imap.qq.com")
     parser.add_argument("--imap-port", type=int, default=993)
-    parser.add_argument("--username", default="", help="IMAP mailbox username, for example your_account@qq.com.")
+    parser.add_argument("--username", default=os.environ.get("IMAP_USERNAME", ""))
     parser.add_argument("--password-env", default="QQ_MAIL_APP_PASSWORD")
     parser.add_argument("--mailbox", default="INBOX")
-    parser.add_argument("--keyword", default="Bio Digest")
+    parser.add_argument("--keyword", default="plantCARE")
     parser.add_argument(
         "--output-dir",
-        default="tmp/imap_attachments",
+        default=str(Path.home() / "Downloads" / "imap_attachments"),
         help="Directory where attachments will be saved.",
     )
     parser.add_argument(
@@ -136,8 +136,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    if not args.username.strip():
-        raise SystemExit("--username is required")
+    if not args.username:
+        raise SystemExit("Pass --username or set IMAP_USERNAME in the environment.")
     password = os.environ.get(args.password_env)
     if not password:
         raise SystemExit(f"Missing required environment variable: {args.password_env}")

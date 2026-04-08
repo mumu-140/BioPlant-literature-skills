@@ -123,9 +123,13 @@ relevance_filter:
     - genotype-by-environment interaction
     - genotype x environment interaction
     - genomic selection
+    - genomic prediction
     - pangenome reference
+    - telomere-to-telomere
     - structural variant
     - structural variants
+    - transposable element
+    - transposable elements
     - rna modification
     - rna modifications
     - organoid
@@ -179,6 +183,10 @@ relevance_filter:
     - bioregionalisation
     - global change drivers
     - ecological research
+    - human-wildlife conflict
+    - lunar lunacy
+    - poison frogs changing colors
+    - foreigners in ants
 
   editorial_reject_title_prefixes:
     - "Briefing chat:"
@@ -239,6 +247,7 @@ categories:
       - multi-omics
       - pangenome graph
       - pangenome reference
+      - telomere-to-telomere
       - structural variant
       - structural variants
       - contig scaffolding
@@ -251,6 +260,8 @@ categories:
       - mutations
       - mutation
       - line-1
+      - transposable element
+      - transposable elements
       - insertion
       - transposon
       - enhancer
@@ -288,6 +299,7 @@ categories:
       - domestication
       - crop engineering
       - genomic selection
+      - genomic prediction
       - genotype-by-environment interaction
       - genotype x environment interaction
 

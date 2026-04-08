@@ -1,31 +1,31 @@
 smtp_profiles:
-  qq_mail:
+  primary_smtp:
     enabled: false
-    smtp_host: smtp.qq.com
+    smtp_host: smtp.example.com
     smtp_port: 465
     security: ssl
-    username: your_account@qq.com
-    password_env: QQ_MAIL_APP_PASSWORD
-    from_email: your_account@qq.com
+    username: your_account@example.com
+    password_env: SMTP_APP_PASSWORD
+    from_email: your_account@example.com
     from_name: Bio Literature Digest
     to_emails:
       - recipient@example.com
     notes:
       - Use an SMTP authorization code or app password, not the login password.
 
-  netease_163:
+  backup_smtp:
     enabled: false
-    smtp_host: smtp.163.com
+    smtp_host: smtp-backup.example.com
     smtp_port: 465
     security: ssl
-    username: your_account@163.com
-    password_env: NETEASE_163_APP_PASSWORD
-    from_email: your_account@163.com
+    username: your_backup_account@example.com
+    password_env: SMTP_BACKUP_APP_PASSWORD
+    from_email: your_backup_account@example.com
     from_name: Bio Literature Digest
     to_emails:
       - recipient@example.com
     notes:
-      - Use SMTP service credentials enabled in mailbox settings.
+      - Optional backup SMTP profile.
 
 delivery_defaults:
   timezone: Asia/Shanghai

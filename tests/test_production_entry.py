@@ -3,22 +3,31 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
-from scripts.run_production_digest import SKILL_DIR, archive_outputs, build_command
+from scripts.project_layout import canonical_paths
+from scripts import run_production_digest
+from scripts.run_production_digest import SKILL_DIR, archive_outputs, build_command, should_archive_failed_run
+
+
+FIXTURE_PATH = Path(__file__).resolve().parent / "fixtures" / "sample_raw.jsonl"
+CANONICAL_PATHS = canonical_paths()
 
 
 class ProductionEntryTest(unittest.TestCase):
     def test_build_command_uses_local_configs_and_schedule_defaults(self) -> None:
         args = argparse.Namespace(
             work_dir="/tmp/prod-run",
-            email_config=str(SKILL_DIR / "references" / "email_config.local.yaml"),
-            smtp_profile="qq_mail",
-            style_config=str(SKILL_DIR / "references" / "email_style.local.yaml"),
+            email_config=str(CANONICAL_PATHS["email_config_local"]),
+            smtp_profile="primary_smtp",
+            style_config=str(CANONICAL_PATHS["email_style_local"]),
             summary_provider=None,
             summary_config=None,
             review_provider="placeholder",
@@ -41,7 +50,7 @@ class ProductionEntryTest(unittest.TestCase):
         command = build_command(args)
 
         self.assertIn("--email-config", command)
-        self.assertIn(str((SKILL_DIR / "references" / "email_config.local.yaml").resolve()), command)
+        self.assertIn(str(CANONICAL_PATHS["email_config_local"].resolve()), command)
         self.assertIn("--allow-review-pending", command)
         self.assertIn("--summary-provider", command)
         self.assertIn("google-basic-v2", command)
@@ -51,11 +60,11 @@ class ProductionEntryTest(unittest.TestCase):
     def test_build_command_uses_lookback_hours_only_in_lookback_mode(self) -> None:
         args = argparse.Namespace(
             work_dir="/tmp/prod-run",
-            email_config=str(SKILL_DIR / "references" / "email_config.local.yaml"),
-            smtp_profile="qq_mail",
-            style_config=str(SKILL_DIR / "references" / "email_style.local.yaml"),
+            email_config=str(CANONICAL_PATHS["email_config_local"]),
+            smtp_profile="primary_smtp",
+            style_config=str(CANONICAL_PATHS["email_style_local"]),
             summary_provider="tencent-tmt",
-            summary_config=str(SKILL_DIR / "references" / "translation_tencent_tmt.local.yaml"),
+            summary_config=str(CANONICAL_PATHS["translation_tencent_local"]),
             review_provider="placeholder",
             window_mode="lookback",
             lookback_hours=48,
@@ -83,9 +92,9 @@ class ProductionEntryTest(unittest.TestCase):
     def test_build_command_passes_explicit_window_through(self) -> None:
         args = argparse.Namespace(
             work_dir="/tmp/prod-run",
-            email_config=str(SKILL_DIR / "references" / "email_config.local.yaml"),
-            smtp_profile="qq_mail",
-            style_config=str(SKILL_DIR / "references" / "email_style.local.yaml"),
+            email_config=str(CANONICAL_PATHS["email_config_local"]),
+            smtp_profile="primary_smtp",
+            style_config=str(CANONICAL_PATHS["email_style_local"]),
             summary_provider="placeholder",
             summary_config=None,
             review_provider="placeholder",
@@ -169,6 +178,145 @@ class ProductionEntryTest(unittest.TestCase):
             self.assertTrue((backlog_dir / "review_backlog_state.json").exists())
             self.assertFalse((archive_dir / old_date).exists())
             self.assertTrue((archive_dir / keep_date).exists())
+
+    def test_should_archive_failed_run_only_for_send_email_failures_with_outputs(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="bio-failed-archive-") as tmpdir:
+            work_dir = Path(tmpdir)
+            metadata = {
+                "status": "failed",
+                "failed_step": "send_email",
+            }
+            (work_dir / "run_metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+            for filename in [
+                "digest.html",
+                "digest.csv",
+                "digest.xlsx",
+                "daily_review.xlsx",
+            ]:
+                (work_dir / filename).write_text("ok", encoding="utf-8")
+
+            self.assertTrue(should_archive_failed_run(work_dir))
+
+            metadata["failed_step"] = "translate_and_summarize"
+            (work_dir / "run_metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+            self.assertFalse(should_archive_failed_run(work_dir))
+
+    def test_main_archives_outputs_after_send_email_failure(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="bio-prod-main-") as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            work_dir = tmpdir_path / "work"
+            archive_dir = tmpdir_path / "archive"
+            review_workspace_dir = tmpdir_path / "reviews"
+            backlog_dir = tmpdir_path / "backlog"
+            env_file = tmpdir_path / ".env.local"
+            env_file.write_text("", encoding="utf-8")
+            work_dir.mkdir()
+            metadata = {
+                "status": "failed",
+                "failed_step": "send_email",
+                "window": {
+                    "start_utc": "2026-04-06T16:00:00Z",
+                    "end_utc": "2026-04-08T00:00:00Z",
+                },
+            }
+            (work_dir / "run_metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+            (work_dir / "digest.html").write_text("digest", encoding="utf-8")
+            (work_dir / "digest.csv").write_text("title_en\npaper\n", encoding="utf-8")
+            (work_dir / "digest.xlsx").write_text("xlsx", encoding="utf-8")
+            (work_dir / "review_queue.html").write_text("queue", encoding="utf-8")
+            (work_dir / "review_queue.csv").write_text("title_en\n", encoding="utf-8")
+            (work_dir / "review_queue.xlsx").write_text("xlsx", encoding="utf-8")
+            (work_dir / "daily_review.html").write_text("daily", encoding="utf-8")
+            (work_dir / "daily_review.csv").write_text("title_en,doi,article_url,journal\npaper,10.1/test,https://example.com,J\n", encoding="utf-8")
+            (work_dir / "daily_review.xlsx").write_text("xlsx", encoding="utf-8")
+
+            argv = [
+                "run_production_digest.py",
+                "--env-file",
+                str(env_file),
+                "--work-dir",
+                str(work_dir),
+                "--archive-dir",
+                str(archive_dir),
+                "--review-workspace-dir",
+                str(review_workspace_dir),
+                "--backlog-dir",
+                str(backlog_dir),
+                "--window-start",
+                "2026-04-06T16:00:00Z",
+                "--window-end",
+                "2026-04-08T00:00:00Z",
+                "--skip-email",
+            ]
+
+            with patch.object(sys, "argv", argv):
+                with patch.object(run_production_digest, "load_env_file") as load_env_mock:
+                    with patch.object(run_production_digest, "build_command", return_value=["python3", "fake"]):
+                        with patch.object(
+                            run_production_digest.subprocess,
+                            "run",
+                            return_value=subprocess.CompletedProcess(["python3", "fake"], 1),
+                        ):
+                            exit_code = run_production_digest.main()
+
+            self.assertEqual(exit_code, 1)
+            load_env_mock.assert_called_once()
+            archived_dir = archive_dir / "2026-04-08"
+            self.assertTrue((archived_dir / "run_metadata.json").exists())
+            self.assertTrue((archived_dir / "digest.csv").exists())
+            self.assertTrue((review_workspace_dir / "2026-04-08" / "review_manifest.json").exists())
+
+    def test_run_production_digest_smoke_succeeds_without_web_project(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="bio-prod-smoke-") as tmpdir:
+            root = Path(tmpdir)
+            work_dir = root / "work"
+            archive_dir = root / "archive"
+            review_workspace_dir = root / "reviews"
+            backlog_dir = root / "backlog"
+            env_file = root / ".env.local"
+            env_file.write_text("", encoding="utf-8")
+
+            command = [
+                sys.executable,
+                str(SKILL_DIR / "scripts" / "run_production_digest.py"),
+                "--env-file",
+                str(env_file),
+                "--work-dir",
+                str(work_dir),
+                "--archive-dir",
+                str(archive_dir),
+                "--review-workspace-dir",
+                str(review_workspace_dir),
+                "--backlog-dir",
+                str(backlog_dir),
+                "--input-file",
+                str(FIXTURE_PATH),
+                "--skip-email",
+                "--summary-provider",
+                "placeholder",
+                "--review-provider",
+                "placeholder",
+                "--window-start",
+                "2026-03-13T00:00:00Z",
+                "--window-end",
+                "2026-03-15T00:00:00Z",
+                "--web-project-root",
+                str(root / "missing-web-project"),
+            ]
+
+            completed = subprocess.run(command, check=True, cwd=SKILL_DIR, capture_output=True, text=True)
+
+            self.assertIn("[production] running stable digest entrypoint", completed.stdout)
+            archived_dir = archive_dir / "2026-03-15"
+            self.assertTrue((archived_dir / "run_metadata.json").exists())
+            self.assertTrue((archived_dir / "digest.csv").exists())
+            self.assertTrue((review_workspace_dir / "2026-03-15" / "review_manifest.json").exists())
+            self.assertTrue((backlog_dir / "review_backlog.xlsx").exists())
+            metadata = json.loads((archived_dir / "run_metadata.json").read_text(encoding="utf-8"))
+            self.assertEqual(metadata["status"], "success")
+            self.assertEqual(metadata["email_status"], "skipped")
+            self.assertEqual(metadata["window"]["start_utc"], "2026-03-13T00:00:00Z")
+            self.assertEqual(metadata["window"]["end_utc"], "2026-03-15T00:00:00Z")
 
 
 if __name__ == "__main__":
