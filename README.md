@@ -57,19 +57,19 @@ AI 安装不替代本机配置。即使由 AI 代你执行，真实运行时仍�
 ### 配置放在哪里
 
 - `config/content/`
-  项目共享规则。期刊源、分类规则、术语表、术语来源。
+  项目共享规则。**期刊源**、分类规则、术语表、术语来源。
 - `config/runtime/production.example.yaml`
   公开 runtime baseline。给出默认目录结构和字段形状。
 - `config/integrations/*.example.yaml`
-  邮件、样式、翻译、外部 review 配置模板。
+  **邮件**、样式、**翻译**、外部 review 配置模板。
 - `config/env.local.example`
   公开 env 模板，只保留变量名和中文说明。
 - `local/.env.local`
-  本机密钥，只放真实 secret。
+  **本机密钥，只放真实 secret**。
 - `local/runtime/production.yaml`
-  本机 runtime override，控制本机路径、时区、SMTP profile、sidecar、数据库等。
+  **本机 runtime override，控制本机路径、时区、SMTP profile、sidecar、数据库**等。
 - `local/integrations/*.yaml`
-  本机真实集成配置，比如邮件、用户、翻译、样式。
+  **本机真实集成配置，比如邮件、用户、翻译、样式**。
 - `var/`
   运行产物。不要手工把真实配置塞到这里。
 
