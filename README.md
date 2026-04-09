@@ -6,7 +6,7 @@
    抓取、过滤、分类、翻译、导出、发邮件、归档
 2. Review + Codex optimizer
    人工在 backlog 审核，Codex 读取 backlog 做保守规则优化
-3. web sidecar
+3. [web sidecar](https://github.com/mumu-140/bio-literature-digest-web/blob/main/)
    独立项目，可选接入，不应阻塞 Producer 主链
 
 ## 目录
