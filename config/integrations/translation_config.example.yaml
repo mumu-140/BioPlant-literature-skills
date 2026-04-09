@@ -1,3 +1,6 @@
+# 公开示例：适用于任意返回 JSON 的翻译服务。
+# 复制到 `local/integrations/translation_config.yaml` 后，替换为你的真实服务地址和协议。
+
 provider: http-json
 
 defaults:
@@ -31,7 +34,7 @@ summary:
   fallback_without_abstract: "未抓取到可用摘要，建议后续人工补充中文总结。"
 
 notes:
-  - Fill this file with the free translation service you actually want to use.
-  - Google, Bing, Youdao, or self-hosted translation gateways can all be adapted if they return JSON.
-  - Keep secrets or API keys in environment variables when required by the chosen service.
-  - For Tencent Cloud TMT, use `translation_tencent_tmt.example.yaml` instead of this generic HTTP JSON template.
+  - 这是通用 HTTP JSON 模板，适合自建翻译网关或第三方 JSON 接口。
+  - Google、Bing、有道或自建翻译服务都可以按这个结构适配。
+  - 如果服务需要密钥，请把真实值放进环境变量，不要写死在 YAML。
+  - 如果你用腾讯云 TMT，优先使用 `translation_tencent_tmt.example.yaml`。

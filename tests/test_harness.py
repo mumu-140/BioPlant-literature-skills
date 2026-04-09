@@ -16,12 +16,15 @@ class HarnessTest(unittest.TestCase):
                 root / "config" / "content",
                 root / "config" / "integrations",
                 root / "config" / "runtime",
+                root / "local",
+                root / "var",
                 root / "docs",
                 root / "ops" / "launchd",
                 root / "scripts",
             ]:
                 path.mkdir(parents=True, exist_ok=True)
 
+            (root / "config" / "env.local.example").write_text("SMTP_APP_PASSWORD=\n", encoding="utf-8")
             (root / "docs" / "engineering_harness.md").write_text("# harness\n", encoding="utf-8")
             (root / "ops" / "launchd" / "bio-digest-daily.plist.template").write_text("template\n", encoding="utf-8")
             (root / "ops" / "launchd" / "bio-digest-daily.plist").write_text("generated\n", encoding="utf-8")

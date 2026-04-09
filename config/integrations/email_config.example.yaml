@@ -1,5 +1,9 @@
+# 公开示例：复制到 `local/integrations/email_config.yaml` 后再填写本机 SMTP 参数。
+# 这里不应出现真实邮箱、授权码或真实收件人名单。
+
 smtp_profiles:
   primary_smtp:
+    # 是否启用该 profile；首次部署建议只启用一个。
     enabled: false
     smtp_host: smtp.example.com
     smtp_port: 465
@@ -8,10 +12,11 @@ smtp_profiles:
     password_env: SMTP_APP_PASSWORD
     from_email: your_account@example.com
     from_name: Bio Literature Digest
-    # Legacy fallback only. Prefer config/integrations/users.local.yaml as recipient source.
+    # 仅兜底使用。正常收件人应维护在 `local/integrations/users.yaml`。
     to_emails: []
     notes:
-      - Use an SMTP authorization code or app password, not the login password.
+      - 使用邮箱授权码或 App Password，不要使用登录密码。
+      - `password_env` 对应的真实值应只放在 `local/.env.local`。
 
   backup_smtp:
     enabled: false
@@ -22,10 +27,10 @@ smtp_profiles:
     password_env: SMTP_BACKUP_APP_PASSWORD
     from_email: your_backup_account@example.com
     from_name: Bio Literature Digest
-    # Legacy fallback only. Prefer config/integrations/users.local.yaml as recipient source.
+    # 仅兜底使用。正常收件人应维护在 `local/integrations/users.yaml`。
     to_emails: []
     notes:
-      - Optional backup SMTP profile.
+      - 可选备用发件通道；不用时保持 `enabled: false`。
 
 delivery_defaults:
   timezone: Asia/Shanghai
@@ -36,6 +41,6 @@ delivery_defaults:
   attach_html_copy: false
 
 notes:
-  - Enable only one SMTP profile for the initial deployment.
-  - Keep real secrets out of the repository and load them from environment variables.
-  - Recipients should be managed in config/integrations/users.local.yaml.
+  - 首次上线建议只启用一个 SMTP profile，避免误发。
+  - 真实密钥不要写进 YAML，应通过环境变量注入。
+  - 收件人名单以 `local/integrations/users.yaml` 为主，`to_emails` 只是兜底。

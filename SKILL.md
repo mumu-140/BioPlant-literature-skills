@@ -19,13 +19,14 @@ Default operating assumptions for this skill:
 Project layout is intentionally split by information type:
 - `config/content/`: watchlist, rules, glossary, terminology sources
 - `config/integrations/`: email, style, translation, external review providers
-- `config/runtime/`: machine-local runtime paths and delivery defaults
+- `config/runtime/`: portable runtime baseline
 - `assets/`: presentation templates
-- `scripts/`: executable pipeline and maintenance entrypoints
+- `scripts/`: executable pipeline entrypoints
+- `src/bio_literature_digest/`: reusable implementation modules
 - `docs/`: operator-facing docs and artifact contract
 - `ops/`: scheduler and deployment assets
-- `reviews/`: human review workspace and active backlog
-- `archives/`: immutable run outputs
+- `local/`: machine-local config overrides and env files
+- `var/`: work directories, archives, reviews, logs, and SQLite runtime state
 
 Before modifying scripts, configs, docs, scheduler assets, or adding/removing files, read [engineering_harness.md](./docs/engineering_harness.md). Treat it as the mandatory placement and secrecy contract for this project. After changes, run `python3 scripts/check_project.py`. Use `python3 scripts/check_harness.py` and `python3 scripts/check_alignment.py` only when isolating a specific layer.
 
@@ -37,7 +38,7 @@ Load these config files before implementing or revising the pipeline:
 - [llm_review_config.example.yaml](./config/integrations/llm_review_config.example.yaml) for running LLM relevance review outside Codex through an HTTP or command adapter.
 - [production.example.yaml](./config/runtime/production.example.yaml) for the portable runtime baseline (paths, timezone, delivery defaults, and sidecar shape).
 
-If `./config/runtime/production.local.yaml` exists, treat it as the machine-local override of `production.example.yaml` and do not commit it.
+Use `./local/runtime/production.yaml` as the machine-local override of `production.example.yaml`.
 
 For isolated local development, create and use a skill-local virtual environment:
 
@@ -54,9 +55,9 @@ For cross-platform local execution, prefer the built-in wrapper:
 python3 scripts/with_env.py -- python3 scripts/run_digest.py ...
 ```
 
-`with_env.py` auto-detects the OS, loads `./.env.local`, and then runs the requested command in that environment. Use it instead of remembering separate `source` commands for macOS, Linux, or Windows.
+`with_env.py` auto-detects the OS, loads `./local/.env.local`, and then runs the requested command in that environment. Use it instead of remembering separate `source` commands for macOS, Linux, or Windows.
 
-All live secrets must exist only in `./.env.local`. Do not hardcode API keys, SMTP authorization codes, or other secret values in Python scripts, YAML config files, automation files, or test fixtures.
+All live secrets must exist only in `./local/.env.local`. Do not hardcode API keys, SMTP authorization codes, or other secret values in Python scripts, YAML config files, automation files, or test fixtures.
 
 Run this audit before shipping or migrating the skill:
 
@@ -70,26 +71,26 @@ For scheduled or production delivery, do not call `run_digest.py` directly from 
 python3 scripts/run_production_digest.py
 ```
 
-`run_production_digest.py` is the canonical production entrypoint. It loads `./.env.local`, uses the local email/style/translation configs, applies the scheduled digest window, and keeps manual runs aligned with scheduled runs.
+`run_production_digest.py` is the canonical production entrypoint. It loads `./local/.env.local`, uses the runtime-configured local email/style/translation configs, applies the scheduled digest window, and keeps manual runs aligned with scheduled runs.
 
 Treat any web-app sync as an optional sidecar, not part of the producer critical path. The default production run should complete the digest, local exports, email, archive, review workspace sync, and backlog refresh even when the web importer is absent or unhealthy. Only enable web sync explicitly when the separate web deployment and its Python environment are known-good.
 
-Optional database sync is configured only in `config/runtime/production.local.yaml` under `database.enabled` and `database.sqlite_path`. When enabled, `run_production_digest.py` will sync `digest.csv`, `review_queue.csv`, and `daily_review.csv` to SQLite via `scripts/sync_digest_db.py` after archive output is written.
+Optional database sync is configured in runtime YAML under `database.enabled` and `database.sqlite_path`. When enabled, `run_production_digest.py` will sync `digest.csv`, `review_queue.csv`, and `daily_review.csv` to SQLite via `scripts/sync_digest_db.py` after archive output is written.
 
-The production entrypoint also archives the daily digest outputs. After each successful run it stores `digest.html`, `digest.csv`, `digest.xlsx`, `review_queue.csv`, `daily_review.csv`, and `daily_review.xlsx` in a date-stamped folder, syncs the editable review workspace at `reviews/daily-reviews/YYYY-MM-DD/`, updates the active review backlog at `reviews/backlog/review_backlog.xlsx`, and deletes archived folders older than 30 days. If `send_email` fails after the exports are already generated, still archive the run artifacts and review surfaces so the failed run remains debuggable and can be replayed manually. For human review, treat `review_backlog.xlsx` as the canonical editable file; `review_backlog.csv` and `review_backlog.html` are derived views, not the source of truth.
+The production entrypoint also archives the daily digest outputs. After each successful run it stores `digest.html`, `digest.csv`, `digest.xlsx`, `review_queue.csv`, `daily_review.csv`, and `daily_review.xlsx` in a date-stamped folder under `var/archives/daily-digests/`, syncs the editable review workspace at `var/reviews/daily-reviews/YYYY-MM-DD/`, updates the active review backlog at `var/reviews/backlog/review_backlog.xlsx`, and deletes archived folders older than 30 days. If `send_email` fails after the exports are already generated, still archive the run artifacts and review surfaces so the failed run remains debuggable and can be replayed manually. For human review, treat `review_backlog.xlsx` as the canonical editable file; `review_backlog.csv` and `review_backlog.html` are derived views, not the source of truth.
 
-For the optimizer layer, do not use a standalone Python maintainer that rewrites rules on its own. Use Codex to read the producer artifacts, validate `run_metadata.json`, inspect `rule_feedback_report.md`, `classification_suggestions.json`, `glossary_candidates.yaml`, `review_queue.csv`, and the active review backlog `reviews/backlog/review_backlog.xlsx` plus `reviews/backlog/review_backlog_state.json`, then update `config/content/category_rules.yaml` and `config/content/bio_translation_glossary.yaml` conservatively with a human-readable change summary.
+For the optimizer layer, do not use a standalone Python maintainer that rewrites rules on its own. Use Codex to read the producer artifacts, validate `run_metadata.json`, inspect `rule_feedback_report.md`, `classification_suggestions.json`, `glossary_candidates.yaml`, `review_queue.csv`, and the active review backlog `var/reviews/backlog/review_backlog.xlsx` plus `var/reviews/backlog/review_backlog_state.json`, then update `config/content/category_rules.yaml` and `config/content/bio_translation_glossary.yaml` conservatively with a human-readable change summary.
 
 Use this sequence:
-1. Run `python3 scripts/refresh_review_backlog.py` so the active backlog reflects any late human edits in `reviews/daily-reviews/YYYY-MM-DD/`. This refresh prefers `daily_review.xlsx` over `daily_review.csv`, and it must preserve any editable values already present in `reviews/backlog/review_backlog.xlsx`.
+1. Run `python3 scripts/refresh_review_backlog.py` so the active backlog reflects any late human edits in `var/reviews/daily-reviews/YYYY-MM-DD/`. This refresh prefers `daily_review.xlsx` over `daily_review.csv`, and it must preserve any editable values already present in `var/reviews/backlog/review_backlog.xlsx`.
 2. Read only backlog rows whose `review_status` is `reviewed_pending_optimization`.
 3. Use the built-in admission tiers:
    - `apply`: low-risk human feedback that aligns with the current decision/category; Codex may use it directly for conservative rule or glossary updates.
    - `suggest`: human feedback that changes a decision or category; Codex must validate it against the paper content, existing rules, and other recent examples before updating rules.
    - `observe`: weak or interest-only feedback; do not update hard rules from it, but it may inform ranking or future pattern observation.
 4. Update the rules/glossary conservatively.
-5. Write a selective batch file such as `reviews/backlog/optimization_selection.json` that lists only the backlog rows Codex actually consumed into stable updates. Do not bulk-consume all reviewed rows, because deferred or ambiguous cases should remain in the backlog and continue accumulating evidence.
-6. Run `python3 scripts/mark_review_backlog_optimized.py --selection-json reviews/backlog/optimization_selection.json` after the Codex optimization succeeds.
+5. Write a selective batch file such as `var/reviews/backlog/optimization_selection.json` that lists only the backlog rows Codex actually consumed into stable updates. Do not bulk-consume all reviewed rows, because deferred or ambiguous cases should remain in the backlog and continue accumulating evidence.
+6. Run `python3 scripts/mark_review_backlog_optimized.py --selection-json var/reviews/backlog/optimization_selection.json` after the Codex optimization succeeds.
 7. Run `python3 scripts/finalize_review_backlog.py` to archive only those consumed rows out of the active backlog, archive the consumed `optimization_selection.json`, clear it from the active backlog root, and rebuild the backlog views.
 
 ## Workflow
@@ -247,13 +248,15 @@ Keep the pipeline modular. A typical script split is:
 - `llm_review.py`
 - `translate_and_summarize.py`
 - `export_digest.py`
-- `rule_feedback_report.py`
+- `optimization_reports.py` (`rule-feedback`, `classification-suggestions`, `glossary-candidates`)
 - `send_email.py`
 - `run_digest.py`
 
+Compatibility wrappers (`rule_feedback_report.py`, `classification_suggestions.py`, `build_glossary_candidates.py`) are intentionally kept for external callers and gradual migration.
+
 Use configuration files for journal scope, filtering, and SMTP settings. Avoid encoding editorial logic directly in the mailer or fetch scripts.
 
-The current script bundle is designed to run with Python standard library only. `translate_and_summarize.py` ships with:
+The current script bundle requires Python + `PyYAML`. `translate_and_summarize.py` ships with:
 - `placeholder` mode for offline validation
 - `command` mode for plugging in an external LLM or translation command without changing the rest of the pipeline
 - `http-json` mode for plugging in a JSON-speaking translation service through configuration
@@ -268,7 +271,7 @@ The current script bundle is designed to run with Python standard library only. 
 
 If the user wants to stay entirely inside the Codex environment and not configure any external model service, use:
 - `--review-provider placeholder` to create a conservative `review_queue.csv`
-- let Codex or the user edit `reviews/backlog/review_backlog.xlsx` by filling `interest_level`, `interest_tag`, `review_final_decision`, `review_final_category`, and `reviewer_notes`
+- let Codex or the user edit `var/reviews/backlog/review_backlog.xlsx` by filling `interest_level`, `interest_tag`, `review_final_decision`, `review_final_category`, and `reviewer_notes`
 - if a one-off replay is needed, export the reviewed rows to CSV and rerun with `--manual-review-csv /path/to/manual_review.csv`
 
 Do not send email automatically while `review_queue` is non-empty unless the user explicitly opts in.
@@ -277,7 +280,7 @@ For a full dry run with pre-fetched JSONL input, use:
 
 ```bash
 python3 scripts/run_digest.py \
-  --work-dir /tmp/bio-digest-run \
+  --work-dir /path/to/bio-digest-run \
   --input-file /path/to/raw_records.jsonl \
   --skip-email \
   --summary-provider placeholder
@@ -287,7 +290,7 @@ For a production-style run with model review outside Codex, add:
 
 ```bash
 python3 scripts/run_digest.py \
-  --work-dir /tmp/bio-digest-run \
+  --work-dir /path/to/bio-digest-run \
   --review-provider http-json \
   --review-config config/integrations/llm_review_config.example.yaml \
   --summary-provider http-json \
@@ -298,10 +301,10 @@ For Google-first translation with Tencent fallback, use:
 
 ```bash
 python3 scripts/run_digest.py \
-  --work-dir /tmp/bio-digest-run \
+  --work-dir /path/to/bio-digest-run \
   --review-provider placeholder \
   --summary-provider google-basic-v2 \
-  --summary-config config/integrations/translation_google_basic_v2.local.yaml
+  --summary-config local/integrations/translation_google_basic_v2.yaml
 ```
 
 Each successful run can also emit:
@@ -314,7 +317,7 @@ Each successful run can also emit:
 
 Use those artifacts to review and append new biology terms into `config/content/bio_translation_glossary.yaml` during daily Codex maintenance. If the user wants scheduled optimization, schedule Codex itself to:
 1. optimize rules, sources, and terminology from the latest successful run
-2. inspect whether `reviews/backlog/review_backlog.xlsx` contains newly reviewed rows after refresh
+2. inspect whether `var/reviews/backlog/review_backlog.xlsx` contains newly reviewed rows after refresh
 3. if it changed, learn from `interest_level`, `interest_tag`, `review_final_decision`, `review_final_category`, and `reviewer_notes`
 4. update rule, classification, interest, and tag heuristics conservatively
 5. mark only the rows that were actually consumed into stable decisions; leave deferred rows in the backlog
@@ -324,22 +327,22 @@ For a Codex-only review loop without external LLM services:
 
 ```bash
 python3 scripts/run_digest.py \
-  --work-dir /tmp/bio-digest-run \
+  --work-dir /path/to/bio-digest-run \
   --input-file /path/to/raw_records.jsonl \
   --skip-email \
   --review-provider placeholder \
   --summary-provider placeholder
 ```
 
-Then edit `/tmp/bio-digest-run/daily_review.xlsx` or merge your changes into `reviews/backlog/review_backlog.xlsx`, export a manual-review CSV if needed, and rerun:
+Then edit `/path/to/bio-digest-run/daily_review.xlsx` or merge your changes into `var/reviews/backlog/review_backlog.xlsx`, export a manual-review CSV if needed, and rerun:
 
 ```bash
 python3 scripts/run_digest.py \
-  --work-dir /tmp/bio-digest-run \
+  --work-dir /path/to/bio-digest-run \
   --input-file /path/to/raw_records.jsonl \
   --skip-email \
   --review-provider placeholder \
-  --manual-review-csv /tmp/bio-digest-run/manual_review.csv \
+  --manual-review-csv /path/to/bio-digest-run/manual_review.csv \
   --summary-provider placeholder
 ```
 

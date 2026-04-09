@@ -1,10 +1,10 @@
 param(
-    [string]$EnvFile = "$PSScriptRoot\..\.env.local"
+    [string]$EnvFile = "$PSScriptRoot\..\local\.env.local"
 )
 
 if (-not (Test-Path $EnvFile)) {
     Write-Error "Env file not found: $EnvFile"
-    Write-Host "Copy .env.local.example to .env.local and fill the values."
+    Write-Host "Copy config\env.local.example to local\.env.local and fill the values."
     exit 1
 }
 

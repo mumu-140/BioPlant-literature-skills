@@ -9,19 +9,20 @@ import sys
 from pathlib import Path
 
 try:
-    from run_production_digest import (
-        DEFAULT_BACKLOG_DIR,
-        export_backlog_views,
-        load_review_rows,
-        write_backlog_csv,
-    )
+    from project_layout import SKILL_DIR
 except ModuleNotFoundError:
-    from scripts.run_production_digest import (
-        DEFAULT_BACKLOG_DIR,
-        export_backlog_views,
-        load_review_rows,
-        write_backlog_csv,
-    )
+    from scripts.project_layout import SKILL_DIR
+
+SRC_DIR = SKILL_DIR / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from bio_literature_digest.review.backlog import (  # noqa: E402
+    DEFAULT_BACKLOG_DIR,
+    export_backlog_views,
+    load_review_rows,
+    write_backlog_csv,
+)
 
 try:
     from common import current_timestamp_utc

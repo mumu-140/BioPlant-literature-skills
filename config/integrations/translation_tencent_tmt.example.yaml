@@ -1,3 +1,6 @@
+# 公开示例：复制到 `local/integrations/translation_tencent_tmt.yaml` 后再填写真实凭证。
+# 这里保留的是腾讯云官方 API 字段形状，不包含真实账号信息。
+
 provider: tencent-tmt
 glossary_path: ${SKILL_DIR}/config/content/bio_translation_glossary.yaml
 
@@ -22,7 +25,7 @@ summary:
   fallback_without_abstract: "未抓取到可用摘要，建议后续人工补充中文总结。"
 
 notes:
-  - Tencent Cloud TextTranslate API uses SecretId + SecretKey; AppID is not required for this cloud API path.
-  - Set secrets only in environment variables, not in YAML.
-  - If you use temporary credentials, also set token_env.
-  - Add a biology glossary for post-processing to improve term consistency.
+  - 腾讯云 TextTranslate API 使用 SecretId + SecretKey；这条云 API 路径不需要 AppID。
+  - 真实密钥只放环境变量，不要写进 YAML。
+  - 如果使用临时凭证，请额外设置 `token_env` 对应的环境变量。
+  - 建议配合生物学术语表做后处理，减少术语漂移。

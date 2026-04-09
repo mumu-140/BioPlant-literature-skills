@@ -3,17 +3,24 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 try:
-    from run_production_digest import DEFAULT_ARCHIVE_DIR, DEFAULT_BACKLOG_DIR, DEFAULT_REVIEW_WORKSPACE_DIR, sync_review_backlog
+    from project_layout import SKILL_DIR
 except ModuleNotFoundError:
-    from scripts.run_production_digest import (
-        DEFAULT_ARCHIVE_DIR,
-        DEFAULT_BACKLOG_DIR,
-        DEFAULT_REVIEW_WORKSPACE_DIR,
-        sync_review_backlog,
-    )
+    from scripts.project_layout import SKILL_DIR
+
+SRC_DIR = SKILL_DIR / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from bio_literature_digest.review.backlog import (  # noqa: E402
+    DEFAULT_ARCHIVE_DIR,
+    DEFAULT_BACKLOG_DIR,
+    DEFAULT_REVIEW_WORKSPACE_DIR,
+    sync_review_backlog,
+)
 
 try:
     from common import current_timestamp_utc

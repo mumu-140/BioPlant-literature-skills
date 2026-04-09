@@ -6,8 +6,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILL_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-LOG_DIR="${SKILL_DIR}/logs/launchd"
-RUNTIME_CONFIG="${SKILL_DIR}/config/runtime/production.local.yaml"
+LOG_DIR="${SKILL_DIR}/var/logs/launchd"
+RUNTIME_CONFIG="${SKILL_DIR}/local/runtime/production.yaml"
 
 # launchd 在后台执行时环境变量非常少，这里显式设置基础 PATH 和编码环境。
 export PATH="/usr/bin:/bin:/usr/sbin:/sbin"
@@ -16,6 +16,10 @@ export LC_ALL="en_US.UTF-8"
 
 # 提前创建日志和归档目录，避免 launchd 因路径不存在而失败。
 mkdir -p "${LOG_DIR}"
+if [[ ! -f "${RUNTIME_CONFIG}" ]]; then
+  echo "Runtime config not found: ${RUNTIME_CONFIG}" >&2
+  exit 1
+fi
 
 cd "${SKILL_DIR}"
 

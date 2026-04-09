@@ -66,7 +66,9 @@ class ReviewBacklogTest(unittest.TestCase):
                         "digest_date": "2026-03-17",
                         "review_status": "optimized",
                         "optimized_at": "2026-03-17T08:30:00Z",
-                        "source_review_file": str(SKILL_DIR / "reviews" / "daily-reviews" / "2026-03-17" / "daily_review.xlsx"),
+                        "source_review_file": str(
+                            SKILL_DIR / "var" / "reviews" / "daily-reviews" / "2026-03-17" / "daily_review.xlsx"
+                        ),
                         "source_id": "nature",
                         "journal": "Nature",
                         "publication_stage": "journal",
@@ -80,7 +82,9 @@ class ReviewBacklogTest(unittest.TestCase):
                     {
                         "digest_date": "2026-03-17",
                         "review_status": "pending_review",
-                        "source_review_file": str(SKILL_DIR / "reviews" / "daily-reviews" / "2026-03-17" / "daily_review.xlsx"),
+                        "source_review_file": str(
+                            SKILL_DIR / "var" / "reviews" / "daily-reviews" / "2026-03-17" / "daily_review.xlsx"
+                        ),
                         "source_id": "science",
                         "journal": "Science",
                         "publication_stage": "journal",

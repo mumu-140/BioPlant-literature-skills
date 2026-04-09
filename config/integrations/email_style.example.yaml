@@ -1,4 +1,8 @@
+# 公开示例：复制到 `local/integrations/email_style.yaml` 后再按品牌风格调整。
+# 这里只包含模板末尾追加的 CSS，不包含任何账号或运行时敏感信息。
+
 base_css: |
+  /* 桌面端 / 平板端示例样式 */
   .hero h1 {
     font-size: 22px;
   }
@@ -18,6 +22,7 @@ base_css: |
   }
 
 mobile_css: |
+  /* 移动端示例样式（默认在 640px 以下生效） */
   .hero h1 {
     font-size: 19px;
   }
@@ -36,7 +41,7 @@ mobile_css: |
   }
 
 notes:
-  - Edit `base_css` to change desktop and tablet email style.
-  - Edit `mobile_css` to change the mobile layout under 640px width.
-  - The content is raw CSS injected at the end of the template, so later rules override earlier defaults.
-  - Common selectors: `.container`, `.hero`, `.group-summary`, `.card`, `.card-main`, `.card-title`, `.card-title-zh`, `.card-authors`, `.abstract-preview`, `.abstract-full`, `.card-footer`.
+  - "修改 `base_css` 可调整桌面端和平板端邮件样式。"
+  - "修改 `mobile_css` 可调整 640px 以下的移动端布局。"
+  - "这里的内容会以原始 CSS 形式注入模板末尾，因此后写规则会覆盖前面的默认样式。"
+  - "常用选择器包括：`.container`、`.hero`、`.group-summary`、`.card`、`.card-main`、`.card-title`、`.card-title-zh`、`.card-authors`、`.abstract-preview`、`.abstract-full`、`.card-footer`。"

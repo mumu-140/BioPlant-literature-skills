@@ -1,3 +1,6 @@
+# 公开示例：复制到 `local/integrations/llm_review_config.yaml` 后再对接真实网关。
+# 本文件只描述请求/响应协议，不应出现真实令牌或真实内网地址。
+
 provider: http-json
 
 defaults:
@@ -12,7 +15,7 @@ request:
     Content-Type: application/json
     Authorization: "Bearer {api_key}"
   json_body:
-    model: bio-reviewer
+    model: example-bio-reviewer
     input:
       title: "{title_en}"
       abstract: "{abstract}"
@@ -20,7 +23,7 @@ request:
       publication_stage: "{publication_stage}"
       category: "{category}"
       tags: "{tags_csv}"
-      instructions: "Return JSON with decision, confidence, reason, and optional category_override."
+      instructions: "返回 JSON，至少包含 decision、confidence、reason，可选 category_override。"
   response_json_path: output
 
 response_fields:
@@ -33,6 +36,6 @@ secrets:
   api_key_env: LLM_REVIEW_API_KEY
 
 notes:
-  - The service should return one JSON object with fields `decision`, `confidence`, and `reason`.
-  - Allowed decisions are `keep`, `review`, or `reject`.
-  - `category_override` is optional and may be omitted when the original rule-based category is acceptable.
+  - 服务应返回一个 JSON 对象，至少包含 `decision`、`confidence`、`reason`。
+  - 合法决策值为 `keep`、`review`、`reject`。
+  - `category_override` 是可选字段，只有在规则分类明显不合适时才需要返回。

@@ -1,4 +1,6 @@
 .env.local
+local/
+var/
 config/**/*.local.yaml
 bio-literature-config/
 ops/launchd/*.plist

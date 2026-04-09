@@ -1,4 +1,5 @@
+# 公开元数据文件：这里只放技能展示信息，不放密钥、本机路径或账号标识。
 interface:
   display_name: "Bio Literature Digest"
-  short_description: "Track and summarize biology papers daily"
+  short_description: "用于跟踪、筛选、翻译并发送生物学文献日报"
   default_prompt: "Use $bio-literature-digest to configure a daily digest of new biology, plant biology, and AI-for-bio papers."

@@ -46,10 +46,10 @@ These files are recommended for debugging and optimization:
 
 The producer should also sync an editable review workspace outside the volatile run directory:
 
-- `reviews/daily-reviews/YYYY-MM-DD/daily_review.xlsx`
-- `reviews/backlog/review_backlog.xlsx`
+- `var/reviews/daily-reviews/YYYY-MM-DD/daily_review.xlsx`
+- `var/reviews/backlog/review_backlog.xlsx`
 
-The canonical human-editable review surface is `reviews/backlog/review_backlog.xlsx`. Daily review files are date-stamped snapshots that feed the backlog and remain useful for audit and replay.
+The canonical human-editable review surface is `var/reviews/backlog/review_backlog.xlsx`. Daily review files are date-stamped snapshots that feed the backlog and remain useful for audit and replay.
 Rows should leave the active backlog only after Codex explicitly selects them as consumed for stable optimization. Deferred or ambiguous rows should remain in the active backlog so evidence can accumulate across multiple review cycles.
 Archived consumed rows should also suppress future backlog refreshes for the same record keys, so daily snapshot replay does not rehydrate already-consumed examples into the active backlog.
 
@@ -81,7 +81,7 @@ Codex or another optimizer should validate:
 - missing or empty outputs are flagged
 - failures identify the exact failed step
 - `daily_review.xlsx` exists and contains editable `interest_level` and `interest_tag` columns
-- `reviews/backlog/review_backlog.xlsx` exists as the canonical human-editable backlog
+- `var/reviews/backlog/review_backlog.xlsx` exists as the canonical human-editable backlog
 - if the editable backlog changed after refresh, use reviewed backlog rows as higher-priority supervision for later optimization
 
 ## Portability Rule

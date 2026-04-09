@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 from html import unescape
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
@@ -32,25 +31,11 @@ def load_yaml_file(path: str | Path) -> Any:
     path_obj = Path(path)
     try:
         import yaml  # type: ignore
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("PyYAML is required. Install dependencies with `pip install -r requirements.txt`.") from exc
 
-        with path_obj.open("r", encoding="utf-8") as handle:
-            return yaml.safe_load(handle)
-    except ModuleNotFoundError:
-        command = [
-            "ruby",
-            "-ryaml",
-            "-rjson",
-            "-e",
-            "print JSON.dump(YAML.load_file(ARGV[0]))",
-            str(path_obj),
-        ]
-        completed = subprocess.run(
-            command,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        return json.loads(completed.stdout)
+    with path_obj.open("r", encoding="utf-8") as handle:
+        return yaml.safe_load(handle)
 
 
 def read_jsonl(path: str | Path) -> list[dict[str, Any]]:
