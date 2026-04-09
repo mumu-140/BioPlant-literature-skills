@@ -19,6 +19,13 @@ CANONICAL_PATHS = canonical_paths()
 RUNTIME_DEFAULTS = load_runtime_config()
 
 
+def runtime_path(key: str, fallback_key: str) -> str:
+    configured = str(RUNTIME_DEFAULTS.get("paths", {}).get(key, "") or "").strip()
+    if configured:
+        return configured
+    return str(CANONICAL_PATHS[fallback_key])
+
+
 def run_step(label: str, command: list[str]) -> None:
     print(f"[run] {label}")
     subprocess.run(command, check=True)
@@ -51,12 +58,12 @@ def merge_jsonl(output_path: Path, input_paths: list[Path]) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run the end-to-end digest pipeline.")
     parser.add_argument("--work-dir", required=True, help="Output directory for this run")
-    parser.add_argument("--watchlist", default=str(CANONICAL_PATHS["watchlist"]))
-    parser.add_argument("--rules", default=str(CANONICAL_PATHS["rules"]))
-    parser.add_argument("--email-config", default=str(CANONICAL_PATHS["email_config_example"]))
-    parser.add_argument("--users-config", default=str(CANONICAL_PATHS["users_config_local"]))
-    parser.add_argument("--template", default=str(CANONICAL_PATHS["email_template"]))
-    parser.add_argument("--style-config", default=str(CANONICAL_PATHS["email_style_local"]))
+    parser.add_argument("--watchlist", default=runtime_path("watchlist", "watchlist"))
+    parser.add_argument("--rules", default=runtime_path("rules", "rules"))
+    parser.add_argument("--email-config", default=runtime_path("email_config", "email_config_local"))
+    parser.add_argument("--users-config", default=runtime_path("users_config", "users_config_local"))
+    parser.add_argument("--template", default=runtime_path("template", "email_template"))
+    parser.add_argument("--style-config", default=runtime_path("style_config", "email_style_local"))
     parser.add_argument("--input-file", help="Optional pre-fetched raw JSONL file")
     parser.add_argument("--smtp-profile", help="SMTP profile to use for sending")
     parser.add_argument("--skip-email", action="store_true", help="Skip the email sending step")
@@ -67,7 +74,11 @@ def main() -> int:
     parser.add_argument("--review-config", help="Config file for LLM review provider")
     parser.add_argument("--summary-provider", choices=["placeholder", "command", "http-json", "tencent-tmt", "google-basic-v2"], default="placeholder")
     parser.add_argument("--summary-command", help="External command for translate_and_summarize.py")
-    parser.add_argument("--summary-config", help="Config file for translation/summarization provider")
+    parser.add_argument(
+        "--summary-config",
+        default=runtime_path("summary_config", "translation_google_local"),
+        help="Config file for translation/summarization provider",
+    )
     parser.add_argument("--lookback-hours", type=int, default=24)
     parser.add_argument("--window-mode", choices=["schedule", "lookback"], default="schedule")
     parser.add_argument("--window-start", help="Explicit UTC window start, e.g. 2026-03-13T16:00:00Z")
@@ -345,7 +356,8 @@ def main() -> int:
             "rule_feedback_report",
             [
                 PYTHON,
-                str(SCRIPT_DIR / "rule_feedback_report.py"),
+                str(SCRIPT_DIR / "optimization_reports.py"),
+                "rule-feedback",
                 "--input",
                 str(reviewed_path),
                 "--output",
@@ -356,7 +368,8 @@ def main() -> int:
             "classification_suggestions",
             [
                 PYTHON,
-                str(SCRIPT_DIR / "classification_suggestions.py"),
+                str(SCRIPT_DIR / "optimization_reports.py"),
+                "classification-suggestions",
                 "--classified",
                 str(classified_path),
                 "--reviewed",
@@ -434,7 +447,8 @@ def main() -> int:
                 "build_glossary_candidates",
                 [
                     PYTHON,
-                    str(SCRIPT_DIR / "build_glossary_candidates.py"),
+                    str(SCRIPT_DIR / "optimization_reports.py"),
+                    "glossary-candidates",
                     "--input",
                     str(localized_path),
                     "--glossary",

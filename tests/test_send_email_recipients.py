@@ -11,7 +11,7 @@ from scripts.send_email import resolve_recipients
 class SendEmailRecipientsTest(unittest.TestCase):
     def test_resolve_recipients_prefers_users_config(self) -> None:
         with tempfile.TemporaryDirectory(prefix="bio-users-config-") as tmpdir:
-            users_config = Path(tmpdir) / "users.local.yaml"
+            users_config = Path(tmpdir) / "users.yaml"
             users_config.write_text(
                 "\n".join(
                     [
@@ -45,7 +45,7 @@ class SendEmailRecipientsTest(unittest.TestCase):
 
     def test_resolve_recipients_falls_back_to_profile_fields(self) -> None:
         with tempfile.TemporaryDirectory(prefix="bio-users-config-missing-") as tmpdir:
-            missing_users_config = Path(tmpdir) / "missing-users.local.yaml"
+            missing_users_config = Path(tmpdir) / "missing-users.yaml"
             recipients = resolve_recipients(
                 {
                     "to_emails_override": ["override@example.com", "override@example.com"],

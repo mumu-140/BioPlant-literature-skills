@@ -1,42 +1,56 @@
+# 公开 baseline：这是可提交到 GitHub 的运行时配置模板。
+# 实际部署时复制到 `local/runtime/production.yaml`，按本机情况覆盖。
+
 environment:
-  env_file: ${SKILL_DIR}/.env.local
+  # 本机密钥文件位置。真实密钥只放 `local/.env.local`。
+  env_file: ${SKILL_DIR}/local/.env.local
 
 paths:
-  work_dir: /private/tmp/bio-literature-digest
-  archive_dir: ${SKILL_DIR}/archives/daily-digests
-  review_workspace_dir: ${SKILL_DIR}/reviews/daily-reviews
-  backlog_dir: ${SKILL_DIR}/reviews/backlog
+  # 运行产物全部放到 `var/`，避免与源码混放。
+  work_dir: ${SKILL_DIR}/var/work/current
+  archive_dir: ${SKILL_DIR}/var/archives/daily-digests
+  review_workspace_dir: ${SKILL_DIR}/var/reviews/daily-reviews
+  backlog_dir: ${SKILL_DIR}/var/reviews/backlog
+
+  # 内容规则属于源码配置，可公开提交。
   watchlist: ${SKILL_DIR}/config/content/journal_watchlist.yaml
   rules: ${SKILL_DIR}/config/content/category_rules.yaml
-  email_config: ${SKILL_DIR}/config/integrations/email_config.local.yaml
-  users_config: ${SKILL_DIR}/config/integrations/users.local.yaml
-  style_config: ${SKILL_DIR}/config/integrations/email_style.local.yaml
+
+  # 外部集成配置走本机副本，不要把真实账号、收件人、服务地址写回公开模板。
+  email_config: ${SKILL_DIR}/local/integrations/email_config.yaml
+  users_config: ${SKILL_DIR}/local/integrations/users.yaml
+  style_config: ${SKILL_DIR}/local/integrations/email_style.yaml
   template: ${SKILL_DIR}/assets/email_template.html
-  summary_config: ${SKILL_DIR}/config/integrations/translation_google_basic_v2.local.yaml
+  summary_config: ${SKILL_DIR}/local/integrations/translation_google_basic_v2.yaml
 
 delivery:
+  # 这里填写要启用的 SMTP profile 名称；profile 细节在 `local/integrations/email_config.yaml`。
   smtp_profile: primary_smtp
   timezone: Asia/Shanghai
   delivery_time: "08:00"
   allow_review_pending: true
 
 providers:
+  # 示例值不依赖真实外部服务，可按本机 provider 能力调整。
   review_provider: placeholder
   summary_provider: google-basic-v2
 
 web:
+  # web sidecar 是可选项；未接入时保持关闭。
   base_url: ""
   sync_enabled: false
-  project_root: ${SKILL_DIR}/../bio-literature-digest-web
+  project_root: ""
 
 database:
+  # SQLite 是本地可选能力，库文件应位于 `var/db/`。
   enabled: false
-  sqlite_path: ${SKILL_DIR}/bio-literature-config/data/shared/bio_digest.sqlite3
+  sqlite_path: ${SKILL_DIR}/var/db/bio_digest.sqlite3
 
 scheduler:
   launchd:
+    # 这里只给出可公开的示例 label，请按本机域名风格改名。
     label: org.example.bio-digest-daily
     wrapper_script: ${SKILL_DIR}/scripts/run_production_digest_launchd.sh
     working_directory: ${SKILL_DIR}
-    stdout_log: ${SKILL_DIR}/logs/launchd/bio-digest-daily.stdout.log
-    stderr_log: ${SKILL_DIR}/logs/launchd/bio-digest-daily.stderr.log
+    stdout_log: ${SKILL_DIR}/var/logs/launchd/bio-digest-daily.stdout.log
+    stderr_log: ${SKILL_DIR}/var/logs/launchd/bio-digest-daily.stderr.log

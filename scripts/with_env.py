@@ -11,13 +11,19 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_DIR = SCRIPT_DIR.parent
+PREFERRED_ENV_FILE = SKILL_DIR / "local" / ".env.local"
+ENV_EXAMPLE_FILE = SKILL_DIR / "config" / "env.local.example"
+
+
+def default_env_file() -> Path:
+    return PREFERRED_ENV_FILE
 
 
 def load_env_file(env_path: Path) -> None:
     if not env_path.exists():
         raise FileNotFoundError(
             f"Env file not found: {env_path}\n"
-            f"Copy {SKILL_DIR / '.env.local.example'} to {SKILL_DIR / '.env.local'} and fill the values."
+            f"Copy {ENV_EXAMPLE_FILE} to {PREFERRED_ENV_FILE} and fill the values."
         )
     for raw_line in env_path.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
@@ -28,8 +34,8 @@ def load_env_file(env_path: Path) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Load .env.local and run a command, with automatic OS detection.")
-    parser.add_argument("--env-file", default=str(SKILL_DIR / ".env.local"), help="Path to .env file")
+    parser = argparse.ArgumentParser(description="Load local/.env.local and run a command, with automatic OS detection.")
+    parser.add_argument("--env-file", default=str(default_env_file()), help="Path to .env file")
     parser.add_argument("command", nargs=argparse.REMAINDER, help="Command to run after loading env. Use -- before the command.")
     args = parser.parse_args()
 

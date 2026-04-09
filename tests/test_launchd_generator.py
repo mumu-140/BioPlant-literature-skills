@@ -13,7 +13,7 @@ class LaunchdGeneratorTest(unittest.TestCase):
     def test_render_launchd_plist_uses_runtime_config(self) -> None:
         with tempfile.TemporaryDirectory(prefix="bio-launchd-") as tmpdir:
             root = Path(tmpdir)
-            runtime_config = root / "production.local.yaml"
+            runtime_config = root / "production.yaml"
             template = root / "job.plist.template"
             template.write_text(
                 """<?xml version="1.0" encoding="UTF-8"?>

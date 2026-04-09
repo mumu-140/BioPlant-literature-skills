@@ -8,12 +8,18 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_DIR = SCRIPT_DIR.parent
-ALLOWED_SECRET_FILES = {SKILL_DIR / ".env.local"}
+PREFERRED_ENV_FILE = SKILL_DIR / "local" / ".env.local"
+LEGACY_ENV_FILE = SKILL_DIR / ".env.local"
+ALLOWED_SECRET_FILES = {PREFERRED_ENV_FILE}
 SCAN_EXTENSIONS = {".py", ".yaml", ".yml", ".toml", ".md", ".txt", ".sh", ".ps1", ".json"}
 SECRET_ENV_KEYS = [
     "GOOGLE_TRANSLATE_API_KEY",
     "TENCENT_TMT_SECRET_ID",
     "TENCENT_TMT_SECRET_KEY",
+    "TENCENT_TMT_SESSION_TOKEN",
+    "SMTP_APP_PASSWORD",
+    "SMTP_BACKUP_APP_PASSWORD",
+    "LLM_REVIEW_API_KEY",
     "QQ_MAIL_APP_PASSWORD",
 ]
 
@@ -43,13 +49,16 @@ def should_scan(path: Path) -> bool:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Audit the skill for leaked secrets outside .env.local.")
+    parser = argparse.ArgumentParser(description="Audit the skill for leaked secrets outside local/.env.local.")
     parser.add_argument("--root", default=str(SKILL_DIR))
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
-    env_pairs = load_env_pairs(SKILL_DIR / ".env.local")
+    env_pairs = load_env_pairs(PREFERRED_ENV_FILE)
     issues: list[str] = []
+
+    if LEGACY_ENV_FILE.exists():
+        issues.append(f"legacy env file is not allowed in Stage 1: {LEGACY_ENV_FILE}")
 
     for path in root.rglob("*"):
         if not should_scan(path):
@@ -70,7 +79,7 @@ def main() -> int:
             print(f"- {issue}")
         return 1
 
-    print("Secret audit passed. Sensitive values exist only in .env.local.")
+    print("Secret audit passed. Sensitive values exist only in local/.env.local.")
     return 0
 
 

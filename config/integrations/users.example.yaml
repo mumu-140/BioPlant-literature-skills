@@ -1,7 +1,10 @@
+# 公开示例：复制到 `local/integrations/users.yaml` 后再维护真实用户。
+# 这里的名字、邮箱、UID 全部是占位信息，不应替换为公开仓库中的真实收件人名单。
+
 users:
   - uid: UDI-0001
     email: member@example.com
-    name: Example Member
+    name: 示例成员
     role: member
     group: internal
     is_active: true
@@ -13,7 +16,7 @@ users:
 
   - uid: UDI-0002
     email: admin@example.com
-    name: Example Admin
+    name: 示例管理员
     role: admin
     group: internal
     is_active: true
@@ -21,6 +24,6 @@ users:
     smtp_profile: primary_smtp
 
 notes:
-  - users is the single source of truth for recipients and account bootstrap.
-  - keep SMTP credentials in email_config.local.yaml only.
-  - group maps to web user_group (internal or outsider).
+  - `users` 是收件人和账户初始化的单一来源。
+  - SMTP 凭证只放在 `local/integrations/email_config.yaml` 和 `local/.env.local`。
+  - `group` 会映射到 web 侧的 `user_group`，常见值是 `internal` 或 `outsider`。

@@ -20,10 +20,15 @@ try:
     from project_layout import load_runtime_config
 except ModuleNotFoundError:
     from scripts.project_layout import load_runtime_config
+try:
+    from project_layout import canonical_paths
+except ModuleNotFoundError:
+    from scripts.project_layout import canonical_paths
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_DIR = SCRIPT_DIR.parent
+CANONICAL_PATHS = canonical_paths()
 
 
 def add_attachment(message: EmailMessage, path: str) -> None:
@@ -71,7 +76,7 @@ def resolve_users_config_path(explicit_path: str | None = None) -> Path:
     configured_path = str(runtime.get("paths", {}).get("users_config", "") or "").strip()
     if configured_path:
         return Path(configured_path).resolve()
-    return (SKILL_DIR / "config" / "integrations" / "users.local.yaml").resolve()
+    return CANONICAL_PATHS["users_config_local"].resolve()
 
 
 def load_profile_recipients_from_users_config(users_config_path: Path, smtp_profile: str) -> list[str]:
@@ -165,64 +170,60 @@ def build_message(
     return message
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Send exported digest via SMTP.")
-    parser.add_argument("--config", required=True, help="Path to email config YAML")
-    parser.add_argument("--profile", required=True, help="SMTP profile name")
-    parser.add_argument("--html-body", required=True, help="HTML file to send")
-    parser.add_argument("--csv-attachment", required=True, help="CSV file attachment")
-    parser.add_argument("--xlsx-attachment", required=True, help="XLSX file attachment")
-    parser.add_argument("--subject", required=True, help="Email subject")
-    parser.add_argument("--text-body", default="See attached daily literature digest.", help="Plain-text fallback")
-    parser.add_argument(
-        "--users-config",
-        help="Path to users.local.yaml (single source of recipient accounts).",
-    )
-    parser.add_argument("--max-attempts", type=int, default=3, help="SMTP max attempts for transient network failures")
-    parser.add_argument("--retry-sleep-seconds", type=int, default=20, help="Sleep seconds between SMTP retries")
-    args = parser.parse_args()
-
-    config = load_yaml_file(args.config) or {}
+def send_digest_email(
+    *,
+    config_path: str | Path,
+    profile_name: str,
+    html_body_path: str | Path,
+    csv_attachment_path: str | Path,
+    xlsx_attachment_path: str | Path,
+    subject: str,
+    text_body: str = "See attached daily literature digest.",
+    users_config: str | Path | None = None,
+    max_attempts: int = 3,
+    retry_sleep_seconds: int = 20,
+) -> list[str]:
+    config = load_yaml_file(config_path) or {}
     profiles = config.get("smtp_profiles", {})
-    profile = profiles.get(args.profile)
+    profile = profiles.get(profile_name)
     if not profile:
-        raise SystemExit(f"Unknown SMTP profile: {args.profile}")
+        raise SystemExit(f"Unknown SMTP profile: {profile_name}")
 
     password_env = profile.get("password_env")
     password = os.environ.get(password_env or "")
     if not password:
         raise SystemExit(f"Missing SMTP secret in environment variable: {password_env}")
 
-    users_config_path = resolve_users_config_path(args.users_config)
-    recipients = resolve_recipients(profile, smtp_profile=args.profile, users_config_path=users_config_path)
+    users_config_path = resolve_users_config_path(str(users_config) if users_config else None)
+    recipients = resolve_recipients(profile, smtp_profile=profile_name, users_config_path=users_config_path)
     if not recipients:
         raise SystemExit(
-            f"No recipients configured for profile: {args.profile}. "
+            f"No recipients configured for profile: {profile_name}. "
             f"Checked users config: {users_config_path} and profile fallback fields to_emails_override/to_emails."
         )
-    html_body = Path(args.html_body).read_text(encoding="utf-8")
+    html_body = Path(html_body_path).read_text(encoding="utf-8")
 
     smtp_host = profile["smtp_host"]
     smtp_port = int(profile["smtp_port"])
     security = profile.get("security", "ssl")
     sent_recipients: list[str] = []
     pending_recipients = list(recipients)
-    max_attempts = max(1, int(args.max_attempts))
-    retry_sleep_seconds = max(0, int(args.retry_sleep_seconds))
+    max_attempts = max(1, int(max_attempts))
+    retry_sleep_seconds = max(0, int(retry_sleep_seconds))
 
     def send_all(server: smtplib.SMTP, pending: list[str]) -> None:
         server.login(profile["username"], password)
         for recipient in list(pending):
             recipient_html_body = personalize_html_body(html_body, recipient)
             message = build_message(
-                subject=args.subject,
+                subject=subject,
                 from_name=profile.get("from_name", ""),
                 from_email=profile["from_email"],
                 recipient=recipient,
                 html_body=recipient_html_body,
-                text_body=personalize_text_body(args.text_body, recipient, recipient_html_body),
-                csv_attachment=args.csv_attachment,
-                xlsx_attachment=args.xlsx_attachment,
+                text_body=personalize_text_body(text_body, recipient, recipient_html_body),
+                csv_attachment=str(csv_attachment_path),
+                xlsx_attachment=str(xlsx_attachment_path),
             )
             refused = server.send_message(message)
             if refused:
@@ -259,15 +260,41 @@ def main() -> int:
                 f"Retrying in {retry_sleep_seconds}s for remaining {len(pending_recipients)} recipients.",
                 file=sys.stderr,
             )
-            if retry_sleep_seconds:
-                time.sleep(retry_sleep_seconds)
-            continue
-
+            time.sleep(retry_sleep_seconds)
     if pending_recipients:
-        raise SystemExit(
-            f"SMTP did not deliver to all recipients after {max_attempts} attempts; pending: {', '.join(pending_recipients)}"
-        )
+        raise SystemExit(f"SMTP send incomplete. Unsent recipients: {pending_recipients}")
+    return sent_recipients
 
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Send exported digest via SMTP.")
+    parser.add_argument("--config", required=True, help="Path to email config YAML")
+    parser.add_argument("--profile", required=True, help="SMTP profile name")
+    parser.add_argument("--html-body", required=True, help="HTML file to send")
+    parser.add_argument("--csv-attachment", required=True, help="CSV file attachment")
+    parser.add_argument("--xlsx-attachment", required=True, help="XLSX file attachment")
+    parser.add_argument("--subject", required=True, help="Email subject")
+    parser.add_argument("--text-body", default="See attached daily literature digest.", help="Plain-text fallback")
+    parser.add_argument(
+        "--users-config",
+        help="Path to the users config file (single source of recipient accounts).",
+    )
+    parser.add_argument("--max-attempts", type=int, default=3, help="SMTP max attempts for transient network failures")
+    parser.add_argument("--retry-sleep-seconds", type=int, default=20, help="Sleep seconds between SMTP retries")
+    args = parser.parse_args()
+
+    sent_recipients = send_digest_email(
+        config_path=args.config,
+        profile_name=args.profile,
+        html_body_path=args.html_body,
+        csv_attachment_path=args.csv_attachment,
+        xlsx_attachment_path=args.xlsx_attachment,
+        subject=args.subject,
+        text_body=args.text_body,
+        users_config=args.users_config,
+        max_attempts=args.max_attempts,
+        retry_sleep_seconds=args.retry_sleep_seconds,
+    )
     print(f"Sent digest email via profile {args.profile} to {', '.join(sent_recipients)}.")
     return 0
 

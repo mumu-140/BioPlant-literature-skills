@@ -13,11 +13,12 @@ except ModuleNotFoundError:
     from scripts.project_layout import SKILL_DIR
 
 
-IGNORED_DIR_NAMES = {".venv", "__pycache__", "archives", "reviews", "logs", ".git"}
+IGNORED_DIR_NAMES = {".venv", "__pycache__", "archives", "reviews", "logs", "local", "var", ".git"}
 IGNORED_FILE_NAMES = {".DS_Store", ".env.local"}
 IGNORED_SUFFIXES = {".pyc"}
 LOCAL_CONFIG_SUFFIX = ".local.yaml"
-ALLOWED_DOC_PATH_MARKERS = {"/path/to/", "/private/tmp/bio-literature-digest", "org.example", "example.com"}
+LEGACY_LOCAL_CONFIG_DIR = Path("config/integrations")
+LEGACY_LOCAL_CONFIG_GLOB = "*.local.yaml"
 
 PRIVATE_EMAIL_RE = re.compile(r"\b[A-Z0-9._%+-]+@(?!(?:example\.com|example\.org|test\.invalid)\b)[A-Z0-9.-]+\.[A-Z]{2,}\b", re.I)
 ABSOLUTE_USER_PATH_RE = re.compile(r"(/Users/[^/\s]+|/home/[^/\s]+|[A-Za-z]:\\\\Users\\\\[^\\\s]+)")
@@ -30,7 +31,8 @@ PERSONAL_SMTP_RE = re.compile(r"\bsmtp\.qq\.com\b", re.I)
 
 def iter_project_files(project_root: Path) -> Iterable[Path]:
     for path in project_root.rglob("*"):
-        if any(part in IGNORED_DIR_NAMES for part in path.parts):
+        relative_parts = path.relative_to(project_root).parts
+        if any(part in IGNORED_DIR_NAMES for part in relative_parts):
             continue
         if path.is_dir():
             continue
@@ -71,6 +73,8 @@ def build_report(project_root: Path | None = None) -> tuple[list[str], list[str]
         root / "config" / "content",
         root / "config" / "integrations",
         root / "config" / "runtime",
+        root / "local",
+        root / "var",
         root / "scripts",
         root / "docs",
         root / "ops",
@@ -78,6 +82,10 @@ def build_report(project_root: Path | None = None) -> tuple[list[str], list[str]
     for required_dir in expected_dirs:
         if not required_dir.exists():
             issues.append(f"缺少固定目录: {required_dir}")
+
+    env_template = root / "config" / "env.local.example"
+    if not env_template.exists():
+        issues.append(f"缺少公开 env 模板: {env_template}")
 
     if (root / "references").exists():
         issues.append("残留旧目录 `references/`，应继续使用 config/docs/ops 分层")
@@ -96,6 +104,23 @@ def build_report(project_root: Path | None = None) -> tuple[list[str], list[str]
     template_files = list(launchd_dir.glob("*.plist.template"))
     if not template_files:
         issues.append(f"缺少 launchd 模板文件: {launchd_dir}")
+
+    legacy_paths = [
+        root / ".env.local",
+        root / ".env.local.example",
+        root / "archives",
+        root / "reviews",
+        root / "logs",
+        root / "bio-literature-config",
+        root / "config" / "runtime" / "production.local.yaml",
+    ]
+    for path in legacy_paths:
+        if path.exists():
+            issues.append(f"Stage 1 禁止 legacy 路径残留: {path}")
+
+    legacy_local_configs = sorted((root / LEGACY_LOCAL_CONFIG_DIR).glob(LEGACY_LOCAL_CONFIG_GLOB))
+    for config_path in legacy_local_configs:
+        issues.append(f"Stage 1 禁止 legacy 本地配置文件: {config_path}")
 
     for path in iter_project_files(root):
         text = read_text(path)
@@ -119,15 +144,16 @@ def build_report(project_root: Path | None = None) -> tuple[list[str], list[str]
             issues.append(f"{relative} 含个人域名，必须移到本地配置")
         if PERSONAL_LABEL_RE.search(text):
             issues.append(f"{relative} 含个人化 scheduler label，必须改为通用占位")
-        if PERSONAL_SMTP_RE.search(text) and "email_config.local.yaml" not in str(relative):
+        if PERSONAL_SMTP_RE.search(text) and "local/integrations/email_config.yaml" not in str(relative):
             issues.append(f"{relative} 含供应商 SMTP 细节，必须留在本地配置")
         if PERSONAL_PROFILE_RE.search(text) and path.suffix not in {".pyc"}:
             if path.name.startswith("test_"):
                 issues.append(f"{relative} 含个人化 SMTP profile 名，测试也应改为通用 profile")
-            elif "email_config.local.yaml" not in str(relative):
+            elif "local/integrations/email_config.yaml" not in str(relative):
                 issues.append(f"{relative} 含个人化 SMTP profile 名，应改为通用 profile")
 
     notes.append("重要信息固定位置: config/content, config/integrations, config/runtime, docs, ops, scripts")
+    notes.append("机器本地配置必须放在 local/，运行产物必须放在 var/；禁止使用 legacy 根目录路径")
     notes.append("忽略本地配置后，源码应只保留占位和模板，不保留真实身份信息")
     return issues, notes
 
