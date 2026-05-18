@@ -85,6 +85,7 @@ LLM_REVIEW_API_KEY=
 - `delivery.smtp_profile`
 - `delivery.timezone`
 - `delivery.delivery_time`
+- `delivery.window_policy`
 - `providers.review_provider`
 - `providers.summary_provider`
 - `web.sync_enabled`
@@ -93,6 +94,13 @@ LLM_REVIEW_API_KEY=
 - `database.sqlite_path`
 
 生产脚本默认从这里取路径和默认参数，不再要求把这些值写死在脚本里。
+
+推荐把 `delivery.window_policy` 保持为：
+
+- `previous_day`
+
+这表示日报默认只覆盖 `delivery.timezone` 下“前一自然日 00:00-24:00”。
+如果你确实要保留旧行为“前一日 00:00 到发送时刻”，才改成 `previous_day_to_delivery`。
 
 ### 内容配置
 

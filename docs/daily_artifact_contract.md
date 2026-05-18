@@ -11,7 +11,15 @@ The producer implementation may change across machines or platforms. The artifac
 
 For scheduled production runs, the canonical window is:
 
-- previous day `00:00` to current day `08:00` in `Asia/Shanghai`
+- previous local calendar day `00:00` to `24:00` in `Asia/Shanghai`
+
+Legacy compatibility remains available through runtime YAML:
+
+- `delivery.window_policy: previous_day_to_delivery`
+
+But the default contract should use:
+
+- `delivery.window_policy: previous_day`
 
 The resolved UTC window must be written into `run_metadata.json`.
 

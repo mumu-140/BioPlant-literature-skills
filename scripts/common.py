@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import re
 from html import unescape
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any, Iterable
@@ -208,17 +208,23 @@ def compute_scheduled_digest_window(
     timezone_name: str,
     delivery_time: str,
     now_utc: datetime | None = None,
+    window_policy: str = "previous_day",
 ) -> tuple[datetime, datetime]:
     tz = ZoneInfo(timezone_name)
     current_utc = now_utc or datetime.now(timezone.utc)
     local_now = current_utc.astimezone(tz)
     hour, minute = parse_clock_hhmm(delivery_time)
     anchor = local_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    if local_now < anchor:
-        end_local = anchor - timedelta(days=1)
+    delivery_date = local_now.date() if local_now >= anchor else (local_now.date() - timedelta(days=1))
+
+    if window_policy == "previous_day":
+        start_local = datetime.combine(delivery_date - timedelta(days=1), time(0, 0), tzinfo=tz)
+        end_local = datetime.combine(delivery_date, time(0, 0), tzinfo=tz)
+    elif window_policy == "previous_day_to_delivery":
+        start_local = datetime.combine(delivery_date - timedelta(days=1), time(0, 0), tzinfo=tz)
+        end_local = datetime.combine(delivery_date, time(hour, minute), tzinfo=tz)
     else:
-        end_local = anchor
-    start_local = end_local.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
+        raise ValueError(f"Unsupported window_policy: {window_policy}")
     return start_local.astimezone(timezone.utc), end_local.astimezone(timezone.utc)
 
 

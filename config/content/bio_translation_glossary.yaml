@@ -57,6 +57,14 @@ replacements:
     target: eCLIP
   - source: protein language model
     target: 蛋白语言模型
+  - source: intrinsically disordered region
+    target: 内在无序区
+  - source: IDR
+    target: 内在无序区
+  - source: Z-disc
+    target: Z盘
+  - source: thin filament
+    target: 细肌丝
   - source: proximity labeling
     target: 邻近标记
   - source: foundation model
@@ -65,14 +73,32 @@ replacements:
     target: 机器学习
   - source: deep learning
     target: 深度学习
+  - source: bioinformatic analysis
+    target: 生物信息学分析
   - source: federated learning
     target: 联邦学习
   - source: knowledge graph
     target: 知识图谱
+  - source: life sciences
+    target: 生命科学
+  - source: capsule endoscopy
+    target: 胶囊内镜
+  - source: image processing
+    target: 图像处理
+  - source: microbe
+    target: 微生物
+  - source: microbes
+    target: 微生物
+  - source: monocyte
+    target: 单核细胞
+  - source: monocytes
+    target: 单核细胞
   - source: microbiome
     target: 微生物组
   - source: microbiota
     target: 微生物群
+  - source: microenvironment
+    target: 微环境
   - source: gut microbiota
     target: 肠道微生物群
   - source: microRNAs
@@ -121,6 +147,8 @@ replacements:
     target: 内质网应激
   - source: endoplasmic reticulum stress
     target: 内质网应激
+  - source: integrated stress response
+    target: 整合应激反应
   - source: lysosome
     target: 溶酶体
   - source: lysosomal
@@ -131,6 +159,8 @@ replacements:
     target: 液泡
   - source: Arabidopsis
     target: 拟南芥
+  - source: Chlamydomonas reinhardtii
+    target: 莱茵衣藻
   - source: phytochrome B
     target: 光敏色素B
   - source: seed germination
@@ -187,6 +217,10 @@ replacements:
     target: CD8
   - source: glioma
     target: 胶质瘤
+  - source: P-glycoprotein
+    target: P-糖蛋白
+  - source: P-glycoproteins
+    target: P-糖蛋白
   - source: mitosis
     target: 有丝分裂
   - source: circadian
@@ -207,8 +241,14 @@ replacements:
     target: 抗病小体
   - source: proof-of-concept study
     target: 概念验证研究
+  - source: prion protein gene
+    target: 朊病毒蛋白基因
+  - source: PRNP
+    target: PRNP
   - source: ligand-receptor
     target: 配体-受体
+  - source: ubiquitination
+    target: 泛素化
   - source: protein fitness
     target: 蛋白质适应度
   - source: inductive priors
@@ -217,6 +257,8 @@ replacements:
     target: 单细胞基础模型
   - source: spectral flow cytometry
     target: 光谱流式细胞术
+  - source: nanozyme
+    target: 纳米酶
   - source: non-canonical amino acids
     target: 非天然氨基酸
   - source: pangenome graph
@@ -362,6 +404,16 @@ replacements:
   - source: 育种
     target: 育种
 
+  - source: mRNA
+    target: mRNA
+  - source: protein domain
+    target: 蛋白结构域
+  - source: domain-peptide specificity
+    target: 结构域-肽特异性
+  - source: biomolecular simulation
+    target: 生物分子模拟
+  - source: mRNA chemical stability
+    target: mRNA化学稳定性
 candidate_seed_terms:
   - single-cell atlas
   - eCLIP
@@ -404,6 +456,10 @@ candidate_seed_terms:
   - Hi-C
   - cryo-EM
   - protein language model
+  - intrinsically disordered region
+  - IDR
+  - Z-disc
+  - thin filament
   - foundation model
   - federated learning
   - microbiome

@@ -12,7 +12,8 @@ Build a daily paper-digest pipeline around a configurable journal watchlist. Fav
 Default operating assumptions for this skill:
 - Run on China Standard Time.
 - Deliver the daily digest at 08:00 CST.
-- Use the scheduled digest window: previous day `00:00` to current day `08:00` CST.
+- Use the scheduled digest window: previous local calendar day `00:00` to `24:00` CST by default.
+- Only use `previous_day_to_delivery` when the operator explicitly wants the legacy span from previous day `00:00` to delivery time.
 - Include all article types unless the user narrows scope later.
 - Prefer QQ Mail or 163 Mail SMTP for delivery.
 
@@ -116,7 +117,7 @@ Preserve the ability to add or remove journals without code changes.
 
 ### 2. Fetch incremental records
 
-Fetch only newly published or newly surfaced records for the target window. The default scheduled window is previous day `00:00` to current day `08:00` CST. Use the lookback mode only for ad hoc debugging or backfills.
+Fetch only newly published or newly surfaced records for the target window. The default scheduled window is the previous local calendar day `00:00` to `24:00` CST. Use the lookback mode only for ad hoc debugging or backfills.
 
 For each record, capture at minimum:
 - journal

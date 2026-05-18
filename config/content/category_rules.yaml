@@ -89,6 +89,7 @@ relevance_filter:
     - pamp
     - resistosome
     - root exudation
+    - rhizosphere
     - senescence
     - senescent
     - circadian
@@ -139,6 +140,10 @@ relevance_filter:
     - off-target detection
     - stomatal
     - phytochrome
+    - mRNA
+    - biomolecular simulation
+    - protein domain
+    - domain-peptide
 
   ai_keep_keywords:
     - machine learning
@@ -188,14 +193,58 @@ relevance_filter:
     - poison frogs changing colors
     - foreigners in ants
 
+  manual_title_reject_fragments:
+    - virological characteristics of sars-cov-2-related coronaviruses
+    - pan-cancer neurotransmitter receptor alterations
+    - tissue-specific tolerance mechanisms and lymph node co-drainage
+    - the strategic response to a visuomotor rotation
+    - disease and bleaching drive divergent net carbonate production
+    - the environmental impacts of deep-sea mining
+    - returning shells to the sea
+    - seed production is not leading poleward migration
+    - prenatal behavioral contagion through maternal yawning and fetal resonance
+    - gaze stabilization
+    - anaesthetized human brains
+    - anaesthetized brains can still process podcasts
+    - a brain reward circuit inhibited by next-generation weight-loss drugs in mice
+    - digital twins of ex vivo human lungs
+    - thymus renaissance poised to boost health and longevity
+    - electroactive microneedle augmented stem cell therapy
+    - insulin resistance reveals metabolic remodeling following diet switch
+    - extramedullary hematopoiesis under chronic inflammation
+    - type h-like vessels and cell fate transition to delay soft tissue aging
+    - rice blast pathogen effector avr pib compromises disease resistance by targeting raf-like protein kinase osmapkkk72 to inhibit mapk signaling
+    - accumulated sotorasib-bound krasg12c reactivates the mapk pathway and drives sotorasib resistance
+    - alveolar macrophages inhibit emphysematous pathology
+    - maternal hyperglycemia disrupts cardiomyocyte maturation
+    - multivalent nanoparticles activate t-dependent antibody response
+    - cks1b is a tumor-intrinsic factor driving cd8+ t cell exhaustion
+    - loss of the autoimmune risk gene trex1 reveals a convergence of mechanisms promoting immune tolerance loss and antitumor immunity
+    - circadian disruption induces sex-specific alzheimer's pathophysiology and immune cell reprogramming
+    - fibroblasts neurotrophin signaling sustains pathological vascular maturation in rheumatoid arthritis
+    - decreased food intake contributes to elevated insulin-responsiveness in pre-clinical cancer cachexia
+    - correction of a recurrent pathogenic variant in methylmalonic acidemia using adenine base editing
+    - spheroid culture remodels mitosis and the proteome in tumor cells
+    - conventional dendritic cells
+    - adhesion-mediated transition to a mesenchymal-like, fan-shaped migration mode in dictyostelium discoideum
+    - semantic unmixing of fluorescent microscopy data
+    - melatonin dims the lights on wakefulness
+    - ecological impacts of deep-sea mining
+    - maternal yawning and fetal resonance
+    - the birth of a butterfly
+    - intraspecific variation in the duration of epigenetic inheritance in wild isolates of c. elegans
+    - mechanical regulation of cuboidal-to-squamous epithelial transition in the drosophila developing wing
+
   editorial_reject_title_prefixes:
-    - "Briefing chat:"
     - "Podcast:"
     - "Careers Q&A"
     - "Books in brief"
+    - "Biotech news from around the world"
     - "Q&A with "
     - "Author Correction:"
     - "Publisher Correction:"
+    - "Correction to"
+    - "Editorial Expression of Concern:"
     - "Retraction:"
     - "Erratum:"
 
@@ -221,6 +270,73 @@ relevance_filter:
     - Patterns
 
   conditional_rule: Keep only if title or abstract shows direct biology, biomedical, plant, omics, protein, or genetics relevance.
+
+  pure_human_disease_exclusion:
+    policy: Exclude pure human cancer or disease mechanism and function studies unless the paper is primarily a method, tool, model, dataset, resource, or cross-species study that can generalize to plant biology.
+    subject_keywords:
+      - human
+      - humans
+      - patient
+      - patients
+      - patient-derived
+      - clinical
+    disease_keywords:
+      - cancer
+      - tumor
+      - tumour
+      - carcinoma
+      - glioma
+      - disease
+      - disorder
+      - syndrome
+      - pathology
+    mechanism_keywords:
+      - mechanism
+      - mechanisms
+      - function
+      - functional
+      - pathogenesis
+      - progression
+      - tumorigenesis
+      - oncogenic
+      - metastasis
+      - signaling
+      - regulation
+      - pathway
+    keep_override_keywords:
+      - method
+      - methods
+      - protocol
+      - tool
+      - tools
+      - database
+      - dataset
+      - resource
+      - benchmark
+      - framework
+      - pipeline
+      - model
+      - models
+      - assay
+      - screening
+      - atlas
+      - single-cell
+      - sequencing
+      - omics
+      - transcriptomic
+      - genomic
+      - cross-species
+      - transferable
+      - generalizable
+      - plant
+      - crop
+      - arabidopsis
+      - rice
+      - maize
+      - wheat
+      - soybean
+      - root
+      - leaf
 
 categories:
   - id: omics
@@ -318,6 +434,10 @@ categories:
       - alphafold
       - protein design
       - proteolysis
+      - protein domain
+      - domain-peptide
+      - biomolecular simulation
+      - protein stability
 
   - id: ai-computational-biology
     label: AI And Computational Biology
@@ -335,6 +455,10 @@ categories:
       - federated learning
       - prognostic model
       - prognostic models
+      - mRNA chemical stability
+      - virtual cell
+      - perturbation prediction
+      - cell perturbation
 
   - id: methods-datasets-resources
     label: Methods Datasets And Resources
@@ -366,6 +490,7 @@ categories:
       - interfacing
       - deeprootlab
       - spectral flow cytometry
+      - solubility/stability alteration
 
   - id: plant-biology
     label: Plant Biology
@@ -492,7 +617,7 @@ output_schema:
     - article_url
     - tags
 
-  greeting_template: "{date}--祝你早上快乐--这是今日份的论文快看吧"
+  greeting_template: "以下文献按数据库中的发布日期整理。最新发布日期：{latest_publish_date}；覆盖范围：{publish_date_range}。"
 
   summary_requirements:
     language: zh-CN
@@ -616,6 +741,9 @@ interest_tag_taxonomy:
     - label: 生物学工具技术
       keywords:
         - eclip
+        - capsule endoscopy
+        - image processing
+        - bioinformatic analysis
     - label: 模型
       category_ids:
         - ai-computational-biology
@@ -643,10 +771,15 @@ interest_tag_taxonomy:
         - microbe-immunity
         - plant-biology
 
-notes:
+  notes:
   - Assign exactly one category per paper.
   - Send ambiguous but relevant papers to `other` instead of inventing new buckets.
   - Prefer plant-specific categories only when the paper is truly plant-centered.
+  - Treat Briefing items with the same relevance rules as ordinary papers.
+  - Exclude pure human cancer or disease mechanism/function studies.
+  - Keep method, tool, model, dataset, or resource papers involving human or mouse systems when their approach can generalize to plant biology.
+  - Use Zotero similarity and local literature density only as an offline optimization signal, not as a required per-paper filtering rule.
+  - The manual title reject fragments above are a temporary curation layer for confirmed non-interest topics from recent review; revisit them when the preference set changes.
 
 visual_filters:
   attachment_only_source_ids:

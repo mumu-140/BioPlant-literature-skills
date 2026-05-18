@@ -6,7 +6,7 @@
    抓取、过滤、分类、翻译、导出、发邮件、归档。
 2. Review + Codex optimizer
    人工在 backlog 审核，Codex 读取 backlog 做保守规则优化。
-3. [web sidecar](https://github.com/mumu-140/bio-literature-digest-web/blob/main/)
+3. web sidecar
    独立项目，可选接入，不应阻塞 Producer 主链。
 
 这个仓库已经按“源码 / 本机私有配置 / 运行产物”分开：
@@ -57,19 +57,19 @@ AI 安装不替代本机配置。即使由 AI 代你执行，真实运行时仍�
 ### 配置放在哪里
 
 - `config/content/`
-  项目共享规则。**期刊源**、分类规则、术语表、术语来源。
+  项目共享规则。期刊源、分类规则、术语表、术语来源。
 - `config/runtime/production.example.yaml`
   公开 runtime baseline。给出默认目录结构和字段形状。
 - `config/integrations/*.example.yaml`
-  **邮件**、样式、**翻译**、外部 review 配置模板。
+  邮件、样式、翻译、外部 review 配置模板。
 - `config/env.local.example`
   公开 env 模板，只保留变量名和中文说明。
 - `local/.env.local`
-  **本机密钥，只放真实 secret**。
+  本机密钥，只放真实 secret。
 - `local/runtime/production.yaml`
-  **本机 runtime override，控制本机路径、时区、SMTP profile、sidecar、数据库**等。
+  本机 runtime override，控制本机路径、时区、SMTP profile、日报时间窗口策略、sidecar、数据库等。
 - `local/integrations/*.yaml`
-  **本机真实集成配置，比如邮件、用户、翻译、样式**。
+  本机真实集成配置，比如邮件、用户、翻译、样式。
 - `var/`
   运行产物。不要手工把真实配置塞到这里。
 
@@ -112,6 +112,7 @@ cp config/integrations/email_style.example.yaml local/integrations/email_style.y
   只放真实密钥，例如 SMTP 授权码、翻译 API key、LLM review API key。
 - `local/runtime/production.yaml`
   这是运行时主配置入口。默认路径、工作目录、归档目录、review 目录、SQLite 路径、delivery 配置都应该从这里管。
+  常用项包括 `delivery.timezone`、`delivery.delivery_time`、`delivery.window_policy`。
 - `local/integrations/users.yaml`
   收件人主名单。通常新增用户只改这个文件。
 - `local/integrations/email_config.yaml`
@@ -175,6 +176,13 @@ cp config/integrations/email_style.example.yaml local/integrations/email_style.y
 - 同步每日审核快照到 `var/reviews/daily-reviews/YYYY-MM-DD/`
 - 刷新 active backlog 到 `var/reviews/backlog/`
 - 按 runtime YAML 决定是否同步 SQLite
+
+默认计划窗口现在是：
+
+- `previous_day`
+- 即按 `delivery.timezone` 计算“前一自然日 00:00-24:00”
+
+如果你确实要保留旧行为“前一日 00:00 到发送时刻”，再把 `local/runtime/production.yaml` 里的 `delivery.window_policy` 改成 `previous_day_to_delivery`。
 
 ### 本地干跑或样例运行
 
@@ -268,4 +276,3 @@ cp config/integrations/email_style.example.yaml local/integrations/email_style.y
 ## Acknowledgments
 
 Special thanks to the **[Linux.do](https://linux.do/)** community for your support and feedback.
-

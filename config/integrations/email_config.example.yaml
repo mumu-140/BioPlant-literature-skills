@@ -35,7 +35,7 @@ smtp_profiles:
 delivery_defaults:
   timezone: Asia/Shanghai
   schedule_time: "08:00"
-  subject_template: "[Bio Digest] {date} Daily Literature Update"
+  subject_template: "[Bio Digest] Published Literature Through {latest_publish_date}"
   attach_csv: true
   attach_xlsx: true
   attach_html_copy: false
