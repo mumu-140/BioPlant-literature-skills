@@ -5,13 +5,22 @@ import argparse
 import tempfile
 from pathlib import Path
 
-from common import load_yaml_file, read_jsonl
-from export_digest import build_style_override_css, render_html_table, review_option_map, write_csv, write_xlsx
-from send_email import send_digest_email
-from project_layout import canonical_paths, load_runtime_config
-
-SCRIPT_DIR = Path(__file__).resolve().parent
-SKILL_DIR = SCRIPT_DIR.parent
+try:
+    from scripts.common import load_yaml_file, read_jsonl
+except ModuleNotFoundError:
+    from common import load_yaml_file, read_jsonl
+try:
+    from scripts.export_digest import build_style_override_css, prepare_export_records, render_html_table, review_option_map, write_csv, write_xlsx
+except ModuleNotFoundError:
+    from export_digest import build_style_override_css, prepare_export_records, render_html_table, review_option_map, write_csv, write_xlsx
+try:
+    from scripts.send_email import send_digest_email
+except ModuleNotFoundError:
+    from send_email import send_digest_email
+try:
+    from scripts._bootstrap import canonical_paths, load_runtime_config
+except ModuleNotFoundError:
+    from _bootstrap import canonical_paths, load_runtime_config
 CANONICAL_PATHS = canonical_paths()
 RUNTIME_DEFAULTS = load_runtime_config()
 
@@ -35,6 +44,10 @@ def main() -> int:
         "--smtp-profile",
         default=str(RUNTIME_DEFAULTS.get("delivery", {}).get("smtp_profile", "") or "primary_smtp"),
     )
+    parser.add_argument(
+        "--display-timezone",
+        default=str(RUNTIME_DEFAULTS.get("delivery", {}).get("timezone", "") or "Asia/Shanghai"),
+    )
     parser.add_argument("--subject", default="Bio Digest Style Preview")
     parser.add_argument("--work-dir", help="Optional output directory")
     args = parser.parse_args()
@@ -53,6 +66,7 @@ def main() -> int:
     rules = load_yaml_file(args.rules) or {}
     template_text = Path(args.template).read_text(encoding="utf-8")
     style_override_css = build_style_override_css(load_yaml_file(args.style_config) or {})
+    records, _context = prepare_export_records(records, rules, args.display_timezone)
     columns = list((rules.get("output_schema", {}) or {}).get("required_columns", []))
     if not columns and records:
         columns = list(records[0].keys())

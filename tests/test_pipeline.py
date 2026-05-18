@@ -77,6 +77,7 @@ class PipelineTest(unittest.TestCase):
             self.assertEqual(len(rows), 3)
             self.assertIn("interest_level", rows[0])
             self.assertIn("interest_tag", rows[0])
+            self.assertTrue(all(row["publish_date"].endswith("+08:00") for row in rows))
             self.assertEqual(
                 {row["category"] for row in rows},
                 {"omics", "ai-computational-biology", "methods-datasets-resources"},
@@ -94,6 +95,7 @@ class PipelineTest(unittest.TestCase):
             self.assertIn("bioRxiv (Genomics And Bioinformatics)", html_text)
             self.assertIn("Nature Methods", html_text)
             self.assertIn("按期刊分组，默认折叠", html_text)
+            self.assertIn("Asia/Shanghai", html_text)
 
             with daily_review_csv.open("r", encoding="utf-8", newline="") as handle:
                 review_rows = list(csv.DictReader(handle))

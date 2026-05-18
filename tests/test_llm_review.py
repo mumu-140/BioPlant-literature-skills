@@ -2,15 +2,29 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 SKILL_DIR = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = SKILL_DIR / "scripts"
+
+
+def load_module():
+    scripts_dir = str(SCRIPTS_DIR)
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
+    spec = importlib.util.spec_from_file_location("llm_review_module", SCRIPTS_DIR / "llm_review.py")
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Unable to load llm_review.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class LlmReviewTest(unittest.TestCase):
@@ -136,7 +150,8 @@ class LlmReviewTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    str(SCRIPTS_DIR / "rule_feedback_report.py"),
+                    str(SCRIPTS_DIR / "optimization_reports.py"),
+                    "rule-feedback",
                     "--input",
                     str(input_path),
                     "--output",
@@ -148,6 +163,59 @@ class LlmReviewTest(unittest.TestCase):
             report = output_path.read_text(encoding="utf-8")
             self.assertIn("Rule Feedback Report", report)
             self.assertIn("Rule Keep But LLM Review", report)
+
+    def test_nvidia_review_only_sends_uncertain_records(self) -> None:
+        module = load_module()
+        records = [
+            {
+                "title_en": "A clear plant single-cell atlas",
+                "category": "plant-biology",
+                "publication_stage": "journal",
+                "relevance_status": "keep",
+                "relevance_reason": "matched keep keywords: plant",
+                "relevance_review_needed": False,
+                "abstract": "A plant study.",
+            },
+            {
+                "title_en": "An ambiguous field observation",
+                "category": "other",
+                "publication_stage": "journal",
+                "relevance_status": "keep",
+                "relevance_reason": "kept by default source scope",
+                "relevance_review_needed": True,
+                "abstract": "Ambiguous scope.",
+            },
+        ]
+        ai_payload = [{"decision": "reject", "confidence": 0.81, "reason": "outside scope"}]
+
+        with mock.patch.object(module, "review_records_with_nvidia", return_value=ai_payload) as mocked_review:
+            payloads = module.nvidia_review_payloads(records, {"runtime": {"continue_on_error": True}})
+
+        sent_records = mocked_review.call_args.args[0]
+        self.assertEqual(len(sent_records), 1)
+        self.assertEqual(sent_records[0]["title_en"], "An ambiguous field observation")
+        self.assertEqual(payloads[0]["decision"], "keep")
+        self.assertEqual(payloads[1]["decision"], "reject")
+
+    def test_nvidia_review_falls_back_to_placeholder_when_unavailable(self) -> None:
+        module = load_module()
+        records = [
+            {
+                "title_en": "An ambiguous field observation",
+                "category": "other",
+                "publication_stage": "journal",
+                "relevance_status": "keep",
+                "relevance_reason": "kept by default source scope",
+                "relevance_review_needed": True,
+                "abstract": "Ambiguous scope.",
+            }
+        ]
+
+        with mock.patch.object(module, "review_records_with_nvidia", side_effect=RuntimeError("quota exhausted")):
+            payloads = module.nvidia_review_payloads(records, {"runtime": {"continue_on_error": True}})
+
+        self.assertEqual(payloads[0]["decision"], "review")
+        self.assertIn("ambiguous", payloads[0]["reason"].lower())
 
 
 if __name__ == "__main__":

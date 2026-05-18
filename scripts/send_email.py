@@ -13,21 +13,15 @@ from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 try:
-    from common import load_yaml_file
+    from scripts._bootstrap import canonical_paths, load_runtime_config
 except ModuleNotFoundError:
+    from _bootstrap import canonical_paths, load_runtime_config
+try:
     from scripts.common import load_yaml_file
-try:
-    from project_layout import load_runtime_config
 except ModuleNotFoundError:
-    from scripts.project_layout import load_runtime_config
-try:
-    from project_layout import canonical_paths
-except ModuleNotFoundError:
-    from scripts.project_layout import canonical_paths
+    from common import load_yaml_file
 
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-SKILL_DIR = SCRIPT_DIR.parent
 CANONICAL_PATHS = canonical_paths()
 
 

@@ -6,18 +6,32 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from common import (
-    canonicalize_doi,
-    canonicalize_url,
-    count_nonempty_fields,
-    isoformat_utc,
-    normalize_title,
-    normalize_whitespace,
-    parse_datetime_guess,
-    read_jsonl,
-    within_utc_window,
-    write_jsonl,
-)
+try:
+    from scripts.common import (
+        canonicalize_doi,
+        canonicalize_url,
+        count_nonempty_fields,
+        isoformat_utc,
+        normalize_title,
+        normalize_whitespace,
+        parse_datetime_guess,
+        read_jsonl,
+        within_utc_window,
+        write_jsonl,
+    )
+except ModuleNotFoundError:
+    from common import (
+        canonicalize_doi,
+        canonicalize_url,
+        count_nonempty_fields,
+        isoformat_utc,
+        normalize_title,
+        normalize_whitespace,
+        parse_datetime_guess,
+        read_jsonl,
+        within_utc_window,
+        write_jsonl,
+    )
 
 
 def normalize_record(raw: dict[str, Any]) -> dict[str, Any]:

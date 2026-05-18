@@ -102,7 +102,8 @@ class ReviewBacklogTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    str(SCRIPTS_DIR / "finalize_review_backlog.py"),
+                    str(SCRIPTS_DIR / "review_backlog.py"),
+                    "finalize",
                     "--backlog-dir",
                     str(backlog_dir),
                 ],

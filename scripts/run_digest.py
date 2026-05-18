@@ -8,12 +8,16 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
-from common import compute_scheduled_digest_window, current_timestamp_utc, isoformat_utc, load_yaml_file
-from project_layout import canonical_paths, expand_config_value, load_runtime_config
-
-SCRIPT_DIR = Path(__file__).resolve().parent
-SKILL_DIR = SCRIPT_DIR.parent
+try:
+    from scripts.common import compute_scheduled_digest_window, current_timestamp_utc, isoformat_utc, load_yaml_file, parse_datetime_guess
+except ModuleNotFoundError:
+    from common import compute_scheduled_digest_window, current_timestamp_utc, isoformat_utc, load_yaml_file, parse_datetime_guess
+try:
+    from scripts._bootstrap import SCRIPT_DIR, canonical_paths, expand_config_value, load_runtime_config
+except ModuleNotFoundError:
+    from _bootstrap import SCRIPT_DIR, canonical_paths, expand_config_value, load_runtime_config
 PYTHON = sys.executable
 CANONICAL_PATHS = canonical_paths()
 RUNTIME_DEFAULTS = load_runtime_config()
@@ -55,6 +59,46 @@ def merge_jsonl(output_path: Path, input_paths: list[Path]) -> int:
     return len(merged_lines)
 
 
+def publish_date_range_label(path: Path, timezone_name: str) -> tuple[str, str, str]:
+    normalized_days: list[str] = []
+    if not path.exists():
+        return ("未知", "未知", "未知")
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        if not raw_line.strip():
+            continue
+        record = json.loads(raw_line)
+        raw_value = str(record.get("publish_date", "") or record.get("published_at", "")).strip()
+        if not raw_value:
+            continue
+        parsed = parse_datetime_guess(raw_value)
+        if parsed is None:
+            continue
+        normalized_days.append(parsed.astimezone(ZoneInfo(timezone_name)).strftime("%Y-%m-%d"))
+    if not normalized_days:
+        return ("未知", "未知", "未知")
+    earliest = min(normalized_days)
+    latest = max(normalized_days)
+    if earliest == latest:
+        return (earliest, latest, latest)
+    return (earliest, latest, f"{earliest} 至 {latest}")
+
+
+def build_email_subject(email_config_path: str, localized_path: Path, timezone_name: str) -> str:
+    config = load_yaml_file(email_config_path) or {}
+    defaults = config.get("delivery_defaults", {}) if isinstance(config, dict) else {}
+    template = str(
+        (defaults.get("subject_template", "") if isinstance(defaults, dict) else "")
+        or "[Bio Digest] Published Literature Through {latest_publish_date}"
+    ).strip()
+    earliest_publish_date, latest_publish_date, publish_date_range = publish_date_range_label(localized_path, timezone_name)
+    return template.format(
+        date=latest_publish_date,
+        earliest_publish_date=earliest_publish_date,
+        latest_publish_date=latest_publish_date,
+        publish_date_range=publish_date_range,
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run the end-to-end digest pipeline.")
     parser.add_argument("--work-dir", required=True, help="Output directory for this run")
@@ -69,10 +113,14 @@ def main() -> int:
     parser.add_argument("--skip-email", action="store_true", help="Skip the email sending step")
     parser.add_argument("--manual-review-csv", help="Edited review_queue.csv with final human/Codex decisions")
     parser.add_argument("--allow-review-pending", action="store_true", help="Allow email sending even if review queue is non-empty")
-    parser.add_argument("--review-provider", choices=["placeholder", "command", "http-json"], default="placeholder")
+    parser.add_argument("--review-provider", choices=["placeholder", "command", "http-json", "nvidia-chat"], default="placeholder")
     parser.add_argument("--review-command", help="External command for llm_review.py")
     parser.add_argument("--review-config", help="Config file for LLM review provider")
-    parser.add_argument("--summary-provider", choices=["placeholder", "command", "http-json", "tencent-tmt", "google-basic-v2"], default="placeholder")
+    parser.add_argument(
+        "--summary-provider",
+        choices=["placeholder", "command", "http-json", "tencent-tmt", "google-basic-v2", "nvidia-chat"],
+        default="placeholder",
+    )
     parser.add_argument("--summary-command", help="External command for translate_and_summarize.py")
     parser.add_argument(
         "--summary-config",
@@ -85,6 +133,11 @@ def main() -> int:
     parser.add_argument("--window-end", help="Explicit UTC window end, e.g. 2026-03-15T00:00:00Z")
     parser.add_argument("--timezone", help="Timezone used for scheduled digest windows")
     parser.add_argument("--delivery-time", help="Scheduled digest delivery time in HH:MM")
+    parser.add_argument(
+        "--window-policy",
+        choices=["previous_day", "previous_day_to_delivery"],
+        help="Scheduled digest window policy",
+    )
     parser.add_argument(
         "--web-base-url",
         default=str(RUNTIME_DEFAULTS.get("web", {}).get("base_url", "") or ""),
@@ -136,6 +189,11 @@ def main() -> int:
         args.delivery_time
         or str(RUNTIME_DEFAULTS.get("delivery", {}).get("delivery_time", "") or "")
         or watchlist_defaults.get("delivery_time", "08:00")
+    )
+    window_policy = (
+        args.window_policy
+        or str(RUNTIME_DEFAULTS.get("delivery", {}).get("window_policy", "") or "")
+        or "previous_day"
     )
     window_start = ""
     window_end = ""
@@ -204,6 +262,7 @@ def main() -> int:
             "work_dir": str(run_dir),
             "window": {
                 "mode": args.window_mode,
+                "policy": window_policy,
                 "start_utc": window_start,
                 "end_utc": window_end,
                 "timezone": digest_timezone,
@@ -254,10 +313,17 @@ def main() -> int:
         window_end = args.window_end
         print(f"[window] {window_start} -> {window_end} (explicit)")
     elif args.window_mode == "schedule":
-        window_start_dt, window_end_dt = compute_scheduled_digest_window(digest_timezone, delivery_time)
+        window_start_dt, window_end_dt = compute_scheduled_digest_window(
+            digest_timezone,
+            delivery_time,
+            window_policy=window_policy,
+        )
         window_start = isoformat_utc(window_start_dt)
         window_end = isoformat_utc(window_end_dt)
-        print(f"[window] {window_start} -> {window_end} ({digest_timezone} schedule {delivery_time})")
+        print(
+            f"[window] {window_start} -> {window_end} "
+            f"({digest_timezone} schedule {delivery_time}, policy={window_policy})"
+        )
 
     write_run_metadata(status="running")
 
@@ -347,9 +413,9 @@ def main() -> int:
             if not args.review_command:
                 raise SystemExit("--review-command is required when --review-provider=command")
             review_command.extend(["--command", args.review_command])
-        if args.review_provider == "http-json":
+        if args.review_provider in {"http-json", "nvidia-chat"}:
             if not args.review_config:
-                raise SystemExit("--review-config is required when --review-provider=http-json")
+                raise SystemExit("--review-config is required when using an external review provider")
             review_command.extend(["--config", args.review_config])
         run_pipeline_step("llm_review", review_command)
         run_pipeline_step(
@@ -433,7 +499,7 @@ def main() -> int:
         ]
         if args.summary_provider == "command" and args.summary_command:
             summarize_command.extend(["--command", args.summary_command])
-        if args.summary_provider in {"http-json", "tencent-tmt", "google-basic-v2"}:
+        if args.summary_provider in {"http-json", "tencent-tmt", "google-basic-v2", "nvidia-chat"}:
             if not args.summary_config:
                 raise SystemExit(f"--summary-config is required when --summary-provider={args.summary_provider}")
             summarize_command.extend(["--config", args.summary_config])
@@ -478,6 +544,8 @@ def main() -> int:
                 args.template,
                 "--style-config",
                 args.style_config,
+                "--display-timezone",
+                digest_timezone,
                 "--web-base-url",
                 args.web_base_url,
             ],
@@ -501,6 +569,8 @@ def main() -> int:
                 args.template,
                 "--style-config",
                 args.style_config,
+                "--display-timezone",
+                digest_timezone,
                 "--schema-key",
                 "review_queue_schema",
             ],
@@ -524,6 +594,8 @@ def main() -> int:
                 args.template,
                 "--style-config",
                 args.style_config,
+                "--display-timezone",
+                digest_timezone,
                 "--schema-key",
                 "daily_review_schema",
             ],
@@ -534,7 +606,7 @@ def main() -> int:
                 raise SystemExit("review_queue is not empty; resolve manual/Codex review first or pass --allow-review-pending")
             if not args.smtp_profile:
                 raise SystemExit("--smtp-profile is required unless --skip-email is set")
-            subject = f"[Bio Digest] {datetime.now().strftime('%Y-%m-%d')} Daily Literature Update"
+            subject = build_email_subject(args.email_config, localized_path, digest_timezone)
             run_pipeline_step(
                 "send_email",
                 [

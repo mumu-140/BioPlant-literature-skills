@@ -11,7 +11,10 @@ from typing import Any
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
-from common import current_timestamp_utc, isoformat_utc, load_watchlist, parse_datetime_guess, within_utc_window, write_jsonl
+try:
+    from scripts.common import current_timestamp_utc, isoformat_utc, load_watchlist, parse_datetime_guess, within_utc_window, write_jsonl
+except ModuleNotFoundError:
+    from common import current_timestamp_utc, isoformat_utc, load_watchlist, parse_datetime_guess, within_utc_window, write_jsonl
 
 
 NON_ARTICLE_TITLE_EXACT = {

@@ -36,7 +36,8 @@ class GlossaryCandidatesTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    str(SCRIPTS_DIR / "build_glossary_candidates.py"),
+                    str(SCRIPTS_DIR / "optimization_reports.py"),
+                    "glossary-candidates",
                     "--input",
                     str(input_path),
                     "--glossary",

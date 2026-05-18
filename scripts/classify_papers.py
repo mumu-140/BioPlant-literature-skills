@@ -5,7 +5,10 @@ import argparse
 from pathlib import Path
 from typing import Any
 
-from common import keyword_hits, load_yaml_file, read_jsonl, safe_text_join, write_jsonl
+try:
+    from scripts.common import keyword_hits, load_yaml_file, read_jsonl, safe_text_join, write_jsonl
+except ModuleNotFoundError:
+    from common import keyword_hits, load_yaml_file, read_jsonl, safe_text_join, write_jsonl
 
 
 def classify_record(record: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any]:

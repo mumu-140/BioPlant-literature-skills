@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import Iterable
 
 try:
-    from project_layout import SKILL_DIR
+    from scripts._bootstrap import SKILL_DIR
 except ModuleNotFoundError:
-    from scripts.project_layout import SKILL_DIR
+    from _bootstrap import SKILL_DIR
 
 
 IGNORED_DIR_NAMES = {".venv", "__pycache__", "archives", "reviews", "logs", "local", "var", ".git"}

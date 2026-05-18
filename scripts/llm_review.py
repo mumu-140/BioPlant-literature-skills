@@ -10,7 +10,20 @@ from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from common import load_yaml_file, read_jsonl, write_jsonl
+try:
+    from scripts.common import load_yaml_file, read_jsonl, write_jsonl
+except ModuleNotFoundError:
+    from common import load_yaml_file, read_jsonl, write_jsonl
+
+try:
+    from scripts._bootstrap import SKILL_DIR  # noqa: E402
+except ModuleNotFoundError:
+    from _bootstrap import SKILL_DIR  # noqa: E402
+
+from bio_literature_digest.ai.screening import (  # noqa: E402
+    is_uncertain_review_candidate,
+    review_records_with_nvidia,
+)
 
 
 EDITORIAL_PREFIXES = ("Author Correction:", "Publisher Correction:", "Retraction:", "Erratum:", "Q&A with ")
@@ -188,6 +201,37 @@ def finalize_review(record: dict[str, Any], review_payload: dict[str, Any], conf
     return annotated
 
 
+def nvidia_review_payloads(records: list[dict[str, Any]], config: dict[str, Any]) -> list[dict[str, Any]]:
+    runtime_config = config.get("runtime", {}) if isinstance(config.get("runtime"), dict) else {}
+    continue_on_error = bool(runtime_config.get("continue_on_error", True))
+    payloads = [placeholder_review(record) for record in records]
+    candidate_pairs = [(index, record) for index, record in enumerate(records) if is_uncertain_review_candidate(record)]
+    if not candidate_pairs:
+        return payloads
+
+    candidate_records = [record for _, record in candidate_pairs]
+    try:
+        ai_payloads = review_records_with_nvidia(candidate_records, config)
+    except Exception as error:
+        if not continue_on_error:
+            raise
+        print(
+            f"[review] provider=nvidia-chat failed for {len(candidate_records)} uncertain records "
+            f"({type(error).__name__}: {error}); using placeholder review"
+        )
+        return payloads
+
+    if len(ai_payloads) != len(candidate_records):
+        if not continue_on_error:
+            raise ValueError("NVIDIA review count does not match uncertain record count")
+        print("[review] provider=nvidia-chat returned mismatched count; using placeholder review")
+        return payloads
+
+    for (index, _record), ai_payload in zip(candidate_pairs, ai_payloads):
+        payloads[index] = ai_payload
+    return payloads
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Review filtered biology papers with an LLM or placeholder reviewer.")
     parser.add_argument("--input", required=True, help="Classified input JSONL")
@@ -195,15 +239,15 @@ def main() -> int:
     parser.add_argument("--keep-output", required=True, help="Records approved for digest output")
     parser.add_argument("--review-output", required=True, help="Records requiring human review")
     parser.add_argument("--reject-output", required=True, help="Records rejected after LLM review")
-    parser.add_argument("--provider", choices=["placeholder", "command", "http-json"], default="placeholder")
+    parser.add_argument("--provider", choices=["placeholder", "command", "http-json", "nvidia-chat"], default="placeholder")
     parser.add_argument("--command", help="Shell command that reads one JSON record on stdin and returns JSON")
     parser.add_argument("--config", help="YAML config for provider-specific settings")
     args = parser.parse_args()
 
     if args.provider == "command" and not args.command:
         raise SystemExit("--command is required when --provider=command")
-    if args.provider == "http-json" and not args.config:
-        raise SystemExit("--config is required when --provider=http-json")
+    if args.provider in {"http-json", "nvidia-chat"} and not args.config:
+        raise SystemExit("--config is required when using an external review provider")
 
     config = load_yaml_file(args.config) or {} if args.config else {}
     records = read_jsonl(Path(args.input))
@@ -212,7 +256,12 @@ def main() -> int:
     review_records: list[dict[str, Any]] = []
     reject_records: list[dict[str, Any]] = []
 
-    for record in records:
+    if args.provider == "nvidia-chat":
+        prepared_payloads = nvidia_review_payloads(records, config)
+    else:
+        prepared_payloads = []
+
+    for index, record in enumerate(records):
         if args.provider == "command":
             review_payload = command_review(args.command, record)
         elif args.provider == "http-json":
@@ -226,6 +275,8 @@ def main() -> int:
                 if response_fields.get("category_override_path")
                 else raw_payload.get("category_override"),
             }
+        elif args.provider == "nvidia-chat":
+            review_payload = prepared_payloads[index]
         else:
             review_payload = placeholder_review(record)
 

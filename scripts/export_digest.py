@@ -11,8 +11,12 @@ from pathlib import Path
 from string import Template
 from typing import Any
 from xml.sax.saxutils import escape
+from zoneinfo import ZoneInfo
 
-from common import ensure_parent_dir, keyword_hits, load_yaml_file, parse_datetime_guess, read_jsonl
+try:
+    from scripts.common import ensure_parent_dir, keyword_hits, load_yaml_file, parse_datetime_guess, read_jsonl
+except ModuleNotFoundError:
+    from common import ensure_parent_dir, keyword_hits, load_yaml_file, parse_datetime_guess, read_jsonl
 
 STAGE_LABELS = {
     "journal": "Published Papers",
@@ -109,18 +113,46 @@ def render_interest_stars(score: int) -> str:
     return "★" * bounded + "☆" * (5 - bounded)
 
 
-def format_publish_date(value: str) -> str:
+def localize_publish_date_value(value: str, timezone_name: str) -> str:
+    parsed = parse_datetime_guess(value)
+    if parsed is None:
+        return str(value or "")
+    return parsed.astimezone(ZoneInfo(timezone_name)).replace(microsecond=0).isoformat()
+
+
+def format_publish_date(value: str, timezone_name: str) -> str:
     parsed = parse_datetime_guess(value)
     if parsed is None:
         return "Publish date unavailable"
-    return parsed.strftime("%Y-%m-%d %H:%M UTC")
+    localized = parsed.astimezone(ZoneInfo(timezone_name))
+    return localized.strftime("%Y-%m-%d %H:%M") + f" {timezone_name}"
 
 
-def build_display_context(rules: dict[str, Any]) -> dict[str, set[str]]:
+def publish_date_range_label(records: list[dict[str, Any]], timezone_name: str) -> tuple[str, str, str]:
+    normalized_days: list[str] = []
+    for record in records:
+        raw_value = safe_value(record, "publish_date") or safe_value(record, "published_at")
+        if not raw_value:
+            continue
+        parsed = parse_datetime_guess(raw_value)
+        if parsed is None:
+            continue
+        normalized_days.append(parsed.astimezone(ZoneInfo(timezone_name)).strftime("%Y-%m-%d"))
+    if not normalized_days:
+        return ("未知", "未知", "未知")
+    earliest = min(normalized_days)
+    latest = max(normalized_days)
+    if earliest == latest:
+        return (earliest, latest, latest)
+    return (earliest, latest, f"{earliest} 至 {latest}")
+
+
+def build_display_context(rules: dict[str, Any], display_timezone: str = "Asia/Shanghai") -> dict[str, Any]:
     display_priority = rules.get("display_priority", {})
     visual_filters = rules.get("visual_filters", {})
     return {
         "default_grouping_mode": display_priority.get("default_grouping_mode", "journal"),
+        "display_timezone": display_timezone,
         "top_journal_source_ids": set(display_priority.get("top_journal_source_ids", [])),
         "journal_order_source_ids": list(display_priority.get("journal_order_source_ids", [])),
         "journal_order_rank": {
@@ -132,6 +164,24 @@ def build_display_context(rules: dict[str, Any]) -> dict[str, set[str]]:
         "attachment_only_source_ids": set(visual_filters.get("attachment_only_source_ids", [])),
         "attachment_only_keywords": list(visual_filters.get("attachment_only_keywords", [])),
     }
+
+
+def prepare_export_records(
+    records: list[dict[str, Any]],
+    rules: dict[str, Any],
+    display_timezone: str,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    context = build_display_context(rules, display_timezone)
+    normalized_records: list[dict[str, Any]] = []
+    for record in records:
+        enriched = dict(record)
+        if not enriched.get("publish_date"):
+            enriched["publish_date"] = enriched.get("published_at", "")
+        publish_date = safe_value(enriched, "publish_date")
+        if publish_date:
+            enriched["publish_date"] = localize_publish_date_value(publish_date, display_timezone)
+        normalized_records.append(enrich_record(enriched, rules, context))
+    return normalized_records, context
 
 
 def record_text(record: dict[str, Any]) -> str:
@@ -318,7 +368,7 @@ def should_hide_from_visual_digest(record: dict[str, Any], context: dict[str, An
     return bool(keyword_hits(text, context["attachment_only_keywords"]))
 
 
-def render_record_card(record: dict[str, Any]) -> str:
+def render_record_card(record: dict[str, Any], context: dict[str, Any]) -> str:
     article_href = safe_value(record, "article_url") or (f"https://doi.org/{safe_value(record, 'doi')}" if safe_value(record, "doi") else "")
     doi_value = safe_value(record, "doi")
     doi_html = (
@@ -344,7 +394,7 @@ def render_record_card(record: dict[str, Any]) -> str:
         f'<span class="badge badge-stage">{html.escape(STAGE_LABELS.get(stage, stage.title()))}</span>',
         f'<span class="badge badge-category">{html.escape(CATEGORY_LABELS.get(category, category.title()))}</span>',
         f"<span>{journal}</span>",
-        f"<span>{html.escape(format_publish_date(safe_value(record, 'publish_date') or safe_value(record, 'published_at')))}</span>",
+        f"<span>{html.escape(format_publish_date(safe_value(record, 'publish_date') or safe_value(record, 'published_at'), context['display_timezone']))}</span>",
     ]
     if tag_html:
         meta_parts.append(tag_html)
@@ -403,7 +453,7 @@ def render_priority_grouped_cards(records: list[dict[str, Any]], context: dict[s
         bucket_records = sorted(grouped.get(bucket_id, []), key=lambda record: record_display_sort_key(record, context))
         if not bucket_records:
             continue
-        cards = "".join(render_record_card(record) for record in bucket_records)
+        cards = "".join(render_record_card(record, context) for record in bucket_records)
         bucket_sections.append(
             "<details class=\"group-details\">"
             f"<summary class=\"group-summary\">{html.escape(bucket_label)}"
@@ -427,7 +477,7 @@ def render_journal_grouped_cards(records: list[dict[str, Any]], context: dict[st
     sections = []
     for source_id, journal_records in ordered_groups:
         ordered_records = sorted(journal_records, key=lambda record: record_display_sort_key(record, context))
-        cards = "".join(render_record_card(record) for record in ordered_records)
+        cards = "".join(render_record_card(record, context) for record in ordered_records)
         sections.append(
             "<details class=\"group-details\">"
             f"<summary class=\"group-summary\">{html.escape(journal_names.get(source_id, source_id))}"
@@ -446,8 +496,9 @@ def render_digest_cards(
     grouping_mode: str,
     style_override_css: str,
     web_digest_button: str,
+    display_timezone: str,
 ) -> str:
-    context = build_display_context(rules)
+    context = build_display_context(rules, display_timezone)
     visible_records = [record for record in records if not should_hide_from_visual_digest(record, context)]
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for record in visible_records:
@@ -472,8 +523,23 @@ def render_digest_cards(
         )
     if not sections:
         sections.append('<section class="section"><div class="empty-state">No records matched the current visual filters in the digest body. Full records remain available in the attachments.</div></section>')
-    greeting_template = rules.get("output_schema", {}).get("greeting_template", "{date}--祝你早上快乐--这是今日份的论文快看吧")
-    greeting_line = greeting_template.format(date=datetime.now().strftime("%Y-%m-%d"))
+    earliest_publish_date, latest_publish_date, publish_date_range = publish_date_range_label(
+        visible_records or records,
+        display_timezone,
+    )
+    greeting_template = rules.get(
+        "output_schema",
+        {},
+    ).get(
+        "greeting_template",
+        "以下文献按数据库中的发布日期整理。最新发布日期：{latest_publish_date}；覆盖范围：{publish_date_range}。",
+    )
+    greeting_line = greeting_template.format(
+        date=datetime.now().strftime("%Y-%m-%d"),
+        earliest_publish_date=earliest_publish_date,
+        latest_publish_date=latest_publish_date,
+        publish_date_range=publish_date_range,
+    )
     return Template(template_text).safe_substitute(
         sections="".join(sections),
         record_count=str(len(visible_records)),
@@ -582,16 +648,16 @@ def build_web_digest_button(web_base_url: str) -> str:
     base = str(web_base_url or "").strip().rstrip("/")
     if not base:
         return ""
-    login_url = html.escape(f"{base}/login?next=/digests/today")
+    login_url = html.escape(f"{base}/login?next=/papers/published")
     base_label = html.escape(base)
     return (
         '<div class="hero-access">'
         '<p class="hero-access-kicker">Web Access</p>'
-        '<p class="hero-access-title">网页端已同步更新，邮件里的入口会指向对应账户。</p>'
+        '<p class="hero-access-title">网页端已同步更新，邮件和网页都按发布日期展示文献。</p>'
         f'<p class="hero-access-copy">主入口：<a class="hero-access-url" href="{login_url}">{base_label}</a></p>'
         '<div class="hero-links">'
         f'<a class="hero-link" href="{login_url}">立即打开网页端</a>'
-        f'<a class="hero-link" href="{login_url}">查看今日文献表格</a>'
+        f'<a class="hero-link" href="{login_url}">查看按发布日期整理的文献表格</a>'
         "</div>"
         "</div>"
     )
@@ -840,6 +906,7 @@ def main() -> int:
     parser.add_argument("--schema-key", default="output_schema", help="Schema section in category_rules.yaml")
     parser.add_argument("--grouping-mode", choices=["journal", "priority"], help="Override digest grouping mode")
     parser.add_argument("--style-config", help="Optional YAML file with CSS overrides for email styling")
+    parser.add_argument("--display-timezone", default="Asia/Shanghai", help="Timezone used for human-facing publish dates")
     parser.add_argument("--web-base-url", default="", help="Optional web digest base URL")
     args = parser.parse_args()
 
@@ -850,13 +917,7 @@ def main() -> int:
         "required_columns",
         ["journal", "publish_date", "category", "title_en", "title_zh", "summary_zh", "abstract", "doi", "article_url", "tags"],
     )
-    normalized_records: list[dict[str, Any]] = []
-    context = build_display_context(rules)
-    for record in records:
-        enriched = dict(record)
-        if not enriched.get("publish_date"):
-            enriched["publish_date"] = enriched.get("published_at", "")
-        normalized_records.append(enrich_record(enriched, rules, context))
+    normalized_records, context = prepare_export_records(records, rules, args.display_timezone)
     stage_sort = {"journal": 0, "preprint": 1}
     grouping_mode = args.grouping_mode or str(context.get("default_grouping_mode", "journal"))
     normalized_records.sort(
@@ -879,7 +940,15 @@ def main() -> int:
     web_digest_button = build_web_digest_button(args.web_base_url) if args.schema_key == "output_schema" else ""
     option_map = review_option_map(rules, columns) if args.schema_key != "output_schema" else {}
     if args.schema_key == "output_schema":
-        html_body = render_digest_cards(normalized_records, template_text, rules, grouping_mode, style_override_css, web_digest_button)
+        html_body = render_digest_cards(
+            normalized_records,
+            template_text,
+            rules,
+            grouping_mode,
+            style_override_css,
+            web_digest_button,
+            args.display_timezone,
+        )
     else:
         html_body = render_html_table(normalized_records, columns, template_text, style_override_css, rules, web_digest_button)
         html_body = html_body.replace("</body>", build_review_table_script() + "\n</body>")

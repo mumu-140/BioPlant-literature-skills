@@ -100,7 +100,8 @@ class ReviewBacklogFlowTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    str(SCRIPTS_DIR / "refresh_review_backlog.py"),
+                    str(SCRIPTS_DIR / "review_backlog.py"),
+                    "refresh",
                     "--review-workspace-dir",
                     str(root / "reviews" / "daily-reviews"),
                     "--backlog-dir",
@@ -182,7 +183,8 @@ class ReviewBacklogFlowTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    str(SCRIPTS_DIR / "refresh_review_backlog.py"),
+                    str(SCRIPTS_DIR / "review_backlog.py"),
+                    "refresh",
                     "--review-workspace-dir",
                     str(root / "reviews" / "daily-reviews"),
                     "--backlog-dir",
@@ -269,7 +271,8 @@ class ReviewBacklogFlowTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    str(SCRIPTS_DIR / "mark_review_backlog_optimized.py"),
+                    str(SCRIPTS_DIR / "review_backlog.py"),
+                    "mark",
                     "--backlog-dir",
                     str(backlog_dir),
                     "--all-reviewed-pending",
@@ -281,7 +284,8 @@ class ReviewBacklogFlowTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    str(SCRIPTS_DIR / "finalize_review_backlog.py"),
+                    str(SCRIPTS_DIR / "review_backlog.py"),
+                    "finalize",
                     "--backlog-dir",
                     str(backlog_dir),
                 ],
@@ -402,7 +406,8 @@ class ReviewBacklogFlowTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    str(SCRIPTS_DIR / "mark_review_backlog_optimized.py"),
+                    str(SCRIPTS_DIR / "review_backlog.py"),
+                    "mark",
                     "--backlog-dir",
                     str(backlog_dir),
                     "--selection-json",
@@ -415,7 +420,8 @@ class ReviewBacklogFlowTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    str(SCRIPTS_DIR / "finalize_review_backlog.py"),
+                    str(SCRIPTS_DIR / "review_backlog.py"),
+                    "finalize",
                     "--backlog-dir",
                     str(backlog_dir),
                 ],
@@ -518,7 +524,8 @@ class ReviewBacklogFlowTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    str(SCRIPTS_DIR / "refresh_review_backlog.py"),
+                    str(SCRIPTS_DIR / "review_backlog.py"),
+                    "refresh",
                     "--review-workspace-dir",
                     str(root / "reviews" / "daily-reviews"),
                     "--backlog-dir",
@@ -546,7 +553,8 @@ class ReviewBacklogFlowTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    str(SCRIPTS_DIR / "mark_review_backlog_optimized.py"),
+                    str(SCRIPTS_DIR / "review_backlog.py"),
+                    "mark",
                     "--backlog-dir",
                     str(backlog_dir),
                     "--selection-json",
@@ -559,7 +567,8 @@ class ReviewBacklogFlowTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    str(SCRIPTS_DIR / "finalize_review_backlog.py"),
+                    str(SCRIPTS_DIR / "review_backlog.py"),
+                    "finalize",
                     "--backlog-dir",
                     str(backlog_dir),
                 ],
@@ -570,7 +579,8 @@ class ReviewBacklogFlowTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    str(SCRIPTS_DIR / "refresh_review_backlog.py"),
+                    str(SCRIPTS_DIR / "review_backlog.py"),
+                    "refresh",
                     "--review-workspace-dir",
                     str(root / "reviews" / "daily-reviews"),
                     "--backlog-dir",
@@ -706,7 +716,8 @@ class ReviewBacklogFlowTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    str(SCRIPTS_DIR / "refresh_review_backlog.py"),
+                    str(SCRIPTS_DIR / "review_backlog.py"),
+                    "refresh",
                     "--review-workspace-dir",
                     str(root / "reviews" / "daily-reviews"),
                     "--backlog-dir",

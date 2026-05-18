@@ -6,7 +6,10 @@ import csv
 from pathlib import Path
 from typing import Any
 
-from common import canonicalize_doi, canonicalize_url, normalize_title, read_jsonl, write_jsonl
+try:
+    from scripts.common import canonicalize_doi, canonicalize_url, normalize_title, read_jsonl, write_jsonl
+except ModuleNotFoundError:
+    from common import canonicalize_doi, canonicalize_url, normalize_title, read_jsonl, write_jsonl
 
 
 def record_key(record: dict[str, Any]) -> tuple[str, str]:

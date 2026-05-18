@@ -6,21 +6,13 @@ import sys
 from pathlib import Path
 
 try:
-    from run_production_digest import SKILL_DIR
+    from scripts._bootstrap import SKILL_DIR, canonical_paths, load_runtime_config
 except ModuleNotFoundError:
-    from scripts.run_production_digest import SKILL_DIR
+    from _bootstrap import SKILL_DIR, canonical_paths, load_runtime_config
 try:
-    from project_layout import canonical_paths
-except ModuleNotFoundError:
-    from scripts.project_layout import canonical_paths
-try:
-    from project_layout import load_runtime_config
-except ModuleNotFoundError:
-    from scripts.project_layout import load_runtime_config
-try:
-    from check_harness import build_report as build_harness_report
-except ModuleNotFoundError:
     from scripts.check_harness import build_report as build_harness_report
+except ModuleNotFoundError:
+    from check_harness import build_report as build_harness_report
 
 
 AUTOMATION_PATH = Path.home() / ".codex" / "automations" / "bio-digest-optimizer" / "automation.toml"
@@ -125,11 +117,11 @@ def build_report(*, require_automation: bool = False) -> tuple[list[str], list[s
     else:
         notes.append(f"已检测自动化配置: {AUTOMATION_PATH}")
         required_automation_terms = [
-            "refresh_review_backlog.py",
+            "review_backlog.py refresh",
             "var/reviews/backlog/review_backlog.xlsx",
             "var/reviews/backlog/review_backlog_state.json",
             "selection-json",
-            "finalize_review_backlog.py",
+            "review_backlog.py finalize",
             "config/content/category_rules.yaml",
             "config/content/bio_translation_glossary.yaml",
         ]

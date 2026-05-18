@@ -50,7 +50,8 @@ class ClassificationSuggestionsTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    str(SCRIPTS_DIR / "classification_suggestions.py"),
+                    str(SCRIPTS_DIR / "optimization_reports.py"),
+                    "classification-suggestions",
                     "--classified",
                     str(classified_path),
                     "--reviewed",

@@ -6,9 +6,9 @@ import plistlib
 from pathlib import Path
 
 try:
-    from project_layout import DEFAULT_RUNTIME_CONFIG_PATH, canonical_paths, load_runtime_config
+    from scripts._bootstrap import DEFAULT_RUNTIME_CONFIG_PATH, canonical_paths, load_runtime_config
 except ModuleNotFoundError:
-    from scripts.project_layout import DEFAULT_RUNTIME_CONFIG_PATH, canonical_paths, load_runtime_config
+    from _bootstrap import DEFAULT_RUNTIME_CONFIG_PATH, canonical_paths, load_runtime_config
 
 
 CANONICAL_PATHS = canonical_paths()

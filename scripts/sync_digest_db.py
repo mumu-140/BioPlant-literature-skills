@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from common import canonicalize_doi, canonicalize_url, current_timestamp_utc, normalize_title
-except ModuleNotFoundError:
     from scripts.common import canonicalize_doi, canonicalize_url, current_timestamp_utc, normalize_title
+except ModuleNotFoundError:
+    from common import canonicalize_doi, canonicalize_url, current_timestamp_utc, normalize_title
 
 
 DATASET_FILES = {

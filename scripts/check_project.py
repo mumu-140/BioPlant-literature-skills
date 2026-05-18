@@ -8,17 +8,17 @@ import sys
 from pathlib import Path
 
 try:
-    from project_layout import SKILL_DIR
+    from scripts._bootstrap import SKILL_DIR
 except ModuleNotFoundError:
-    from scripts.project_layout import SKILL_DIR
+    from _bootstrap import SKILL_DIR
 try:
-    from check_alignment import build_report as build_alignment_report
-except ModuleNotFoundError:
     from scripts.check_alignment import build_report as build_alignment_report
-try:
-    from check_harness import build_report as build_harness_report
 except ModuleNotFoundError:
+    from check_alignment import build_report as build_alignment_report
+try:
     from scripts.check_harness import build_report as build_harness_report
+except ModuleNotFoundError:
+    from check_harness import build_report as build_harness_report
 
 
 DEFAULT_TESTS = [
