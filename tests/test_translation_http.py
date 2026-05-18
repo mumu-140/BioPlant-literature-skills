@@ -230,6 +230,51 @@ class TranslationHttpTest(unittest.TestCase):
         self.assertEqual(localized[2]["title_zh"], "ZH:Paper 3")
         self.assertEqual(localized[2]["summary_zh"], "ZH:Abstract 3")
 
+    def test_nvidia_chat_provider_uses_batch_result_and_glossary(self) -> None:
+        module = load_module()
+        records = [
+            {
+                "journal": "Nature Methods",
+                "title_en": "A benchmark for single-cell workflows",
+                "abstract": "A plant dataset benchmark.",
+                "category": "methods-datasets-resources",
+                "publication_stage": "journal",
+            }
+        ]
+        config = {"glossary_path": str(CANONICAL_PATHS["glossary"])}
+        ai_result = [
+            {
+                "title_zh": "单单元格 基准 工作流",
+                "summary_zh": "单单元格 工作流 基准测试。第二句。第三句。",
+            }
+        ]
+
+        with mock.patch.object(module, "translate_records_with_nvidia", return_value=ai_result) as mocked_translate:
+            localized = module.localize_records(records, "nvidia-chat", config, max_sentences=2)
+
+        mocked_translate.assert_called_once_with(records, config)
+        self.assertEqual(localized[0]["title_zh"], "单细胞 基准测试 工作流程")
+        self.assertEqual(localized[0]["summary_zh"], "单细胞 工作流程 基准测试。第二句。")
+
+    def test_nvidia_chat_provider_falls_back_to_placeholder_when_unavailable(self) -> None:
+        module = load_module()
+        records = [
+            {
+                "journal": "Nature Methods",
+                "title_en": "A benchmark for single-cell workflows",
+                "abstract": "",
+                "category": "methods-datasets-resources",
+                "publication_stage": "journal",
+            }
+        ]
+        config = {"runtime": {"continue_on_error": True}}
+
+        with mock.patch.object(module, "translate_records_with_nvidia", side_effect=RuntimeError("quota exhausted")):
+            localized = module.localize_records(records, "nvidia-chat", config, max_sentences=4)
+
+        self.assertEqual(localized[0]["title_zh"], "A benchmark for single-cell workflows")
+        self.assertIn("当前未抓取到可用摘要", localized[0]["summary_zh"])
+
 
 if __name__ == "__main__":
     unittest.main()

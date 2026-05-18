@@ -90,7 +90,8 @@ class ProductionEntryTest(unittest.TestCase):
         self.assertIn(str(CANONICAL_PATHS["email_config_local"].resolve()), command)
         self.assertIn("--allow-review-pending", command)
         self.assertIn("--summary-provider", command)
-        self.assertIn("google-basic-v2", command)
+        self.assertIn("nvidia-chat", command)
+        self.assertIn(str(CANONICAL_PATHS["nvidia_ai_config_local"].resolve()), command)
         self.assertIn("--window-mode", command)
         self.assertIn("schedule", command)
 

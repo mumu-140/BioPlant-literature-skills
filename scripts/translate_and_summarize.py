@@ -15,11 +15,17 @@ from pathlib import Path
 from typing import Any
 import os
 
-from common import load_yaml_file, read_jsonl, write_jsonl
 try:
-    from project_layout import expand_config_value
+    from scripts.common import load_yaml_file, read_jsonl, write_jsonl
 except ModuleNotFoundError:
-    from scripts.project_layout import expand_config_value
+    from common import load_yaml_file, read_jsonl, write_jsonl
+try:
+    from scripts._bootstrap import expand_config_value  # noqa: E402
+except ModuleNotFoundError:
+    from _bootstrap import expand_config_value  # noqa: E402
+
+
+from bio_literature_digest.ai.translation import translate_records_with_nvidia  # noqa: E402
 
 
 CATEGORY_LABELS = {
@@ -510,6 +516,21 @@ def localize_record(
     return build_placeholder(record)
 
 
+def normalize_nvidia_localization(
+    record: dict[str, Any],
+    localized_fields: dict[str, Any],
+    glossary: dict[str, Any],
+    max_sentences: int,
+) -> tuple[str, str]:
+    title_raw = str(localized_fields.get("title_zh") or record.get("title_en", ""))
+    summary_raw = str(localized_fields.get("summary_zh") or "")
+    title_zh, _ = normalize_bio_translation_with_trace(title_raw, glossary)
+    summary_zh, _ = normalize_bio_translation_with_trace(summary_raw, glossary)
+    if not summary_zh:
+        _, summary_zh = build_placeholder(record)
+    return title_zh, apply_summary_sentence_limit(summary_zh, max_sentences)
+
+
 def localize_records(
     records: list[dict[str, Any]],
     provider: str,
@@ -528,9 +549,55 @@ def localize_records(
     fallback_provider = ""
     if primary_provider == "google-basic-v2":
         fallback_provider = normalize_provider_name(config.get("fallback_provider"))
+    if primary_provider == "nvidia-chat":
+        fallback_provider = normalize_provider_name(config.get("fallback_provider")) or "placeholder"
     active_provider = primary_provider
     consecutive_primary_failures = 0
     output: list[dict[str, Any]] = []
+
+    if primary_provider == "nvidia-chat":
+        try:
+            translated = translate_records_with_nvidia(records, config)
+            if len(translated) != len(records):
+                raise ValueError("NVIDIA batch translation count does not match input count")
+            glossary = load_glossary(config)
+            for index, (record, localized_fields) in enumerate(zip(records, translated), start=1):
+                title_zh, summary_zh = normalize_nvidia_localization(record, localized_fields, glossary, max_sentences)
+                localized = dict(record)
+                localized["title_zh"] = title_zh
+                localized["summary_zh"] = summary_zh
+                output.append(localized)
+                print(f"[translate] localized record {index}/{len(records)} using provider=nvidia-chat")
+            if output_path is not None:
+                write_jsonl(output_path, output)
+            return output
+        except Exception as error:
+            if not continue_on_error:
+                raise
+            print(
+                f"[translate] provider=nvidia-chat failed for batch of {len(records)} records "
+                f"({summarize_error(error)}); fallback={fallback_provider}"
+            )
+            if fallback_provider and fallback_provider != "placeholder":
+                return localize_records(
+                    records,
+                    fallback_provider,
+                    config,
+                    command=command,
+                    max_sentences=max_sentences,
+                    output_path=output_path,
+                )
+            output = []
+            for index, record in enumerate(records, start=1):
+                title_zh, summary_zh = build_placeholder(record)
+                localized = dict(record)
+                localized["title_zh"] = title_zh
+                localized["summary_zh"] = apply_summary_sentence_limit(summary_zh, max_sentences)
+                output.append(localized)
+                print(f"[translate] localized record {index}/{len(records)} using provider=placeholder")
+            if output_path is not None:
+                write_jsonl(output_path, output)
+            return output
 
     for index, record in enumerate(records, start=1):
         title = str(record.get("title_en", "")).strip() or "(untitled)"
@@ -616,7 +683,7 @@ def main() -> int:
     parser.add_argument("--rules", required=True, help="Path to category_rules.yaml")
     parser.add_argument(
         "--provider",
-        choices=["placeholder", "command", "http-json", "tencent-tmt", "google-basic-v2"],
+        choices=["placeholder", "command", "http-json", "tencent-tmt", "google-basic-v2", "nvidia-chat"],
         default="placeholder",
         help="Summary generation backend",
     )
@@ -626,8 +693,8 @@ def main() -> int:
 
     if args.provider == "command" and not args.command:
         raise SystemExit("--command is required when --provider=command")
-    if args.provider in {"http-json", "tencent-tmt", "google-basic-v2"} and not args.config:
-        raise SystemExit("--config is required when --provider=http-json, --provider=tencent-tmt, or --provider=google-basic-v2")
+    if args.provider in {"http-json", "tencent-tmt", "google-basic-v2", "nvidia-chat"} and not args.config:
+        raise SystemExit("--config is required when using an external summary provider")
 
     rules = load_yaml_file(args.rules) or {}
     provider_config = load_yaml_file(args.config) or {} if args.config else {}

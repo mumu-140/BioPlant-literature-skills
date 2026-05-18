@@ -1,0 +1,43 @@
+# 公开示例：OpenAI-compatible AI 翻译/复核配置。
+# 复制到 `local/integrations/nvidia_ai.yaml` 或你在 runtime 中指定的本机 config 后再填真实值。
+# 真实 API Key 优先放 `local/.env.local`；如果你只在本机私有 YAML 里写 api_key，也不要提交 local/。
+
+provider: nvidia-chat
+fallback_provider: placeholder
+glossary_path: ${SKILL_DIR}/config/content/bio_translation_glossary.yaml
+
+# 通用 OpenAI-compatible chat 配置；不绑定 NVIDIA。
+# 兼容 9router、NewAPI、LiteLLM、OpenAI-compatible gateway、NVIDIA NIM/API Catalog 等。
+ai_chat:
+  base_url: http://127.0.0.1:20128/v1
+  model: your-model-name
+  # 推荐使用 api_key_envs；如果必须在私有 local YAML 里直填，也支持 api_key。
+  api_key: ""
+  api_key_envs:
+    - AI_API_KEY
+    - OPENAI_API_KEY
+    - NVIDIA_API_KEY
+    - NGC_API_KEY
+  timeout_seconds: 60
+  max_retries: 3
+  retry_backoff_seconds: 0.8
+  temperature: 0.0
+  max_output_tokens: 4096
+  max_batch_items: 8
+  max_batch_chars: 12000
+
+runtime:
+  continue_on_error: true
+  checkpoint_every_records: 1
+
+summary:
+  mode: ai-batch-title-summary
+  fallback_without_abstract: "未抓取到可用摘要，建议后续人工补充中文总结。"
+
+notes:
+  - "`ai_chat.base_url` 是 OpenAI-compatible `/v1` 根路径，不要写到 `/chat/completions`。"
+  - "`ai_chat.model` 填你网关里可用的模型名。"
+  - "API key 解析顺序：先读 `ai_chat.api_key`，再按 `api_key_envs` 从环境变量读取。"
+  - "本 provider 是保底增强层；失败时应回退到 placeholder 或人工复核，不中断流水线。"
+  - "`provider: nvidia-chat` 作为现有 CLI 兼容名保留；实际后端由 `ai_chat` 配置决定。"
+  - "旧字段 `nvidia_chat:` 仍兼容，但新配置优先用 `ai_chat:`。"

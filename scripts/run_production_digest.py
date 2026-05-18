@@ -13,40 +13,28 @@ from pathlib import Path
 from types import SimpleNamespace
 
 try:
-    from with_env import SKILL_DIR, load_env_file
+    from scripts._bootstrap import SKILL_DIR, DEFAULT_RUNTIME_CONFIG_PATH, canonical_paths, load_runtime_config
 except ModuleNotFoundError:
-    from scripts.with_env import SKILL_DIR, load_env_file
-
+    from _bootstrap import SKILL_DIR, DEFAULT_RUNTIME_CONFIG_PATH, canonical_paths, load_runtime_config
 try:
-    from common import current_timestamp_utc
-except ModuleNotFoundError:
     from scripts.common import current_timestamp_utc
-try:
-    from project_layout import DEFAULT_RUNTIME_CONFIG_PATH, canonical_paths, load_runtime_config
 except ModuleNotFoundError:
-    from scripts.project_layout import DEFAULT_RUNTIME_CONFIG_PATH, canonical_paths, load_runtime_config
+    from common import current_timestamp_utc
 try:
-    from bio_literature_digest.review.backlog import (
-        DEFAULT_ARCHIVE_DIR as REVIEW_DEFAULT_ARCHIVE_DIR,
-        DEFAULT_BACKLOG_DIR as REVIEW_DEFAULT_BACKLOG_DIR,
-        DEFAULT_REVIEW_WORKSPACE_DIR as REVIEW_DEFAULT_REVIEW_WORKSPACE_DIR,
-        archive_outputs as canonical_archive_outputs,
-        export_backlog_views as canonical_export_backlog_views,
-        load_review_rows as canonical_load_review_rows,
-        resolve_archive_date as canonical_resolve_archive_date,
-        write_backlog_csv as canonical_write_backlog_csv,
-    )
+    from scripts.with_env import load_env_file
 except ModuleNotFoundError:
-    from src.bio_literature_digest.review.backlog import (
-        DEFAULT_ARCHIVE_DIR as REVIEW_DEFAULT_ARCHIVE_DIR,
-        DEFAULT_BACKLOG_DIR as REVIEW_DEFAULT_BACKLOG_DIR,
-        DEFAULT_REVIEW_WORKSPACE_DIR as REVIEW_DEFAULT_REVIEW_WORKSPACE_DIR,
-        archive_outputs as canonical_archive_outputs,
-        export_backlog_views as canonical_export_backlog_views,
-        load_review_rows as canonical_load_review_rows,
-        resolve_archive_date as canonical_resolve_archive_date,
-        write_backlog_csv as canonical_write_backlog_csv,
-    )
+    from with_env import load_env_file
+
+from bio_literature_digest.review.backlog import (
+    DEFAULT_ARCHIVE_DIR as REVIEW_DEFAULT_ARCHIVE_DIR,
+    DEFAULT_BACKLOG_DIR as REVIEW_DEFAULT_BACKLOG_DIR,
+    DEFAULT_REVIEW_WORKSPACE_DIR as REVIEW_DEFAULT_REVIEW_WORKSPACE_DIR,
+    archive_outputs as canonical_archive_outputs,
+    export_backlog_views as canonical_export_backlog_views,
+    load_review_rows as canonical_load_review_rows,
+    resolve_archive_date as canonical_resolve_archive_date,
+    write_backlog_csv as canonical_write_backlog_csv,
+)
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -178,7 +166,7 @@ def apply_runtime_defaults(args: argparse.Namespace) -> argparse.Namespace:
     if not getattr(args, "template", None):
         args.template = str(paths.get("template", "") or CANONICAL_PATHS["email_template"])
     if not getattr(args, "summary_config", None):
-        args.summary_config = str(paths.get("summary_config", "") or CANONICAL_PATHS["translation_google_local"])
+        args.summary_config = str(paths.get("summary_config", "") or CANONICAL_PATHS["nvidia_ai_config_local"])
 
     if not getattr(args, "smtp_profile", None):
         args.smtp_profile = str(delivery.get("smtp_profile", "") or "primary_smtp")
@@ -186,13 +174,15 @@ def apply_runtime_defaults(args: argparse.Namespace) -> argparse.Namespace:
         args.timezone = str(delivery.get("timezone", "") or "Asia/Shanghai")
     if not getattr(args, "delivery_time", None):
         args.delivery_time = str(delivery.get("delivery_time", "") or "08:00")
+    if not getattr(args, "window_policy", None):
+        args.window_policy = str(delivery.get("window_policy", "") or "previous_day")
     if not getattr(args, "allow_review_pending_explicit", False):
         args.allow_review_pending = bool(delivery.get("allow_review_pending", True))
 
     if not getattr(args, "review_provider", None):
         args.review_provider = str(providers.get("review_provider", "") or "placeholder")
     if not getattr(args, "summary_provider", None):
-        args.summary_provider = str(providers.get("summary_provider", "") or "google-basic-v2")
+        args.summary_provider = str(providers.get("summary_provider", "") or "nvidia-chat")
 
     if not getattr(args, "web_base_url", None):
         args.web_base_url = str(web.get("base_url", "") or "")
@@ -267,6 +257,8 @@ def build_command(args: argparse.Namespace) -> list[str]:
         args.timezone,
         "--delivery-time",
         args.delivery_time,
+        "--window-policy",
+        str(getattr(args, "window_policy", "") or "previous_day"),
         "--review-provider",
         args.review_provider,
     ]
@@ -296,9 +288,13 @@ def build_command(args: argparse.Namespace) -> list[str]:
     summary_provider = args.summary_provider
     summary_config = Path(args.summary_config).resolve() if args.summary_config else None
     if not summary_provider:
+        nvidia_config = CANONICAL_PATHS["nvidia_ai_config_local"]
         google_config = CANONICAL_PATHS["translation_google_local"] if CANONICAL_PATHS["translation_google_local"].exists() else None
         tencent_config = CANONICAL_PATHS["translation_tencent_local"] if CANONICAL_PATHS["translation_tencent_local"].exists() else None
-        if google_config:
+        if nvidia_config.exists():
+            summary_provider = "nvidia-chat"
+            summary_config = nvidia_config.resolve()
+        elif google_config:
             summary_provider = "google-basic-v2"
             summary_config = google_config.resolve()
         elif tencent_config:
@@ -472,6 +468,7 @@ def main() -> int:
     parser.add_argument("--window-end")
     parser.add_argument("--timezone")
     parser.add_argument("--delivery-time")
+    parser.add_argument("--window-policy", choices=["previous_day", "previous_day_to_delivery"])
     parser.add_argument("--web-base-url")
     parser.add_argument("--archive-dir")
     parser.add_argument("--review-workspace-dir")

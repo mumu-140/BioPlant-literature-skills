@@ -21,19 +21,25 @@ paths:
   users_config: ${SKILL_DIR}/local/integrations/users.yaml
   style_config: ${SKILL_DIR}/local/integrations/email_style.yaml
   template: ${SKILL_DIR}/assets/email_template.html
-  summary_config: ${SKILL_DIR}/local/integrations/translation_google_basic_v2.yaml
+  summary_config: ${SKILL_DIR}/local/integrations/nvidia_ai.yaml
+  # 传统机器翻译配置仍可保留，需要时把 summary_config 改回这个文件。
+  translation_google_config: ${SKILL_DIR}/local/integrations/translation_google_basic_v2.yaml
 
 delivery:
   # 这里填写要启用的 SMTP profile 名称；profile 细节在 `local/integrations/email_config.yaml`。
   smtp_profile: primary_smtp
   timezone: Asia/Shanghai
   delivery_time: "08:00"
+  # `previous_day` 表示日报默认只覆盖“前一自然日 00:00-24:00”；
+  # 如需兼容旧行为（前一日 00:00 到发送时刻），可改成 `previous_day_to_delivery`。
+  window_policy: previous_day
   allow_review_pending: true
 
 providers:
-  # 示例值不依赖真实外部服务，可按本机 provider 能力调整。
+  # 默认使用 OpenAI-compatible AI 翻译配置；provider 名仍兼容 `nvidia-chat`。
+  # 在 `local/integrations/nvidia_ai.yaml` 里配置 base_url/model/api_key_envs 或本机私有 api_key。
   review_provider: placeholder
-  summary_provider: google-basic-v2
+  summary_provider: nvidia-chat
 
 web:
   # web sidecar 是可选项；未接入时保持关闭。
