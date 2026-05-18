@@ -41,7 +41,8 @@ def canonical_paths() -> dict[str, Path]:
         "translation_config_example": INTEGRATIONS_CONFIG_DIR / "translation_config.example.yaml",
         "translation_google_example": INTEGRATIONS_CONFIG_DIR / "translation_google_basic_v2.example.yaml",
         "translation_tencent_example": INTEGRATIONS_CONFIG_DIR / "translation_tencent_tmt.example.yaml",
-        "nvidia_ai_config_example": INTEGRATIONS_CONFIG_DIR / "nvidia_ai.example.yaml",
+        "ai_chat_config_example": INTEGRATIONS_CONFIG_DIR / "ai_chat.example.yaml",
+        "nvidia_ai_config_example": INTEGRATIONS_CONFIG_DIR / "ai_chat.example.yaml",  # compat alias
         "llm_review_config_example": INTEGRATIONS_CONFIG_DIR / "llm_review_config.example.yaml",
         "env_file_example": CONFIG_DIR / "env.local.example",
         "runtime_config_example": RUNTIME_EXAMPLE_CONFIG_PATH,
@@ -52,7 +53,8 @@ def canonical_paths() -> dict[str, Path]:
         "email_style_local": LOCAL_DIR / "integrations" / "email_style.yaml",
         "translation_google_local": LOCAL_DIR / "integrations" / "translation_google_basic_v2.yaml",
         "translation_tencent_local": LOCAL_DIR / "integrations" / "translation_tencent_tmt.yaml",
-        "nvidia_ai_config_local": LOCAL_DIR / "integrations" / "nvidia_ai.yaml",
+        "ai_chat_config_local": LOCAL_DIR / "integrations" / "nvidia_ai.yaml",
+        "nvidia_ai_config_local": LOCAL_DIR / "integrations" / "nvidia_ai.yaml",  # compat alias
         "email_template": ASSETS_DIR / "email_template.html",
         "user_quickstart": DOCS_DIR / "user_quickstart.md",
         "daily_artifact_contract": DOCS_DIR / "daily_artifact_contract.md",

@@ -1,6 +1,7 @@
 # 公开示例：OpenAI-compatible AI 翻译/复核配置。
-# 复制到 `local/integrations/nvidia_ai.yaml` 或你在 runtime 中指定的本机 config 后再填真实值。
+# 复制到 `local/integrations/nvidia_ai.yaml`（文件名保留兼容）后再填真实值。
 # 真实 API Key 优先放 `local/.env.local`；如果你只在本机私有 YAML 里写 api_key，也不要提交 local/。
+# 注：此文件原名 nvidia_ai.example.yaml，已重命名为 ai_chat.example.yaml 以反映通用性。
 
 provider: nvidia-chat
 fallback_provider: placeholder

@@ -21,7 +21,7 @@ paths:
   users_config: ${SKILL_DIR}/local/integrations/users.yaml
   style_config: ${SKILL_DIR}/local/integrations/email_style.yaml
   template: ${SKILL_DIR}/assets/email_template.html
-  summary_config: ${SKILL_DIR}/local/integrations/nvidia_ai.yaml
+  summary_config: ${SKILL_DIR}/local/integrations/nvidia_ai.yaml  # 文件名保留兼容，内容已是通用 OpenAI-compatible
   # 传统机器翻译配置仍可保留，需要时把 summary_config 改回这个文件。
   translation_google_config: ${SKILL_DIR}/local/integrations/translation_google_basic_v2.yaml
 
@@ -38,6 +38,7 @@ delivery:
 providers:
   # 默认使用 OpenAI-compatible AI 翻译配置；provider 名仍兼容 `nvidia-chat`。
   # 在 `local/integrations/nvidia_ai.yaml` 里配置 base_url/model/api_key_envs 或本机私有 api_key。
+  # 公开模板已重命名为 `config/integrations/ai_chat.example.yaml`。
   review_provider: placeholder
   summary_provider: nvidia-chat
 

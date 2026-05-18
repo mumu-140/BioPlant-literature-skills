@@ -1,3 +1,6 @@
+# ⚠️ DEPRECATED: 此配置模板已废弃。推荐使用 `ai_chat.example.yaml`（OpenAI-compatible）。
+# 仅保留供已有 http-json 翻译网关用户参考；新部署请直接用 ai_chat 配置。
+#
 # 公开示例：适用于任意返回 JSON 的翻译服务。
 # 复制到 `local/integrations/translation_config.yaml` 后，替换为你的真实服务地址和协议。
 
