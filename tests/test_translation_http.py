@@ -1,44 +1,21 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import importlib.util
-import json
-import sys
 import unittest
-from pathlib import Path
 from unittest import mock
 
 from scripts.project_layout import canonical_paths
 
-SKILL_DIR = Path(__file__).resolve().parents[1]
-SCRIPT_PATH = SKILL_DIR / "scripts" / "translate_and_summarize.py"
+try:
+    from tests.helpers import load_script_module, FakeResponse
+except ModuleNotFoundError:
+    from helpers import load_script_module, FakeResponse
+
 CANONICAL_PATHS = canonical_paths()
 
 
 def load_module():
-    scripts_dir = str(SCRIPT_PATH.parent)
-    if scripts_dir not in sys.path:
-        sys.path.insert(0, scripts_dir)
-    spec = importlib.util.spec_from_file_location("translate_and_summarize_module", SCRIPT_PATH)
-    if spec is None or spec.loader is None:
-        raise RuntimeError("Unable to load translate_and_summarize.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-class FakeResponse:
-    def __init__(self, payload: dict[str, object]) -> None:
-        self.payload = payload
-
-    def __enter__(self) -> "FakeResponse":
-        return self
-
-    def __exit__(self, exc_type, exc, tb) -> None:  # type: ignore[override]
-        return None
-
-    def read(self) -> bytes:
-        return json.dumps(self.payload, ensure_ascii=False).encode("utf-8")
+    return load_script_module("translate_and_summarize.py")
 
 
 class TranslationHttpTest(unittest.TestCase):
@@ -108,7 +85,7 @@ class TranslationHttpTest(unittest.TestCase):
             },
             "summary": {
                 "mode": "translated-abstract",
-                "prefix_template": "该文发表于《{journal}》，归类为“{category_zh}”。",
+                "prefix_template": "该文发表于《{journal}》，归类为\u201c{category_zh}\u201d。",
             },
         }
 
@@ -152,7 +129,7 @@ class TranslationHttpTest(unittest.TestCase):
                 "timestamp_override": 1700000000,
             },
             "summary": {
-                "prefix_template": "该文发表于《{journal}》，归类为“{category_zh}”。",
+                "prefix_template": "该文发表于《{journal}》，归类为\u201c{category_zh}\u201d。",
             },
         }
 

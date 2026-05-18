@@ -1,26 +1,16 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import importlib.util
-import sys
 import unittest
-from pathlib import Path
 
-
-SKILL_DIR = Path(__file__).resolve().parents[1]
-SCRIPT_PATH = SKILL_DIR / "scripts" / "fetch_feeds.py"
+try:
+    from tests.helpers import load_script_module
+except ModuleNotFoundError:
+    from helpers import load_script_module
 
 
 def load_module():
-    scripts_dir = str(SCRIPT_PATH.parent)
-    if scripts_dir not in sys.path:
-        sys.path.insert(0, scripts_dir)
-    spec = importlib.util.spec_from_file_location("fetch_feeds_module", SCRIPT_PATH)
-    if spec is None or spec.loader is None:
-        raise RuntimeError("Unable to load fetch_feeds.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return load_script_module("fetch_feeds.py")
 
 
 class FetchParserTest(unittest.TestCase):

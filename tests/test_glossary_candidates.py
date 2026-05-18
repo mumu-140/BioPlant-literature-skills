@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import json
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 from scripts.project_layout import canonical_paths
+
+try:
+    from tests.helpers import write_jsonl
+except ImportError:
+    from helpers import write_jsonl
 
 
 SKILL_DIR = Path(__file__).resolve().parents[1]
@@ -29,10 +33,7 @@ class GlossaryCandidatesTest(unittest.TestCase):
                     "tags": ["plant"],
                 }
             ]
-            input_path.write_text(
-                "\n".join(json.dumps(record, ensure_ascii=False) for record in records) + "\n",
-                encoding="utf-8",
-            )
+            write_jsonl(input_path, records)
             subprocess.run(
                 [
                     sys.executable,

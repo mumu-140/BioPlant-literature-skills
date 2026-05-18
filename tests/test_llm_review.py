@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import importlib.util
 import subprocess
 import sys
 import tempfile
@@ -10,21 +9,14 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-
-SKILL_DIR = Path(__file__).resolve().parents[1]
-SCRIPTS_DIR = SKILL_DIR / "scripts"
+try:
+    from tests.helpers import load_script_module, SKILL_DIR, SCRIPTS_DIR
+except ModuleNotFoundError:
+    from helpers import load_script_module, SKILL_DIR, SCRIPTS_DIR
 
 
 def load_module():
-    scripts_dir = str(SCRIPTS_DIR)
-    if scripts_dir not in sys.path:
-        sys.path.insert(0, scripts_dir)
-    spec = importlib.util.spec_from_file_location("llm_review_module", SCRIPTS_DIR / "llm_review.py")
-    if spec is None or spec.loader is None:
-        raise RuntimeError("Unable to load llm_review.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return load_script_module("llm_review.py")
 
 
 class LlmReviewTest(unittest.TestCase):
