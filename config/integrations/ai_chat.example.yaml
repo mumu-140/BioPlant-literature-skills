@@ -38,8 +38,8 @@ ai_chat:
   retry_backoff_seconds: 1.0
   retry_max_sleep_seconds: 20.0
   temperature: 0.0
-  max_output_tokens: 4096
-  max_batch_items: 4
+  max_output_tokens: 1024
+  max_batch_items: 1
   max_batch_chars: 12000
 
 daily_optimization:
@@ -53,6 +53,7 @@ daily_optimization:
   max_retries: 10
   retry_backoff_seconds: 1.0
   retry_max_sleep_seconds: 20.0
+  max_output_tokens: 4096
   max_selected_rows: 8
 
 runtime:
