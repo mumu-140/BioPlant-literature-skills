@@ -47,7 +47,6 @@ STAGE_LABELS = {
 }
 
 _LAST_TENCENT_REQUEST_TS = 0.0
-_LAST_GOOGLE_REQUEST_TS = 0.0
 
 
 def load_glossary(config: dict[str, Any]) -> dict[str, Any]:
@@ -126,6 +125,39 @@ def summarize_error(error: Exception) -> str:
     return f"{error.__class__.__name__}: {message}"
 
 
+def resolve_fallback_config_path(config: dict[str, Any], fallback_provider: str) -> str:
+    provider_key = fallback_provider.replace("-", "_")
+    fallback_configs = config.get("fallback_configs", {})
+    if isinstance(fallback_configs, dict):
+        explicit_path = fallback_configs.get(fallback_provider) or fallback_configs.get(provider_key)
+        if explicit_path:
+            return str(explicit_path)
+
+    explicit_path = config.get(f"{provider_key}_config_path")
+    if explicit_path:
+        return str(explicit_path)
+    if config.get("fallback_provider") == fallback_provider and config.get("fallback_config_path"):
+        return str(config["fallback_config_path"])
+    return ""
+
+
+def load_fallback_provider_config(config: dict[str, Any], fallback_provider: str) -> dict[str, Any]:
+    path = resolve_fallback_config_path(config, fallback_provider)
+    if not path:
+        return config
+
+    resolved_path = Path(str(expand_config_value(path))).resolve()
+    fallback_config = load_yaml_file(resolved_path) or {}
+    if not isinstance(fallback_config, dict):
+        raise ValueError(f"Fallback config must be a mapping: {resolved_path}")
+
+    merged = dict(fallback_config)
+    for shared_key in ("glossary_path", "runtime"):
+        if shared_key in config and shared_key not in merged:
+            merged[shared_key] = config[shared_key]
+    return merged
+
+
 def apply_summary_sentence_limit(summary_zh: str, max_sentences: int) -> str:
     sentences = [part.strip() for part in summary_zh.replace("！", "。").replace("?", "。").split("。") if part.strip()]
     if len(sentences) > max_sentences:
@@ -202,55 +234,6 @@ def _respect_rate_limit(last_request_attr: str, min_interval_seconds: float) -> 
     if wait_seconds > 0:
         time.sleep(wait_seconds)
     globals()[last_request_attr] = time.monotonic()
-
-
-def call_google_translate_basic_v2(text: str, config: dict[str, Any], source_lang: str, target_lang: str) -> str:
-    google_config = config.get("google_basic_v2", {})
-    endpoint = google_config.get("endpoint", "https://translation.googleapis.com/language/translate/v2")
-    api_key = os.environ.get(google_config.get("api_key_env", "GOOGLE_TRANSLATE_API_KEY"), "")
-    if not api_key:
-        raise ValueError("Google Translate Basic v2 requires an API key environment variable")
-    timeout_seconds = int(google_config.get("timeout_seconds", 20))
-    min_interval_seconds = float(google_config.get("min_interval_seconds", 0.1))
-    _respect_rate_limit("_LAST_GOOGLE_REQUEST_TS", min_interval_seconds)
-    params = {
-        "key": api_key,
-        "q": text,
-        "target": target_lang,
-        "source": source_lang,
-        "format": google_config.get("format", "text"),
-        "model": google_config.get("model", "nmt"),
-    }
-    encoded_url = f"{endpoint}?{urlencode(params, doseq=True)}"
-    request = Request(encoded_url, method="POST")
-    with urlopen(request, timeout=timeout_seconds) as response:
-        payload = json.loads(response.read().decode("utf-8"))
-    translations = (((payload or {}).get("data") or {}).get("translations") or [])
-    if not translations:
-        raise ValueError("Google Translate Basic v2 response missing translations")
-    translated_text = translations[0].get("translatedText", "")
-    if not isinstance(translated_text, str) or not translated_text.strip():
-        raise ValueError("Google Translate Basic v2 response missing translatedText")
-    return translated_text.strip()
-
-
-def call_google_translate_basic_v2_with_retry(text: str, config: dict[str, Any], source_lang: str, target_lang: str) -> str:
-    google_config = config.get("google_basic_v2", {})
-    max_retries = int(google_config.get("max_retries", 5))
-    retry_backoff_seconds = float(google_config.get("retry_backoff_seconds", 0.8))
-    last_error: Exception | None = None
-    for attempt in range(max_retries + 1):
-        try:
-            return call_google_translate_basic_v2(text, config, source_lang, target_lang)
-        except Exception as error:  # urllib may raise various HTTP errors
-            last_error = error
-            message = str(error)
-            if not any(token in message for token in ("429", "rateLimitExceeded", "userRateLimitExceeded", "quota")) or attempt >= max_retries:
-                raise
-            time.sleep(retry_backoff_seconds * (attempt + 1))
-    if last_error is not None:
-        raise last_error
-    raise ValueError("Google Translate Basic v2 translation failed without a specific error")
 
 
 def _tc3_sign(key: bytes, msg: str) -> bytes:
@@ -452,56 +435,12 @@ def localize_via_tencent_tmt(record: dict[str, Any], config: dict[str, Any]) -> 
     return title_zh, summary_zh
 
 
-def localize_via_google_basic_v2(
-    record: dict[str, Any],
-    config: dict[str, Any],
-    *,
-    allow_fallback: bool = True,
-) -> tuple[str, str]:
-    glossary = load_glossary(config)
-    google_config = config.get("google_basic_v2", {})
-    source_lang = google_config.get("source_lang", "en")
-    target_lang = google_config.get("target_lang", "zh-CN")
-    summary_config = config.get("summary", {})
-    fallback_provider = str(config.get("fallback_provider", "")).strip().lower()
-    try:
-        title_zh, _ = normalize_bio_translation_with_trace(
-            call_google_translate_basic_v2_with_retry(record.get("title_en", ""), config, source_lang, target_lang),
-            glossary,
-        )
-        abstract = record.get("abstract", "")
-        if abstract:
-            translated_abstract, _ = normalize_bio_translation_with_trace(
-                call_google_translate_basic_v2_with_retry(abstract, config, source_lang, target_lang),
-                glossary,
-            )
-            summary_zh = build_summary_from_translation(record, translated_abstract, summary_config)
-        else:
-            category_label = CATEGORY_LABELS.get(record.get("category", "other"), "其他")
-            stage_label = STAGE_LABELS.get(record.get("publication_stage", "journal"), "正式发表")
-            fallback_template = summary_config.get(
-                "fallback_without_abstract",
-                "归类为“{category_zh}”的{publication_stage_zh}条目。当前未抓取到可用摘要，建议后续人工补充中文总结。",
-            )
-            summary_zh = fallback_template.format(
-                journal=record.get("journal", ""),
-                category_zh=category_label,
-                publication_stage_zh=stage_label,
-            )
-        return title_zh, summary_zh
-    except Exception:
-        if allow_fallback and fallback_provider == "tencent-tmt":
-            return localize_via_tencent_tmt(record, config)
-        raise
-
-
 def localize_record(
     record: dict[str, Any],
     provider: str,
     config: dict[str, Any],
     *,
     command: str | None = None,
-    allow_fallback: bool = True,
 ) -> tuple[str, str]:
     if provider == "command":
         if not command:
@@ -511,8 +450,6 @@ def localize_record(
         return localize_via_http_json(record, config)
     if provider == "tencent-tmt":
         return localize_via_tencent_tmt(record, config)
-    if provider == "google-basic-v2":
-        return localize_via_google_basic_v2(record, config, allow_fallback=allow_fallback)
     return build_placeholder(record)
 
 
@@ -547,10 +484,12 @@ def localize_records(
 
     primary_provider = normalize_provider_name(provider) or "placeholder"
     fallback_provider = ""
-    if primary_provider == "google-basic-v2":
-        fallback_provider = normalize_provider_name(config.get("fallback_provider"))
     if primary_provider == "nvidia-chat":
         fallback_provider = normalize_provider_name(config.get("fallback_provider")) or "placeholder"
+    elif primary_provider not in {"placeholder", "command"}:
+        fallback_provider = normalize_provider_name(config.get("fallback_provider"))
+    if fallback_provider == primary_provider:
+        fallback_provider = ""
     active_provider = primary_provider
     consecutive_primary_failures = 0
     output: list[dict[str, Any]] = []
@@ -579,10 +518,18 @@ def localize_records(
                 f"({summarize_error(error)}); fallback={fallback_provider}"
             )
             if fallback_provider and fallback_provider != "placeholder":
+                try:
+                    fallback_config = load_fallback_provider_config(config, fallback_provider)
+                except Exception as fallback_config_error:
+                    print(
+                        f"[translate] fallback provider={fallback_provider} config failed "
+                        f"({summarize_error(fallback_config_error)}); using current config"
+                    )
+                    fallback_config = config
                 return localize_records(
                     records,
                     fallback_provider,
-                    config,
+                    fallback_config,
                     command=command,
                     max_sentences=max_sentences,
                     output_path=output_path,
@@ -609,7 +556,6 @@ def localize_records(
                 provider_for_record,
                 config,
                 command=command,
-                allow_fallback=False,
             )
             if provider_for_record == primary_provider:
                 consecutive_primary_failures = 0
@@ -628,7 +574,6 @@ def localize_records(
                         fallback_provider,
                         config,
                         command=command,
-                        allow_fallback=False,
                     )
                     used_provider = fallback_provider
                 except Exception as fallback_error:
@@ -683,7 +628,7 @@ def main() -> int:
     parser.add_argument("--rules", required=True, help="Path to category_rules.yaml")
     parser.add_argument(
         "--provider",
-        choices=["placeholder", "command", "http-json", "tencent-tmt", "google-basic-v2", "nvidia-chat"],
+        choices=["placeholder", "command", "http-json", "tencent-tmt", "nvidia-chat"],
         default="placeholder",
         help="Summary generation backend",
     )
@@ -693,7 +638,7 @@ def main() -> int:
 
     if args.provider == "command" and not args.command:
         raise SystemExit("--command is required when --provider=command")
-    if args.provider in {"http-json", "tencent-tmt", "google-basic-v2", "nvidia-chat"} and not args.config:
+    if args.provider in {"http-json", "tencent-tmt", "nvidia-chat"} and not args.config:
         raise SystemExit("--config is required when using an external summary provider")
 
     rules = load_yaml_file(args.rules) or {}

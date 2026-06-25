@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from scripts.project_layout import canonical_paths
@@ -19,47 +21,6 @@ def load_module():
 
 
 class TranslationHttpTest(unittest.TestCase):
-    def test_google_basic_v2_provider_localizes_title_and_summary(self) -> None:
-        module = load_module()
-        record = {
-            "journal": "Nature Methods",
-            "title_en": "A benchmark for single-cell annotation",
-            "abstract": "This study benchmarks single-cell annotation workflows for plant datasets.",
-            "category": "methods-datasets-resources",
-            "publication_stage": "journal",
-            "tags": ["single-cell", "benchmark"],
-        }
-        config = {
-            "glossary_path": str(CANONICAL_PATHS["glossary"]),
-            "google_basic_v2": {
-                "endpoint": "https://translation.googleapis.com/language/translate/v2",
-                "api_key_env": "GOOGLE_TRANSLATE_API_KEY",
-                "source_lang": "en",
-                "target_lang": "zh-CN",
-                "timeout_seconds": 5,
-                "model": "nmt",
-                "format": "text",
-            },
-            "summary": {
-                "prefix_template": "",
-            },
-        }
-
-        responses = [
-            FakeResponse({"data": {"translations": [{"translatedText": "single-cell annotation 基准"}]}}),
-            FakeResponse({"data": {"translations": [{"translatedText": "This study benchmarks single-cell annotation workflows for plant datasets."}]}}),
-        ]
-
-        with mock.patch.dict("os.environ", {"GOOGLE_TRANSLATE_API_KEY": "key"}, clear=False):
-            with mock.patch.object(module, "urlopen", side_effect=responses) as mocked_urlopen:
-                title_zh, summary_zh = module.localize_via_google_basic_v2(record, config)
-
-        self.assertEqual(title_zh, "单细胞 annotation 基准测试")
-        self.assertIn("This study benchmarks 单细胞 annotation workflows for plant datasets", summary_zh)
-        first_request = mocked_urlopen.call_args_list[0].args[0]
-        self.assertIn("translation.googleapis.com/language/translate/v2", first_request.full_url)
-        self.assertIn("key=key", first_request.full_url)
-
     def test_http_json_provider_localizes_title_and_summary(self) -> None:
         module = load_module()
         record = {
@@ -186,23 +147,23 @@ class TranslationHttpTest(unittest.TestCase):
             },
         }
 
-        google_calls: list[str] = []
+        http_calls: list[str] = []
         tencent_calls: list[str] = []
 
-        def fake_google(record, _config, *, allow_fallback=True):  # type: ignore[override]
-            google_calls.append(record["title_en"])
-            raise TimeoutError("google timed out")
+        def fake_http(record, _config):  # type: ignore[override]
+            http_calls.append(record["title_en"])
+            raise TimeoutError("http provider timed out")
 
         def fake_tencent(record, _config):  # type: ignore[override]
             tencent_calls.append(record["title_en"])
             return (f"ZH:{record['title_en']}", f"ZH:{record['abstract']}")
 
-        with mock.patch.object(module, "localize_via_google_basic_v2", side_effect=fake_google):
+        with mock.patch.object(module, "localize_via_http_json", side_effect=fake_http):
             with mock.patch.object(module, "localize_via_tencent_tmt", side_effect=fake_tencent):
-                localized = module.localize_records(records, "google-basic-v2", config, max_sentences=4)
+                localized = module.localize_records(records, "http-json", config, max_sentences=4)
 
         self.assertEqual(len(localized), 3)
-        self.assertEqual(google_calls, ["Paper 1", "Paper 2"])
+        self.assertEqual(http_calls, ["Paper 1", "Paper 2"])
         self.assertEqual(tencent_calls, ["Paper 1", "Paper 2", "Paper 3"])
         self.assertEqual(localized[2]["title_zh"], "ZH:Paper 3")
         self.assertEqual(localized[2]["summary_zh"], "ZH:Abstract 3")
@@ -251,6 +212,51 @@ class TranslationHttpTest(unittest.TestCase):
 
         self.assertEqual(localized[0]["title_zh"], "A benchmark for single-cell workflows")
         self.assertIn("当前未抓取到可用摘要", localized[0]["summary_zh"])
+
+    def test_nvidia_chat_provider_loads_tencent_fallback_config(self) -> None:
+        module = load_module()
+        records = [
+            {
+                "journal": "Nature Methods",
+                "title_en": "A benchmark for single-cell workflows",
+                "abstract": "A plant dataset benchmark.",
+                "category": "methods-datasets-resources",
+                "publication_stage": "journal",
+            }
+        ]
+
+        with tempfile.TemporaryDirectory(prefix="bio-fallback-config-") as tmpdir:
+            fallback_path = Path(tmpdir) / "translation_tencent_tmt.yaml"
+            fallback_path.write_text(
+                "\n".join(
+                    [
+                        "provider: tencent-tmt",
+                        "tencent_tmt:",
+                        "  source_lang: en",
+                        "  target_lang: zh",
+                        "summary:",
+                        "  prefix_template: '该文发表于《{journal}》。'",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            config = {
+                "fallback_provider": "tencent-tmt",
+                "fallback_config_path": str(fallback_path),
+                "runtime": {"continue_on_error": True},
+            }
+
+            def fake_tencent(record, fallback_config):  # type: ignore[override]
+                self.assertIn("tencent_tmt", fallback_config)
+                return ("单细胞流程基准", "该文发表于《Nature Methods》。植物数据集基准。")
+
+            with mock.patch.object(module, "translate_records_with_nvidia", side_effect=RuntimeError("missing key")):
+                with mock.patch.object(module, "localize_via_tencent_tmt", side_effect=fake_tencent):
+                    localized = module.localize_records(records, "nvidia-chat", config, max_sentences=4)
+
+        self.assertEqual(localized[0]["title_zh"], "单细胞流程基准")
+        self.assertIn("植物数据集基准", localized[0]["summary_zh"])
 
 
 if __name__ == "__main__":

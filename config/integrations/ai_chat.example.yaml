@@ -4,14 +4,26 @@
 # 注：此文件原名 nvidia_ai.example.yaml，已重命名为 ai_chat.example.yaml 以反映通用性。
 
 provider: nvidia-chat
-fallback_provider: placeholder
+fallback_provider: tencent-tmt
+fallback_config_path: ${SKILL_DIR}/local/integrations/translation_tencent_tmt.yaml
 glossary_path: ${SKILL_DIR}/config/content/bio_translation_glossary.yaml
 
 # 通用 OpenAI-compatible chat 配置；不绑定 NVIDIA。
 # 兼容 9router、NewAPI、LiteLLM、OpenAI-compatible gateway、NVIDIA NIM/API Catalog 等。
 ai_chat:
   base_url: http://127.0.0.1:20128/v1
-  model: your-model-name
+  # 实际模型名以当前网关 `/v1/models` 或供应商文档为准。
+  # 每次运行前会按 model_candidates 顺序做轻量 pong 测试，选择第一个可用模型。
+  model: deepseek-ai/deepseek-v4-pro
+  model_candidates:
+    - deepseek-ai/deepseek-v4-pro
+    - z-ai/glm-5.1
+    - minimaxai/minimax-m3
+  pong_test:
+    enabled: true
+    prompt: "Reply with exactly: pong"
+    expected: "pong"
+    max_tokens: 8
   # 推荐使用 api_key_envs；如果必须在私有 local YAML 里直填，也支持 api_key。
   api_key: ""
   api_key_envs:
@@ -37,8 +49,9 @@ summary:
 
 notes:
   - "`ai_chat.base_url` 是 OpenAI-compatible `/v1` 根路径，不要写到 `/chat/completions`。"
-  - "`ai_chat.model` 填你网关里可用的模型名。"
+  - "`ai_chat.model_candidates` 按优先级填写：DeepSeek 系列、GLM 系列、Minimax 系列；模型名必须和网关实际名称一致。"
+  - "每日运行会用 `pong_test` 先探测模型，选择第一个返回 `pong` 的候选。"
   - "API key 解析顺序：先读 `ai_chat.api_key`，再按 `api_key_envs` 从环境变量读取。"
-  - "本 provider 是保底增强层；失败时应回退到 placeholder 或人工复核，不中断流水线。"
+  - "本 provider 是优先增强层；失败时回退到 Tencent TMT，避免产出英文 placeholder。"
   - "`provider: nvidia-chat` 作为现有 CLI 兼容名保留；实际后端由 `ai_chat` 配置决定。"
   - "旧字段 `nvidia_chat:` 仍兼容，但新配置优先用 `ai_chat:`。"

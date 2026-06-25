@@ -50,6 +50,21 @@ def resolve_chat_config(config: dict[str, Any]) -> dict[str, Any]:
     return {}
 
 
+def normalize_model_candidates(model: str, model_candidates: Any) -> list[str]:
+    """Return candidate model names in configured priority order."""
+
+    candidates: list[str] = []
+    if isinstance(model_candidates, str) and model_candidates.strip():
+        candidates = [model_candidates.strip()]
+    elif isinstance(model_candidates, list):
+        candidates = [str(item).strip() for item in model_candidates if str(item).strip()]
+
+    configured_model = str(model or "").strip()
+    if configured_model and configured_model not in candidates:
+        candidates.append(configured_model)
+    return candidates
+
+
 def parse_json_content(text: str) -> Any:
     """Parse model output that may be wrapped in markdown fences."""
 
@@ -111,6 +126,8 @@ class OpenAICompatibleChatClient:
         return urljoin(f"{self.base_url}/", "chat/completions")
 
     def chat(self, messages: list[dict[str, str]], *, temperature: float = 0.0, max_tokens: int | None = None) -> dict[str, Any]:
+        if not self.model.strip():
+            raise ValueError("No AI model configured")
         payload: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
@@ -149,11 +166,63 @@ class OpenAICompatibleChatClient:
             raise last_error
         raise ValueError("OpenAI-compatible chat request failed without a captured error")
 
-    def chat_json(self, messages: list[dict[str, str]], *, temperature: float = 0.0, max_tokens: int | None = None) -> Any:
+    def chat_text(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> str:
+        """Return assistant text content from a chat completion."""
+
         payload = self.chat(messages, temperature=temperature, max_tokens=max_tokens)
-        content = extract_message_content(payload)
-        return parse_json_content(content)
+        return extract_message_content(payload)
+
+    def chat_json(self, messages: list[dict[str, str]], *, temperature: float = 0.0, max_tokens: int | None = None) -> Any:
+        return parse_json_content(self.chat_text(messages, temperature=temperature, max_tokens=max_tokens))
+
+    def pong(
+        self,
+        *,
+        prompt: str = "Reply with exactly: pong",
+        expected: str = "pong",
+        max_tokens: int = 8,
+    ) -> bool:
+        """Probe the configured model with a tiny deterministic response test."""
+
+        content = self.chat_text(
+            [{"role": "user", "content": prompt}],
+            temperature=0.0,
+            max_tokens=max_tokens,
+        )
+        return expected.strip().lower() in content.strip().lower()
+
+    def select_model(
+        self,
+        model_candidates: Any,
+        *,
+        prompt: str = "Reply with exactly: pong",
+        expected: str = "pong",
+        max_tokens: int = 8,
+    ) -> str:
+        """Select the first candidate model that passes the pong test."""
+
+        original_model = self.model
+        candidates = normalize_model_candidates(original_model, model_candidates)
+        if not candidates:
+            raise ValueError("No AI model candidates configured")
+
+        errors: list[str] = []
+        for model in candidates:
+            self.model = model
+            try:
+                if self.pong(prompt=prompt, expected=expected, max_tokens=max_tokens):
+                    return model
+                errors.append(f"{model}: response did not contain {expected!r}")
+            except Exception as error:
+                errors.append(f"{model}: {error.__class__.__name__}: {str(error)[:160]}")
+        self.model = original_model
+        raise ValueError("No AI model passed pong test. " + "; ".join(errors))
 
 
 NvidiaChatClient = OpenAICompatibleChatClient
-

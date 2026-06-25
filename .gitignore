@@ -12,3 +12,5 @@ logs/
 .venv/
 __pycache__/
 *.pyc
+.archive/
+.helloagents/

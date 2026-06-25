@@ -1,7 +1,13 @@
 """AI helper utilities for optional screening and translation backends."""
 
 from .batching import chunk_by_limits
-from .client import OpenAICompatibleChatClient, NvidiaChatClient, parse_json_content, resolve_api_key
+from .client import (
+    OpenAICompatibleChatClient,
+    NvidiaChatClient,
+    normalize_model_candidates,
+    parse_json_content,
+    resolve_api_key,
+)
 from .redaction import redact_record, redact_text
 from .screening import build_screening_batches, is_uncertain_review_candidate, review_records_with_nvidia
 from .translation import build_translation_batches, translate_records_with_nvidia
@@ -13,6 +19,7 @@ __all__ = [
     "build_translation_batches",
     "chunk_by_limits",
     "is_uncertain_review_candidate",
+    "normalize_model_candidates",
     "parse_json_content",
     "redact_record",
     "redact_text",

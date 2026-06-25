@@ -82,8 +82,17 @@ def _parse_translation_items(payload: Any) -> list[TranslationResult]:
     return results
 
 
-def translate_records_with_nvidia(records: list[dict[str, Any]], config: dict[str, Any]) -> list[dict[str, str]]:
-    ai_config = resolve_chat_config(config)
+def _bool_config(value: Any, *, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def build_translation_client(ai_config: dict[str, Any]) -> OpenAICompatibleChatClient:
+    """Build a chat client and optionally select an available model by pong test."""
+
     client = OpenAICompatibleChatClient(
         base_url=str(ai_config.get("base_url", "http://127.0.0.1:20128/v1")),
         model=str(ai_config.get("model", "")),
@@ -93,6 +102,25 @@ def translate_records_with_nvidia(records: list[dict[str, Any]], config: dict[st
         max_retries=int(ai_config.get("max_retries", 3)),
         retry_backoff_seconds=float(ai_config.get("retry_backoff_seconds", 0.8)),
     )
+
+    pong_config = ai_config.get("pong_test", {})
+    if not isinstance(pong_config, dict):
+        pong_config = {}
+    model_candidates = ai_config.get("model_candidates") or ai_config.get("models")
+    if _bool_config(pong_config.get("enabled"), default=bool(model_candidates)):
+        selected_model = client.select_model(
+            model_candidates or [client.model],
+            prompt=str(pong_config.get("prompt") or "Reply with exactly: pong"),
+            expected=str(pong_config.get("expected") or "pong"),
+            max_tokens=int(pong_config.get("max_tokens") or 8),
+        )
+        print(f"[ai] selected model via pong: {selected_model}")
+    return client
+
+
+def translate_records_with_nvidia(records: list[dict[str, Any]], config: dict[str, Any]) -> list[dict[str, str]]:
+    ai_config = resolve_chat_config(config)
+    client = build_translation_client(ai_config)
 
     translated: list[dict[str, str]] = []
     batches = build_translation_batches(records, config)
@@ -119,4 +147,3 @@ def translate_records_with_nvidia(records: list[dict[str, Any]], config: dict[st
                 }
             )
     return translated
-

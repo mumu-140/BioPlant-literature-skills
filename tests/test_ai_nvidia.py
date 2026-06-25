@@ -17,6 +17,7 @@ if str(SRC_DIR) not in sys.path:
 from bio_literature_digest.ai import (  # noqa: E402
     OpenAICompatibleChatClient,
     chunk_by_limits,
+    normalize_model_candidates,
     parse_json_content,
     redact_text,
     resolve_api_key,
@@ -89,6 +90,34 @@ class AiChatHelpersTest(unittest.TestCase):
         self.assertEqual(captured["url"], "http://127.0.0.1:20128/v1/chat/completions")
         self.assertEqual(captured["timeout"], 7)
         self.assertEqual(captured["auth"], "Bearer configured-key")
+
+    def test_normalize_model_candidates_keeps_priority_and_appends_configured_model(self) -> None:
+        candidates = normalize_model_candidates("fallback-model", ["deepseek-4-pro", "glm-4"])
+        self.assertEqual(candidates, ["deepseek-4-pro", "glm-4", "fallback-model"])
+
+    def test_openai_compatible_chat_client_selects_first_model_that_pongs(self) -> None:
+        seen_models: list[str] = []
+
+        def fake_opener(request, timeout=0):  # type: ignore[override]
+            payload = json.loads(request.data.decode("utf-8"))
+            model = payload["model"]
+            seen_models.append(model)
+            content = "pong" if model == "glm-4" else "not available"
+            return FakeResponse({"choices": [{"message": {"content": content}}]})
+
+        client = OpenAICompatibleChatClient(
+            base_url="http://127.0.0.1:20128/v1",
+            model="minimax-chat",
+            api_key="configured-key",
+            api_key_envs=["AI_API_KEY"],
+            max_retries=0,
+            opener=fake_opener,
+        )
+        selected = client.select_model(["deepseek-4-pro", "glm-4"], max_tokens=4)
+
+        self.assertEqual(selected, "glm-4")
+        self.assertEqual(client.model, "glm-4")
+        self.assertEqual(seen_models, ["deepseek-4-pro", "glm-4"])
 
 
 if __name__ == "__main__":
