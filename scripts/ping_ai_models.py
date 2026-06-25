@@ -23,6 +23,7 @@ from bio_literature_digest.ai.client import (  # noqa: E402
     build_chat_client,
     normalize_model_candidates,
     resolve_chat_config,
+    select_available_model_candidates,
 )
 
 
@@ -71,19 +72,22 @@ def main() -> int:
         raise SystemExit("No model candidates configured.")
 
     client = build_client(ai_config)
+    probe_config = dict(ai_config)
+    probe_pong_config = dict(pong_config)
+    probe_pong_config["enabled"] = True
+    probe_pong_config["prompt"] = args.prompt
+    probe_pong_config["expected"] = args.expected
+    probe_pong_config["max_tokens"] = args.max_tokens if args.max_tokens is not None else int(pong_config.get("max_tokens") or 8)
+    probe_config["pong_test"] = probe_pong_config
     try:
-        selected = client.select_model(
-            candidates,
-            prompt=args.prompt,
-            expected=args.expected,
-            max_tokens=args.max_tokens if args.max_tokens is not None else int(pong_config.get("max_tokens") or 8),
-        )
+        selected_candidates = select_available_model_candidates(client, probe_config, default_ping=True)
     except Exception as error:
         print("ai_model_ping_ok=False")
         print(f"error={error.__class__.__name__}: {error}")
         print("tested_models=" + ",".join(candidates))
         return 1
 
+    selected = selected_candidates[0]
     print("ai_model_ping_ok=True")
     print(f"selected_model={selected}")
     print("tested_models=" + ",".join(candidates[: candidates.index(selected) + 1]))

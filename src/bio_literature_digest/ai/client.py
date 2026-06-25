@@ -115,18 +115,36 @@ def select_available_model_candidates(
     expected = str(pong_config.get("expected") or "pong")
     max_tokens = int(pong_config.get("max_tokens") or 8)
     original_model = client.model
+    original_timeout_seconds = int(getattr(client, "timeout_seconds", ai_config.get("timeout_seconds", 60)))
+    original_max_retries = int(getattr(client, "max_retries", ai_config.get("max_retries", 3)))
+    original_retry_backoff_seconds = float(
+        getattr(client, "retry_backoff_seconds", ai_config.get("retry_backoff_seconds", 0.8))
+    )
+    original_retry_max_sleep_seconds = float(
+        getattr(client, "retry_max_sleep_seconds", ai_config.get("retry_max_sleep_seconds", 20.0))
+    )
+    client.timeout_seconds = int(pong_config.get("timeout_seconds") or original_timeout_seconds)
+    client.max_retries = int(pong_config.get("max_retries") if pong_config.get("max_retries") is not None else original_max_retries)
+    client.retry_backoff_seconds = float(pong_config.get("retry_backoff_seconds") or original_retry_backoff_seconds)
+    client.retry_max_sleep_seconds = float(pong_config.get("retry_max_sleep_seconds") or original_retry_max_sleep_seconds)
     errors: list[str] = []
-    for index, model in enumerate(candidates):
-        client.model = model
-        try:
-            if client.pong(prompt=prompt, expected=expected, max_tokens=max_tokens):
-                print(f"[ai] model pong ok: {model}")
-                return [model] + candidates[index + 1 :] + candidates[:index]
-            else:
-                errors.append(f"{model}: response did not contain {expected!r}")
-        except Exception as error:  # noqa: BLE001
-            errors.append(f"{model}: {error.__class__.__name__}: {str(error)[:160]}")
-    client.model = original_model
+    try:
+        for index, model in enumerate(candidates):
+            client.model = model
+            try:
+                if client.pong(prompt=prompt, expected=expected, max_tokens=max_tokens):
+                    print(f"[ai] model pong ok: {model}")
+                    return [model] + candidates[index + 1 :] + candidates[:index]
+                else:
+                    errors.append(f"{model}: response did not contain {expected!r}")
+            except Exception as error:  # noqa: BLE001
+                errors.append(f"{model}: {error.__class__.__name__}: {str(error)[:160]}")
+    finally:
+        client.model = original_model
+        client.timeout_seconds = original_timeout_seconds
+        client.max_retries = original_max_retries
+        client.retry_backoff_seconds = original_retry_backoff_seconds
+        client.retry_max_sleep_seconds = original_retry_max_sleep_seconds
     raise ValueError("No AI model passed pong test. " + "; ".join(errors))
 
 

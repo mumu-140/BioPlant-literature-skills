@@ -10,8 +10,10 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
+import smtplib
 
-from scripts.send_email import build_message, resolve_recipients
+from scripts.send_email import build_message, resolve_recipients, send_digest_email
 
 
 class SendEmailBuildMessageTest(unittest.TestCase):
@@ -89,6 +91,96 @@ class SendEmailRecipientsTest(unittest.TestCase):
                 users_config_path=missing_users_config,
             )
             self.assertEqual(recipients, ["override@example.com"])
+
+    def test_send_digest_email_continues_after_permanent_recipient_failure(self) -> None:
+        sent: list[str] = []
+
+        class FakeSMTP:
+            def __init__(self, host: str, port: int) -> None:
+                self.host = host
+                self.port = port
+
+            def __enter__(self) -> "FakeSMTP":
+                return self
+
+            def __exit__(self, exc_type, exc, tb) -> None:  # type: ignore[override]
+                return None
+
+            def login(self, username: str, password: str) -> None:
+                self.username = username
+                self.password = password
+
+            def send_message(self, message) -> dict[str, object]:  # type: ignore[no-untyped-def]
+                recipient = message["To"]
+                if recipient == "blocked@example.com":
+                    raise smtplib.SMTPDataError(550, b"sender is blacklisted")
+                sent.append(recipient)
+                return {}
+
+        with tempfile.TemporaryDirectory(prefix="bio-send-email-") as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            email_config = tmpdir_path / "email.yaml"
+            users_config = tmpdir_path / "users.yaml"
+            html_path = tmpdir_path / "digest.html"
+            csv_path = tmpdir_path / "digest.csv"
+            xlsx_path = tmpdir_path / "digest.xlsx"
+            email_config.write_text(
+                "\n".join(
+                    [
+                        "smtp_profiles:",
+                        "  primary_smtp:",
+                        "    smtp_host: smtp.example.com",
+                        "    smtp_port: 465",
+                        "    security: ssl",
+                        "    username: sender@example.com",
+                        "    from_email: sender@example.com",
+                        "    from_name: Sender",
+                        "    password_env: SMTP_PASSWORD",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            users_config.write_text(
+                "\n".join(
+                    [
+                        "users:",
+                        "  - email: first@example.com",
+                        "    is_active: true",
+                        "    receives_digest: true",
+                        "    smtp_profile: primary_smtp",
+                        "  - email: blocked@example.com",
+                        "    is_active: true",
+                        "    receives_digest: true",
+                        "    smtp_profile: primary_smtp",
+                        "  - email: later@example.com",
+                        "    is_active: true",
+                        "    receives_digest: true",
+                        "    smtp_profile: primary_smtp",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            html_path.write_text("<html><body>Hi</body></html>", encoding="utf-8")
+            csv_path.write_text("a,b\n1,2\n", encoding="utf-8")
+            xlsx_path.write_bytes(b"fake-xlsx")
+
+            with mock.patch.dict("os.environ", {"SMTP_PASSWORD": "secret"}):
+                with mock.patch("scripts.send_email.smtplib.SMTP_SSL", FakeSMTP):
+                    with self.assertRaises(SystemExit):
+                        send_digest_email(
+                            config_path=email_config,
+                            profile_name="primary_smtp",
+                            html_body_path=html_path,
+                            csv_attachment_path=csv_path,
+                            xlsx_attachment_path=xlsx_path,
+                            subject="Test",
+                            users_config=users_config,
+                            max_attempts=1,
+                        )
+
+        self.assertEqual(sent, ["first@example.com", "later@example.com"])
 
 
 if __name__ == "__main__":

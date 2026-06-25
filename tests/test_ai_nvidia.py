@@ -22,6 +22,7 @@ from bio_literature_digest.ai import (  # noqa: E402
     redact_text,
     resolve_api_key,
 )
+from bio_literature_digest.ai.client import select_available_model_candidates  # noqa: E402
 from bio_literature_digest.ai import translation as translation_module  # noqa: E402
 
 
@@ -172,6 +173,51 @@ class AiChatHelpersTest(unittest.TestCase):
         self.assertEqual(payload, {"ok": True})
         mocked_sleep.assert_called_once_with(2.0)
         self.assertEqual(calls, 2)
+
+    def test_model_pong_uses_probe_retry_settings_and_restores_client(self) -> None:
+        captured: list[tuple[str, int]] = []
+
+        def fake_opener(request, timeout=0):  # type: ignore[override]
+            payload = json.loads(request.data.decode("utf-8"))
+            model = payload["model"]
+            captured.append((model, timeout))
+            if model == "bad-model":
+                raise TimeoutError("probe timed out")
+            return FakeResponse({"choices": [{"message": {"content": "pong"}}]})
+
+        client = OpenAICompatibleChatClient(
+            base_url="http://127.0.0.1:20128/v1",
+            model="original-model",
+            api_key="configured-key",
+            api_key_envs=["AI_API_KEY"],
+            timeout_seconds=60,
+            max_retries=10,
+            retry_backoff_seconds=3.0,
+            retry_max_sleep_seconds=20.0,
+            opener=fake_opener,
+        )
+        ai_config = {
+            "model_candidates": ["bad-model", "good-model"],
+            "pong_test": {
+                "enabled": True,
+                "timeout_seconds": 3,
+                "max_retries": 1,
+                "retry_backoff_seconds": 0.25,
+                "retry_max_sleep_seconds": 0.5,
+            },
+        }
+
+        with mock.patch("bio_literature_digest.ai.client.time.sleep") as mocked_sleep:
+            selected = select_available_model_candidates(client, ai_config)
+
+        self.assertEqual(selected, ["good-model", "original-model", "bad-model"])
+        self.assertEqual(captured, [("bad-model", 3), ("bad-model", 3), ("good-model", 3)])
+        mocked_sleep.assert_called_once_with(0.25)
+        self.assertEqual(client.model, "original-model")
+        self.assertEqual(client.timeout_seconds, 60)
+        self.assertEqual(client.max_retries, 10)
+        self.assertEqual(client.retry_backoff_seconds, 3.0)
+        self.assertEqual(client.retry_max_sleep_seconds, 20.0)
 
     def test_translation_switches_to_next_model_after_batch_failure(self) -> None:
         seen_models: list[str] = []

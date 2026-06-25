@@ -201,9 +201,16 @@ def send_digest_email(
     smtp_port = int(profile["smtp_port"])
     security = profile.get("security", "ssl")
     sent_recipients: list[str] = []
+    failed_recipients: dict[str, str] = {}
     pending_recipients = list(recipients)
     max_attempts = max(1, int(max_attempts))
     retry_sleep_seconds = max(0, int(retry_sleep_seconds))
+
+    def mark_failed_recipient(recipient: str, reason: str, pending: list[str]) -> None:
+        failed_recipients[recipient] = reason
+        if recipient in pending:
+            pending.remove(recipient)
+        print(f"[warn] SMTP permanent failure for {recipient}: {reason}", file=sys.stderr)
 
     def send_all(server: smtplib.SMTP, pending: list[str]) -> None:
         server.login(profile["username"], password)
@@ -219,9 +226,19 @@ def send_digest_email(
                 csv_attachment=str(csv_attachment_path),
                 xlsx_attachment=str(xlsx_attachment_path),
             )
-            refused = server.send_message(message)
+            try:
+                refused = server.send_message(message)
+            except smtplib.SMTPDataError as exc:
+                if 400 <= int(exc.smtp_code) < 500:
+                    raise
+                mark_failed_recipient(recipient, f"{exc.smtp_code} {exc.smtp_error!r}", pending)
+                continue
+            except smtplib.SMTPRecipientsRefused as exc:
+                mark_failed_recipient(recipient, str(exc.recipients), pending)
+                continue
             if refused:
-                raise SystemExit(f"SMTP refused recipients: {refused}")
+                mark_failed_recipient(recipient, str(refused), pending)
+                continue
             sent_recipients.append(recipient)
             pending.remove(recipient)
 
@@ -257,6 +274,9 @@ def send_digest_email(
             time.sleep(retry_sleep_seconds)
     if pending_recipients:
         raise SystemExit(f"SMTP send incomplete. Unsent recipients: {pending_recipients}")
+    if failed_recipients:
+        failed = ", ".join(f"{recipient}: {reason}" for recipient, reason in failed_recipients.items())
+        raise SystemExit(f"SMTP send incomplete. Failed recipients: {failed}")
     return sent_recipients
 
 
