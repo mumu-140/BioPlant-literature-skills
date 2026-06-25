@@ -39,7 +39,6 @@ def canonical_paths() -> dict[str, Path]:
         "users_config_example": INTEGRATIONS_CONFIG_DIR / "users.example.yaml",
         "email_style_example": INTEGRATIONS_CONFIG_DIR / "email_style.example.yaml",
         "translation_config_example": INTEGRATIONS_CONFIG_DIR / "translation_config.example.yaml",
-        "translation_google_example": INTEGRATIONS_CONFIG_DIR / "translation_google_basic_v2.example.yaml",
         "translation_tencent_example": INTEGRATIONS_CONFIG_DIR / "translation_tencent_tmt.example.yaml",
         "ai_chat_config_example": INTEGRATIONS_CONFIG_DIR / "ai_chat.example.yaml",
         "nvidia_ai_config_example": INTEGRATIONS_CONFIG_DIR / "ai_chat.example.yaml",  # compat alias
@@ -51,7 +50,6 @@ def canonical_paths() -> dict[str, Path]:
         "email_config_local": LOCAL_DIR / "integrations" / "email_config.yaml",
         "users_config_local": LOCAL_DIR / "integrations" / "users.yaml",
         "email_style_local": LOCAL_DIR / "integrations" / "email_style.yaml",
-        "translation_google_local": LOCAL_DIR / "integrations" / "translation_google_basic_v2.yaml",
         "translation_tencent_local": LOCAL_DIR / "integrations" / "translation_tencent_tmt.yaml",
         "ai_chat_config_local": LOCAL_DIR / "integrations" / "nvidia_ai.yaml",
         "nvidia_ai_config_local": LOCAL_DIR / "integrations" / "nvidia_ai.yaml",  # compat alias

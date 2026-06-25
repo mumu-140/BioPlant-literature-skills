@@ -52,7 +52,6 @@ cp config/env.local.example local/.env.local
 只把真实密钥放进 `local/.env.local`，不要写进 Python、YAML、模板或自动化：
 
 ```env
-GOOGLE_TRANSLATE_API_KEY=
 TENCENT_TMT_SECRET_ID=
 TENCENT_TMT_SECRET_KEY=
 TENCENT_TMT_SESSION_TOKEN=
@@ -117,7 +116,7 @@ LLM_REVIEW_API_KEY=
 - `local/integrations/email_config.yaml`
 - `local/integrations/users.yaml`
 - `local/integrations/email_style.yaml`
-- `local/integrations/translation_google_basic_v2.yaml`
+- `local/integrations/nvidia_ai.yaml`
 - `local/integrations/translation_tencent_tmt.yaml`
 
 首次初始化可从示例复制：
@@ -127,7 +126,7 @@ mkdir -p local/integrations
 cp config/integrations/email_config.example.yaml local/integrations/email_config.yaml
 cp config/integrations/users.example.yaml local/integrations/users.yaml
 cp config/integrations/email_style.example.yaml local/integrations/email_style.yaml
-cp config/integrations/translation_google_basic_v2.example.yaml local/integrations/translation_google_basic_v2.yaml
+cp config/integrations/ai_chat.example.yaml local/integrations/nvidia_ai.yaml
 cp config/integrations/translation_tencent_tmt.example.yaml local/integrations/translation_tencent_tmt.yaml
 ```
 

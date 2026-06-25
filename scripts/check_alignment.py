@@ -45,7 +45,6 @@ def build_report(*, require_automation: bool = False) -> tuple[list[str], list[s
     email_path = CANONICAL_PATHS["email_config_local"]
     users_path = CANONICAL_PATHS["users_config_local"]
     style_path = CANONICAL_PATHS["email_style_local"]
-    google_path = CANONICAL_PATHS["translation_google_local"]
     runtime_override_path = CANONICAL_PATHS["runtime_config_local"]
     skill_path = SKILL_DIR / "SKILL.md"
 
@@ -137,11 +136,6 @@ def build_report(*, require_automation: bool = False) -> tuple[list[str], list[s
             continue
         if needle in haystack:
             issues.append(f"{scope} 仍含过期语义 `{needle}`: {fix_hint}")
-
-    if google_path.exists():
-        notes.append(f"主翻译配置可用: {google_path}")
-    else:
-        notes.append("Google 本地翻译配置不存在，生产运行将依赖 runtime 配置中的其他 provider")
 
     notes.append(
         "生产入口命令: "

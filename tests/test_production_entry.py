@@ -8,7 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
@@ -28,6 +28,10 @@ from scripts.run_production_digest import (
 
 FIXTURE_PATH = Path(__file__).resolve().parent / "fixtures" / "sample_raw.jsonl"
 CANONICAL_PATHS = canonical_paths()
+
+
+def utc_midnight(date_value: date) -> str:
+    return f"{date_value.isoformat()}T00:00:00Z"
 
 
 class ProductionEntryTest(unittest.TestCase):
@@ -182,6 +186,7 @@ class ProductionEntryTest(unittest.TestCase):
             review_workspace_dir = tmpdir_path / "reviews"
             backlog_dir = tmpdir_path / "backlog"
             tz = ZoneInfo("Asia/Shanghai")
+            archive_date = datetime.now(tz).date()
             old_date = (datetime.now(tz).date() - timedelta(days=31)).strftime("%Y-%m-%d")
             keep_date = (datetime.now(tz).date() - timedelta(days=29)).strftime("%Y-%m-%d")
             (archive_dir / old_date).mkdir(parents=True)
@@ -194,20 +199,21 @@ class ProductionEntryTest(unittest.TestCase):
                 backlog_dir=str(backlog_dir),
                 retention_days=30,
                 timezone="Asia/Shanghai",
-                window_end="2026-03-15T00:00:00Z",
+                window_end=utc_midnight(archive_date),
             )
 
             archive_outputs(args)
 
-            archived_dir = archive_dir / "2026-03-15"
+            archived_dir = archive_dir / archive_date.strftime("%Y-%m-%d")
             self.assertTrue((archived_dir / "digest.csv").exists())
             self.assertTrue((archived_dir / "digest.xlsx").exists())
             self.assertTrue((archived_dir / "review_queue.xlsx").exists())
             self.assertTrue((archived_dir / "daily_review.csv").exists())
             self.assertTrue((archived_dir / "run_metadata.json").exists())
-            self.assertTrue((review_workspace_dir / "2026-03-15" / "daily_review.csv").exists())
-            self.assertTrue((review_workspace_dir / "2026-03-15" / "review_manifest.json").exists())
-            manifest = json.loads((review_workspace_dir / "2026-03-15" / "review_manifest.json").read_text(encoding="utf-8"))
+            review_dir = review_workspace_dir / archive_date.strftime("%Y-%m-%d")
+            self.assertTrue((review_dir / "daily_review.csv").exists())
+            self.assertTrue((review_dir / "review_manifest.json").exists())
+            manifest = json.loads((review_dir / "review_manifest.json").read_text(encoding="utf-8"))
             self.assertTrue(manifest["review_file"].endswith("/daily_review.xlsx"))
             self.assertTrue(manifest["canonical_review_surface"].endswith("/review_backlog.xlsx"))
             self.assertTrue((backlog_dir / "review_backlog.csv").exists())
@@ -249,12 +255,15 @@ class ProductionEntryTest(unittest.TestCase):
             env_file = tmpdir_path / ".env.local"
             env_file.write_text("", encoding="utf-8")
             work_dir.mkdir()
+            archive_date = datetime.now(ZoneInfo("Asia/Shanghai")).date()
+            window_start = utc_midnight(archive_date - timedelta(days=2))
+            window_end = utc_midnight(archive_date)
             metadata = {
                 "status": "failed",
                 "failed_step": "send_email",
                 "window": {
-                    "start_utc": "2026-04-06T16:00:00Z",
-                    "end_utc": "2026-04-08T00:00:00Z",
+                    "start_utc": window_start,
+                    "end_utc": window_end,
                 },
             }
             (work_dir / "run_metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
@@ -270,6 +279,8 @@ class ProductionEntryTest(unittest.TestCase):
 
             argv = [
                 "run_production_digest.py",
+                "--runtime-config",
+                str(SKILL_DIR / "config" / "runtime" / "production.example.yaml"),
                 "--env-file",
                 str(env_file),
                 "--work-dir",
@@ -281,9 +292,9 @@ class ProductionEntryTest(unittest.TestCase):
                 "--backlog-dir",
                 str(backlog_dir),
                 "--window-start",
-                "2026-04-06T16:00:00Z",
+                window_start,
                 "--window-end",
-                "2026-04-08T00:00:00Z",
+                window_end,
                 "--skip-email",
             ]
 
@@ -299,10 +310,10 @@ class ProductionEntryTest(unittest.TestCase):
 
             self.assertEqual(exit_code, 1)
             load_env_mock.assert_called_once()
-            archived_dir = archive_dir / "2026-04-08"
+            archived_dir = archive_dir / archive_date.strftime("%Y-%m-%d")
             self.assertTrue((archived_dir / "run_metadata.json").exists())
             self.assertTrue((archived_dir / "digest.csv").exists())
-            self.assertTrue((review_workspace_dir / "2026-04-08" / "review_manifest.json").exists())
+            self.assertTrue((review_workspace_dir / archive_date.strftime("%Y-%m-%d") / "review_manifest.json").exists())
 
     def test_run_production_digest_smoke_succeeds_without_web_project(self) -> None:
         with tempfile.TemporaryDirectory(prefix="bio-prod-smoke-") as tmpdir:
@@ -313,10 +324,15 @@ class ProductionEntryTest(unittest.TestCase):
             backlog_dir = root / "backlog"
             env_file = root / ".env.local"
             env_file.write_text("", encoding="utf-8")
+            archive_date = "2026-03-15"
+            window_start = "2026-03-13T00:00:00Z"
+            window_end = "2026-03-15T00:00:00Z"
 
             command = [
                 sys.executable,
                 str(SKILL_DIR / "scripts" / "run_production_digest.py"),
+                "--runtime-config",
+                str(SKILL_DIR / "config" / "runtime" / "production.example.yaml"),
                 "--env-file",
                 str(env_file),
                 "--work-dir",
@@ -327,6 +343,8 @@ class ProductionEntryTest(unittest.TestCase):
                 str(review_workspace_dir),
                 "--backlog-dir",
                 str(backlog_dir),
+                "--retention-days",
+                "3650",
                 "--input-file",
                 str(FIXTURE_PATH),
                 "--skip-email",
@@ -335,9 +353,9 @@ class ProductionEntryTest(unittest.TestCase):
                 "--review-provider",
                 "placeholder",
                 "--window-start",
-                "2026-03-13T00:00:00Z",
+                window_start,
                 "--window-end",
-                "2026-03-15T00:00:00Z",
+                window_end,
                 "--web-project-root",
                 str(root / "missing-web-project"),
             ]
@@ -345,7 +363,7 @@ class ProductionEntryTest(unittest.TestCase):
             completed = subprocess.run(command, check=True, cwd=SKILL_DIR, capture_output=True, text=True)
 
             self.assertIn("[production] running stable digest entrypoint", completed.stdout)
-            archived_dir = archive_dir / "2026-03-15"
+            archived_dir = archive_dir / archive_date
             self.assertTrue((archived_dir / "run_metadata.json").exists())
             self.assertTrue((archived_dir / "digest.csv").exists())
             self.assertTrue((review_workspace_dir / "2026-03-15" / "review_manifest.json").exists())
@@ -353,8 +371,8 @@ class ProductionEntryTest(unittest.TestCase):
             metadata = json.loads((archived_dir / "run_metadata.json").read_text(encoding="utf-8"))
             self.assertEqual(metadata["status"], "success")
             self.assertEqual(metadata["email_status"], "skipped")
-            self.assertEqual(metadata["window"]["start_utc"], "2026-03-13T00:00:00Z")
-            self.assertEqual(metadata["window"]["end_utc"], "2026-03-15T00:00:00Z")
+            self.assertEqual(metadata["window"]["start_utc"], window_start)
+            self.assertEqual(metadata["window"]["end_utc"], window_end)
 
 
 if __name__ == "__main__":

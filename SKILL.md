@@ -35,7 +35,7 @@ Load these config files before implementing or revising the pipeline:
 - [journal_watchlist.yaml](./config/content/journal_watchlist.yaml) for the first-pass journal universe and source strategy.
 - [category_rules.yaml](./config/content/category_rules.yaml) for fixed categories, relevance filters, and output requirements.
 - [email_config.example.yaml](./config/integrations/email_config.example.yaml) for SMTP config shape.
-- [translation_config.example.yaml](./config/integrations/translation_config.example.yaml) for HTTP-based translation providers such as Google-, Bing-, or Youdao-compatible gateways.
+- [translation_config.example.yaml](./config/integrations/translation_config.example.yaml) for HTTP-based translation providers such as Bing-, Youdao-, or self-hosted gateways.
 - [llm_review_config.example.yaml](./config/integrations/llm_review_config.example.yaml) for running LLM relevance review outside Codex through an HTTP or command adapter.
 - [production.example.yaml](./config/runtime/production.example.yaml) for the portable runtime baseline (paths, timezone, delivery defaults, and sidecar shape).
 
@@ -261,8 +261,8 @@ The current script bundle requires Python + `PyYAML`. `translate_and_summarize.p
 - `placeholder` mode for offline validation
 - `command` mode for plugging in an external LLM or translation command without changing the rest of the pipeline
 - `http-json` mode for plugging in a JSON-speaking translation service through configuration
-- `google-basic-v2` mode for Google Cloud Translation Basic v2 with an API key
-- `tencent-tmt` mode for Tencent Cloud TextTranslate, typically used as fallback
+- `tencent-tmt` mode for Tencent Cloud TextTranslate
+- `nvidia-chat` mode for OpenAI-compatible AI translation and summarization
 
 `llm_review.py` follows the same pattern. Use it to add a second-stage relevance decision after rules and before translation/emailing. The recommended production flow is:
 - rules for high-recall prefiltering
@@ -298,14 +298,14 @@ python3 scripts/run_digest.py \
   --summary-config config/integrations/translation_config.example.yaml
 ```
 
-For Google-first translation with Tencent fallback, use:
+For OpenAI-compatible AI translation and summarization, use:
 
 ```bash
 python3 scripts/run_digest.py \
   --work-dir /path/to/bio-digest-run \
   --review-provider placeholder \
-  --summary-provider google-basic-v2 \
-  --summary-config local/integrations/translation_google_basic_v2.yaml
+  --summary-provider nvidia-chat \
+  --summary-config local/integrations/nvidia_ai.yaml
 ```
 
 Each successful run can also emit:

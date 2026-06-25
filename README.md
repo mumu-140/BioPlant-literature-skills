@@ -90,7 +90,7 @@ cp config/runtime/production.example.yaml local/runtime/production.yaml
 cp config/integrations/email_config.example.yaml local/integrations/email_config.yaml
 cp config/integrations/users.example.yaml local/integrations/users.yaml
 cp config/integrations/email_style.example.yaml local/integrations/email_style.yaml
-cp config/integrations/translation_google_basic_v2.example.yaml local/integrations/translation_google_basic_v2.yaml
+cp config/integrations/ai_chat.example.yaml local/integrations/nvidia_ai.yaml
 cp config/integrations/translation_tencent_tmt.example.yaml local/integrations/translation_tencent_tmt.yaml
 cp config/integrations/llm_review_config.example.yaml local/integrations/llm_review_config.yaml
 ```

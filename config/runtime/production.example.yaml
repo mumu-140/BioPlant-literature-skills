@@ -22,8 +22,6 @@ paths:
   style_config: ${SKILL_DIR}/local/integrations/email_style.yaml
   template: ${SKILL_DIR}/assets/email_template.html
   summary_config: ${SKILL_DIR}/local/integrations/nvidia_ai.yaml  # 文件名保留兼容，内容已是通用 OpenAI-compatible
-  # 传统机器翻译配置仍可保留，需要时把 summary_config 改回这个文件。
-  translation_google_config: ${SKILL_DIR}/local/integrations/translation_google_basic_v2.yaml
 
 delivery:
   # 这里填写要启用的 SMTP profile 名称；profile 细节在 `local/integrations/email_config.yaml`。

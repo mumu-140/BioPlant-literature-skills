@@ -166,7 +166,14 @@ def apply_runtime_defaults(args: argparse.Namespace) -> argparse.Namespace:
     if not getattr(args, "template", None):
         args.template = str(paths.get("template", "") or CANONICAL_PATHS["email_template"])
     if not getattr(args, "summary_config", None):
-        args.summary_config = str(paths.get("summary_config", "") or CANONICAL_PATHS["nvidia_ai_config_local"])
+        provider = str(getattr(args, "summary_provider", "") or "").strip()
+        provider_explicit = bool(getattr(args, "summary_provider_explicit", False))
+        if provider_explicit and provider in {"placeholder", "command"}:
+            args.summary_config = ""
+        elif provider_explicit and provider == "tencent-tmt":
+            args.summary_config = str(CANONICAL_PATHS["translation_tencent_local"])
+        else:
+            args.summary_config = str(paths.get("summary_config", "") or CANONICAL_PATHS["nvidia_ai_config_local"])
 
     if not getattr(args, "smtp_profile", None):
         args.smtp_profile = str(delivery.get("smtp_profile", "") or "primary_smtp")
@@ -289,14 +296,10 @@ def build_command(args: argparse.Namespace) -> list[str]:
     summary_config = Path(args.summary_config).resolve() if args.summary_config else None
     if not summary_provider:
         nvidia_config = CANONICAL_PATHS["nvidia_ai_config_local"]
-        google_config = CANONICAL_PATHS["translation_google_local"] if CANONICAL_PATHS["translation_google_local"].exists() else None
         tencent_config = CANONICAL_PATHS["translation_tencent_local"] if CANONICAL_PATHS["translation_tencent_local"].exists() else None
         if nvidia_config.exists():
             summary_provider = "nvidia-chat"
             summary_config = nvidia_config.resolve()
-        elif google_config:
-            summary_provider = "google-basic-v2"
-            summary_config = google_config.resolve()
         elif tencent_config:
             summary_provider = "tencent-tmt"
             summary_config = tencent_config.resolve()
@@ -494,6 +497,8 @@ def main() -> int:
 
     args.sync_web_explicit = ("--sync-web" in sys.argv) or ("--no-sync-web" in sys.argv)
     args.sync_db_explicit = ("--sync-db" in sys.argv) or ("--no-sync-db" in sys.argv)
+    args.summary_provider_explicit = "--summary-provider" in sys.argv
+    args.summary_config_explicit = "--summary-config" in sys.argv
     args.allow_review_pending_explicit = (
         ("--allow-review-pending" in sys.argv) or ("--no-allow-review-pending" in sys.argv)
     )

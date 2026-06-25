@@ -38,6 +38,6 @@ summary:
 
 notes:
   - 这是通用 HTTP JSON 模板，适合自建翻译网关或第三方 JSON 接口。
-  - Google、Bing、有道或自建翻译服务都可以按这个结构适配。
+  - Bing、有道或自建翻译服务都可以按这个结构适配。
   - 如果服务需要密钥，请把真实值放进环境变量，不要写死在 YAML。
   - 如果你用腾讯云 TMT，优先使用 `translation_tencent_tmt.example.yaml`。

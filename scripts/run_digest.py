@@ -118,13 +118,13 @@ def main() -> int:
     parser.add_argument("--review-config", help="Config file for LLM review provider")
     parser.add_argument(
         "--summary-provider",
-        choices=["placeholder", "command", "http-json", "tencent-tmt", "google-basic-v2", "nvidia-chat"],
+        choices=["placeholder", "command", "http-json", "tencent-tmt", "nvidia-chat"],
         default="placeholder",
     )
     parser.add_argument("--summary-command", help="External command for translate_and_summarize.py")
     parser.add_argument(
         "--summary-config",
-        default=runtime_path("summary_config", "translation_google_local"),
+        default=None,
         help="Config file for translation/summarization provider",
     )
     parser.add_argument("--lookback-hours", type=int, default=24)
@@ -144,6 +144,11 @@ def main() -> int:
         help="Web digest base URL for links embedded in the email",
     )
     args = parser.parse_args()
+    if not args.summary_config:
+        if args.summary_provider == "nvidia-chat":
+            args.summary_config = runtime_path("summary_config", "nvidia_ai_config_local")
+        elif args.summary_provider == "tencent-tmt":
+            args.summary_config = str(CANONICAL_PATHS["translation_tencent_local"])
 
     run_dir = Path(args.work_dir).resolve()
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -499,7 +504,7 @@ def main() -> int:
         ]
         if args.summary_provider == "command" and args.summary_command:
             summarize_command.extend(["--command", args.summary_command])
-        if args.summary_provider in {"http-json", "tencent-tmt", "google-basic-v2", "nvidia-chat"}:
+        if args.summary_provider in {"http-json", "tencent-tmt", "nvidia-chat"}:
             if not args.summary_config:
                 raise SystemExit(f"--summary-config is required when --summary-provider={args.summary_provider}")
             summarize_command.extend(["--config", args.summary_config])
