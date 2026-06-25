@@ -46,14 +46,14 @@ daily_optimization:
   model: deepseek-ai/deepseek-v4-pro
   model_candidates:
     - deepseek-ai/deepseek-v4-pro
-    - minimaxai/minimax-m2.7
     - z-ai/glm-5.1
     - minimaxai/minimax-m3
+    - minimaxai/minimax-m2.7
     - deepseek-ai/deepseek-v4-flash
   max_retries: 10
   retry_backoff_seconds: 1.0
   retry_max_sleep_seconds: 20.0
-  max_output_tokens: 4096
+  max_output_tokens: 2048
   max_selected_rows: 8
 
 runtime:
