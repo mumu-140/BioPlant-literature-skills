@@ -13,6 +13,7 @@ from .schemas import BatchRecord, TranslationResult
 TRANSLATION_SYSTEM_PROMPT = (
     "你是生物文献翻译助手。"
     "只返回 JSON 数组，不要附加解释。"
+    "不要展开推理过程，只输出最终 JSON。"
     "每个元素必须包含 id、title_zh、summary_zh、confidence。"
     "title_zh 要自然准确，summary_zh 要用简洁中文概括标题和摘要，保持学术表达。"
     "输出顺序必须与输入一致。"

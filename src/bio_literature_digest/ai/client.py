@@ -115,21 +115,17 @@ def select_available_model_candidates(
     expected = str(pong_config.get("expected") or "pong")
     max_tokens = int(pong_config.get("max_tokens") or 8)
     original_model = client.model
-    passed: list[str] = []
     errors: list[str] = []
-    for model in candidates:
+    for index, model in enumerate(candidates):
         client.model = model
         try:
             if client.pong(prompt=prompt, expected=expected, max_tokens=max_tokens):
-                passed.append(model)
                 print(f"[ai] model pong ok: {model}")
+                return [model] + candidates[index + 1 :] + candidates[:index]
             else:
                 errors.append(f"{model}: response did not contain {expected!r}")
         except Exception as error:  # noqa: BLE001
             errors.append(f"{model}: {error.__class__.__name__}: {str(error)[:160]}")
-    if passed:
-        client.model = passed[0]
-        return passed
     client.model = original_model
     raise ValueError("No AI model passed pong test. " + "; ".join(errors))
 
