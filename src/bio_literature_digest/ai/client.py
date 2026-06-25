@@ -173,6 +173,17 @@ def extract_message_content(payload: dict[str, Any]) -> str:
     raise ValueError("OpenAI-compatible chat response missing assistant message content")
 
 
+def extract_reasoning_content(payload: dict[str, Any]) -> str:
+    choices = payload.get("choices") or []
+    if not choices:
+        return ""
+    choice = choices[0] if isinstance(choices[0], dict) else {}
+    message = choice.get("message") if isinstance(choice, dict) else {}
+    if isinstance(message, dict) and isinstance(message.get("reasoning_content"), str):
+        return message["reasoning_content"].strip()
+    return ""
+
+
 @dataclass
 class OpenAICompatibleChatClient:
     """Minimal OpenAI-compatible chat client for any configured base URL/key."""
@@ -265,11 +276,15 @@ class OpenAICompatibleChatClient:
     ) -> bool:
         """Probe the configured model with a tiny deterministic response test."""
 
-        content = self.chat_text(
+        payload = self.chat(
             [{"role": "user", "content": prompt}],
             temperature=0.0,
             max_tokens=max_tokens,
         )
+        try:
+            content = extract_message_content(payload)
+        except ValueError:
+            content = extract_reasoning_content(payload)
         return expected.strip().lower() in content.strip().lower()
 
     def select_model(

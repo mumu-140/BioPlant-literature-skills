@@ -120,6 +120,32 @@ class AiChatHelpersTest(unittest.TestCase):
         self.assertEqual(client.model, "glm-4")
         self.assertEqual(seen_models, ["deepseek-4-pro", "glm-4"])
 
+    def test_pong_accepts_reasoning_content_when_message_content_is_empty(self) -> None:
+        def fake_opener(request, timeout=0):  # type: ignore[override]
+            return FakeResponse(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "reasoning_content": 'The final answer should be "pong".',
+                            }
+                        }
+                    ]
+                }
+            )
+
+        client = OpenAICompatibleChatClient(
+            base_url="http://127.0.0.1:20128/v1",
+            model="reasoning-model",
+            api_key="configured-key",
+            api_key_envs=["AI_API_KEY"],
+            max_retries=0,
+            opener=fake_opener,
+        )
+
+        self.assertTrue(client.pong())
+
     def test_openai_compatible_chat_client_retries_timeout_with_sleep_cap(self) -> None:
         calls = 0
 

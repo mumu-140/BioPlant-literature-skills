@@ -25,7 +25,7 @@ ai_chat:
     enabled: true
     prompt: "Reply with exactly: pong"
     expected: "pong"
-    max_tokens: 8
+    max_tokens: 64
   # 推荐使用 api_key_envs；如果必须在私有 local YAML 里直填，也支持 api_key。
   api_key: ""
   api_key_envs:
