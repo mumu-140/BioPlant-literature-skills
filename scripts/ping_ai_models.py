@@ -54,13 +54,16 @@ def main() -> int:
     parser.add_argument("--models", help="Comma-separated model candidates in priority order")
     parser.add_argument("--prompt", default="Reply with exactly: pong")
     parser.add_argument("--expected", default="pong")
-    parser.add_argument("--max-tokens", type=int, default=8)
+    parser.add_argument("--max-tokens", type=int)
     args = parser.parse_args()
 
     config_path = Path(str(expand_config_value(args.config))).resolve()
     env_file = Path(str(expand_config_value(args.env_file))).resolve()
     load_env_file(env_file)
     ai_config = load_chat_config(config_path)
+    pong_config = ai_config.get("pong_test", {})
+    if not isinstance(pong_config, dict):
+        pong_config = {}
     configured_candidates = args.models or ai_config.get("model_candidates") or ai_config.get("models") or ""
     model_candidates = parse_models(configured_candidates) if isinstance(configured_candidates, str) else configured_candidates
     candidates = normalize_model_candidates(str(ai_config.get("model", "")), model_candidates)
@@ -73,7 +76,7 @@ def main() -> int:
             candidates,
             prompt=args.prompt,
             expected=args.expected,
-            max_tokens=args.max_tokens,
+            max_tokens=args.max_tokens if args.max_tokens is not None else int(pong_config.get("max_tokens") or 8),
         )
     except Exception as error:
         print("ai_model_ping_ok=False")
