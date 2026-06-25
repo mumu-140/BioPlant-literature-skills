@@ -9,7 +9,12 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
-from urllib.request import Request, urlopen
+
+try:
+    from scripts._bootstrap import SRC_DIR as _SRC_DIR  # noqa: F401
+except ModuleNotFoundError:
+    from _bootstrap import SRC_DIR as _SRC_DIR  # noqa: F401
+from bio_literature_digest.fetching.http import fetch_and_parse_locator
 
 try:
     from scripts.common import current_timestamp_utc, isoformat_utc, load_watchlist, parse_datetime_guess, within_utc_window, write_jsonl
@@ -241,12 +246,6 @@ def parse_pnas_toc_html(html_text: str, source_meta: dict[str, Any], source_url:
     return records
 
 
-def fetch_url(url: str, user_agent: str, timeout: int) -> str:
-    request = Request(url, headers={"User-Agent": user_agent})
-    with urlopen(request, timeout=timeout) as response:
-        return response.read().decode("utf-8", errors="replace")
-
-
 def parse_source_payload(payload: str, source_meta: dict[str, Any], source_url: str) -> list[dict[str, Any]]:
     strategy = source_meta.get("source_strategy", "official_feed_or_toc")
     if strategy == "official_toc":
@@ -292,6 +291,17 @@ def main() -> int:
         default="bio-literature-digest/0.1 (+https://local.codex)",
         help="HTTP User-Agent header",
     )
+    parser.add_argument(
+        "--retry-failed-with-proxy",
+        action="store_true",
+        help="Retry direct fetch or parse failures through a configured proxy.",
+    )
+    parser.add_argument(
+        "--proxy-url",
+        default="socks5h://127.0.0.1:40000",
+        help="Proxy URL used with curl when --retry-failed-with-proxy is set.",
+    )
+    parser.add_argument("--curl-bin", default="curl", help="curl executable used for proxy retries.")
     args = parser.parse_args()
 
     watchlist = load_watchlist(args.watchlist)
@@ -313,18 +323,44 @@ def main() -> int:
             continue
         locator_list = locators if isinstance(locators, list) else [locators]
         journal_records: list[dict[str, Any]] = []
+        failed_locators: list[tuple[str, str]] = []
         for locator in locator_list:
             try:
-                xml_text = fetch_url(locator, args.user_agent, args.timeout)
+                parsed_records = fetch_and_parse_locator(
+                    journal,
+                    locator,
+                    user_agent=args.user_agent,
+                    timeout=args.timeout,
+                    route="direct",
+                    parse_payload=parse_source_payload,
+                )
             except Exception as exc:  # noqa: BLE001
                 print(f"[error] {journal['id']}: {exc}", file=sys.stderr)
-                continue
-            try:
-                parsed_records = parse_source_payload(xml_text, journal, locator)
-            except ET.ParseError as exc:
-                print(f"[error] {journal['id']}: XML parse failure: {exc}", file=sys.stderr)
+                failed_locators.append((locator, f"{exc.__class__.__name__}: {exc}"))
                 continue
             journal_records.extend(parsed_records)
+        if args.retry_failed_with_proxy and failed_locators:
+            for locator, direct_error in failed_locators:
+                try:
+                    parsed_records = fetch_and_parse_locator(
+                        journal,
+                        locator,
+                        user_agent=args.user_agent,
+                        timeout=args.timeout,
+                        route="proxy",
+                        parse_payload=parse_source_payload,
+                        proxy_url=args.proxy_url,
+                        curl_bin=args.curl_bin,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    print(
+                        f"[proxy-error] {journal['id']}: {exc} "
+                        f"(direct failure: {direct_error})",
+                        file=sys.stderr,
+                    )
+                    continue
+                journal_records.extend(parsed_records)
+                print(f"[proxy-ok] {journal['id']}: recovered {len(parsed_records)} records", file=sys.stderr)
         filtered_records = []
         for record in journal_records:
             if should_skip_record(record):

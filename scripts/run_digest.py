@@ -143,6 +143,21 @@ def main() -> int:
         default=str(RUNTIME_DEFAULTS.get("web", {}).get("base_url", "") or ""),
         help="Web digest base URL for links embedded in the email",
     )
+    parser.add_argument(
+        "--retry-failed-feeds-with-proxy",
+        action="store_true",
+        help="Retry failed feed locators through a proxy and merge recovered records.",
+    )
+    parser.add_argument(
+        "--feed-proxy-url",
+        default=str(RUNTIME_DEFAULTS.get("fetch", {}).get("proxy_url", "") or "socks5h://127.0.0.1:40000"),
+        help="Proxy URL for failed feed retries.",
+    )
+    parser.add_argument(
+        "--feed-curl-bin",
+        default=str(RUNTIME_DEFAULTS.get("fetch", {}).get("curl_bin", "") or "curl"),
+        help="curl executable used for failed feed proxy retries.",
+    )
     args = parser.parse_args()
     if not args.summary_config:
         if args.summary_provider == "nvidia-chat":
@@ -351,6 +366,16 @@ def main() -> int:
                 fetch_command.extend(["--window-start", window_start, "--window-end", window_end])
             elif args.lookback_hours is not None:
                 fetch_command.extend(["--lookback-hours", str(args.lookback_hours)])
+            if args.retry_failed_feeds_with_proxy:
+                fetch_command.extend(
+                    [
+                        "--retry-failed-with-proxy",
+                        "--proxy-url",
+                        args.feed_proxy_url,
+                        "--curl-bin",
+                        args.feed_curl_bin,
+                    ]
+                )
             run_pipeline_step("fetch_feeds", fetch_command)
 
         normalize_command = [

@@ -14,11 +14,13 @@ ai_chat:
   base_url: http://127.0.0.1:20128/v1
   # 实际模型名以当前网关 `/v1/models` 或供应商文档为准。
   # 每次运行前会按 model_candidates 顺序做轻量 pong 测试，选择第一个可用模型。
-  model: deepseek-ai/deepseek-v4-pro
+  model: minimaxai/minimax-m2.7
   model_candidates:
+    - minimaxai/minimax-m2.7
     - deepseek-ai/deepseek-v4-pro
     - z-ai/glm-5.1
     - minimaxai/minimax-m3
+    - deepseek-ai/deepseek-v4-flash
   pong_test:
     enabled: true
     prompt: "Reply with exactly: pong"
@@ -32,12 +34,26 @@ ai_chat:
     - NVIDIA_API_KEY
     - NGC_API_KEY
   timeout_seconds: 60
-  max_retries: 3
-  retry_backoff_seconds: 0.8
+  max_retries: 10
+  retry_backoff_seconds: 1.0
+  retry_max_sleep_seconds: 20.0
   temperature: 0.0
   max_output_tokens: 4096
-  max_batch_items: 8
+  max_batch_items: 4
   max_batch_chars: 12000
+
+daily_optimization:
+  model: deepseek-ai/deepseek-v4-pro
+  model_candidates:
+    - deepseek-ai/deepseek-v4-pro
+    - minimaxai/minimax-m2.7
+    - z-ai/glm-5.1
+    - minimaxai/minimax-m3
+    - deepseek-ai/deepseek-v4-flash
+  max_retries: 10
+  retry_backoff_seconds: 1.0
+  retry_max_sleep_seconds: 20.0
+  max_selected_rows: 8
 
 runtime:
   continue_on_error: true
@@ -49,7 +65,8 @@ summary:
 
 notes:
   - "`ai_chat.base_url` 是 OpenAI-compatible `/v1` 根路径，不要写到 `/chat/completions`。"
-  - "`ai_chat.model_candidates` 按优先级填写：DeepSeek 系列、GLM 系列、Minimax 系列；模型名必须和网关实际名称一致。"
+  - "`ai_chat.model_candidates` 按优先级填写；模型名必须和网关实际名称一致。"
+  - "翻译/复核默认优先 `minimaxai/minimax-m2.7`；每日优化默认优先 `deepseek-ai/deepseek-v4-pro`。"
   - "每日运行会用 `pong_test` 先探测模型，选择第一个返回 `pong` 的候选。"
   - "API key 解析顺序：先读 `ai_chat.api_key`，再按 `api_key_envs` 从环境变量读取。"
   - "本 provider 是优先增强层；失败时回退到 Tencent TMT，避免产出英文 placeholder。"

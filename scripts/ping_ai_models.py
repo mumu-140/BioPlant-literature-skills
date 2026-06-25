@@ -20,6 +20,7 @@ except ModuleNotFoundError:
 
 from bio_literature_digest.ai.client import (  # noqa: E402
     OpenAICompatibleChatClient,
+    build_chat_client,
     normalize_model_candidates,
     resolve_chat_config,
 )
@@ -43,17 +44,7 @@ def load_chat_config(path: Path) -> dict[str, Any]:
 
 
 def build_client(ai_config: dict[str, Any]) -> OpenAICompatibleChatClient:
-    return OpenAICompatibleChatClient(
-        base_url=str(ai_config.get("base_url", "http://127.0.0.1:20128/v1")),
-        model=str(ai_config.get("model", "")),
-        api_key=str(ai_config.get("api_key", "")),
-        api_key_envs=ai_config.get("api_key_envs")
-        or ai_config.get("api_key_env")
-        or ["AI_API_KEY", "OPENAI_API_KEY", "NGC_API_KEY", "NVIDIA_API_KEY"],
-        timeout_seconds=int(ai_config.get("timeout_seconds", 60)),
-        max_retries=int(ai_config.get("max_retries", 3)),
-        retry_backoff_seconds=float(ai_config.get("retry_backoff_seconds", 0.8)),
-    )
+    return build_chat_client(ai_config)
 
 
 def main() -> int:

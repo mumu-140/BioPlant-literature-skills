@@ -131,6 +131,40 @@ class ProductionEntryTest(unittest.TestCase):
         self.assertIn("--skip-email", command)
         self.assertNotIn("--allow-review-pending", command)
 
+    def test_build_command_passes_failed_feed_proxy_retry(self) -> None:
+        args = argparse.Namespace(
+            work_dir="/tmp/prod-run",
+            email_config=str(CANONICAL_PATHS["email_config_local"]),
+            smtp_profile="primary_smtp",
+            style_config=str(CANONICAL_PATHS["email_style_local"]),
+            summary_provider="placeholder",
+            summary_config=None,
+            review_provider="placeholder",
+            window_mode="schedule",
+            lookback_hours=24,
+            window_start=None,
+            window_end=None,
+            timezone="Asia/Shanghai",
+            delivery_time="08:00",
+            archive_dir=str(SKILL_DIR / "var" / "archives" / "daily-digests"),
+            review_workspace_dir=str(SKILL_DIR / "var" / "reviews" / "daily-reviews"),
+            backlog_dir=str(SKILL_DIR / "var" / "reviews" / "backlog"),
+            retention_days=30,
+            input_file=None,
+            manual_review_csv=None,
+            allow_review_pending=True,
+            skip_email=True,
+            retry_failed_feeds_with_proxy=True,
+            feed_proxy_url="socks5h://127.0.0.1:40000",
+            feed_curl_bin="curl",
+        )
+
+        command = build_command(args)
+
+        self.assertIn("--retry-failed-feeds-with-proxy", command)
+        self.assertIn("--feed-proxy-url", command)
+        self.assertIn("socks5h://127.0.0.1:40000", command)
+
     def test_build_command_passes_explicit_window_through(self) -> None:
         args = argparse.Namespace(
             work_dir="/tmp/prod-run",

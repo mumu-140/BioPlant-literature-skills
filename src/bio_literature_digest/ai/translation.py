@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+import sys
 from typing import Any
 
 from .batching import chunk_by_limits
-from .client import OpenAICompatibleChatClient, resolve_chat_config
+from .client import OpenAICompatibleChatClient, build_chat_client, resolve_chat_config, select_available_model_candidates
 from .redaction import redact_record
 from .schemas import BatchRecord, TranslationResult
 
@@ -82,68 +83,74 @@ def _parse_translation_items(payload: Any) -> list[TranslationResult]:
     return results
 
 
-def _bool_config(value: Any, *, default: bool = False) -> bool:
-    if isinstance(value, bool):
-        return value
-    if value is None:
-        return default
-    return str(value).strip().lower() in {"1", "true", "yes", "on"}
-
-
 def build_translation_client(ai_config: dict[str, Any]) -> OpenAICompatibleChatClient:
-    """Build a chat client and optionally select an available model by pong test."""
+    """Build a chat client for translation."""
 
-    client = OpenAICompatibleChatClient(
-        base_url=str(ai_config.get("base_url", "http://127.0.0.1:20128/v1")),
-        model=str(ai_config.get("model", "")),
-        api_key=str(ai_config.get("api_key", "")),
-        api_key_envs=ai_config.get("api_key_envs") or ai_config.get("api_key_env") or ["AI_API_KEY", "OPENAI_API_KEY", "NGC_API_KEY", "NVIDIA_API_KEY"],
-        timeout_seconds=int(ai_config.get("timeout_seconds", 60)),
-        max_retries=int(ai_config.get("max_retries", 3)),
-        retry_backoff_seconds=float(ai_config.get("retry_backoff_seconds", 0.8)),
-    )
+    return build_chat_client(ai_config)
 
-    pong_config = ai_config.get("pong_test", {})
-    if not isinstance(pong_config, dict):
-        pong_config = {}
-    model_candidates = ai_config.get("model_candidates") or ai_config.get("models")
-    if _bool_config(pong_config.get("enabled"), default=bool(model_candidates)):
-        selected_model = client.select_model(
-            model_candidates or [client.model],
-            prompt=str(pong_config.get("prompt") or "Reply with exactly: pong"),
-            expected=str(pong_config.get("expected") or "pong"),
-            max_tokens=int(pong_config.get("max_tokens") or 8),
-        )
-        print(f"[ai] selected model via pong: {selected_model}")
-    return client
+
+def _translate_batch_with_model_fallback(
+    client: OpenAICompatibleChatClient,
+    batch: list[BatchRecord],
+    ai_config: dict[str, Any],
+    model_candidates: list[str],
+    active_model_index: int,
+) -> tuple[list[dict[str, str]], int]:
+    attempt_order = model_candidates[active_model_index:] + model_candidates[:active_model_index]
+    last_error: Exception | None = None
+    for model in attempt_order:
+        client.model = model
+        try:
+            payload = client.chat_json(
+                [
+                    {"role": "system", "content": TRANSLATION_SYSTEM_PROMPT},
+                    {"role": "user", "content": _build_translation_user_prompt(batch)},
+                ],
+                temperature=float(ai_config.get("temperature", 0.0)),
+                max_tokens=int(ai_config.get("max_output_tokens", 4096)),
+            )
+            results = _parse_translation_items(payload)
+            by_id = {item.id: item for item in results if item.id}
+            translated: list[dict[str, str]] = []
+            for item in batch:
+                result = by_id.get(item.id)
+                if result is None:
+                    raise ValueError(f"Translation response missing record id={item.id}")
+                translated.append(
+                    {
+                        "id": item.id,
+                        "title_zh": result.title_zh or item.title_en,
+                        "summary_zh": result.summary_zh,
+                    }
+                )
+            return translated, model_candidates.index(model)
+        except Exception as error:  # noqa: BLE001
+            last_error = error
+            print(
+                f"[ai] translation model failed; model={model} batch_size={len(batch)} "
+                f"error={error.__class__.__name__}: {str(error)[:160]}",
+                file=sys.stderr,
+            )
+    if last_error is not None:
+        raise RuntimeError(f"All AI translation models failed for batch_size={len(batch)}") from last_error
+    raise RuntimeError("No AI translation model was attempted")
 
 
 def translate_records_with_nvidia(records: list[dict[str, Any]], config: dict[str, Any]) -> list[dict[str, str]]:
     ai_config = resolve_chat_config(config)
     client = build_translation_client(ai_config)
+    model_candidates = select_available_model_candidates(client, ai_config, default_ping=bool(ai_config.get("model_candidates") or ai_config.get("models")))
 
     translated: list[dict[str, str]] = []
+    active_model_index = 0
     batches = build_translation_batches(records, config)
     for batch in batches:
-        payload = client.chat_json(
-            [
-                {"role": "system", "content": TRANSLATION_SYSTEM_PROMPT},
-                {"role": "user", "content": _build_translation_user_prompt(batch)},
-            ],
-            temperature=float(ai_config.get("temperature", 0.0)),
-            max_tokens=int(ai_config.get("max_output_tokens", 4096)),
+        batch_translations, active_model_index = _translate_batch_with_model_fallback(
+            client,
+            batch,
+            ai_config,
+            model_candidates,
+            active_model_index,
         )
-        results = _parse_translation_items(payload)
-        by_id = {item.id: item for item in results if item.id}
-        for item in batch:
-            result = by_id.get(item.id)
-            if result is None:
-                raise ValueError(f"Translation response missing record id={item.id}")
-            translated.append(
-                {
-                    "id": item.id,
-                    "title_zh": result.title_zh or item.title_en,
-                    "summary_zh": result.summary_zh,
-                }
-            )
+        translated.extend(batch_translations)
     return translated

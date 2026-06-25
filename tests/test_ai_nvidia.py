@@ -22,6 +22,7 @@ from bio_literature_digest.ai import (  # noqa: E402
     redact_text,
     resolve_api_key,
 )
+from bio_literature_digest.ai import translation as translation_module  # noqa: E402
 
 
 class FakeResponse:
@@ -118,6 +119,63 @@ class AiChatHelpersTest(unittest.TestCase):
         self.assertEqual(selected, "glm-4")
         self.assertEqual(client.model, "glm-4")
         self.assertEqual(seen_models, ["deepseek-4-pro", "glm-4"])
+
+    def test_openai_compatible_chat_client_retries_timeout_with_sleep_cap(self) -> None:
+        calls = 0
+
+        def fake_opener(request, timeout=0):  # type: ignore[override]
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise TimeoutError("timed out")
+            return FakeResponse({"choices": [{"message": {"content": "{\"ok\": true}"}}]})
+
+        client = OpenAICompatibleChatClient(
+            base_url="http://127.0.0.1:20128/v1",
+            model="configured-model",
+            api_key="configured-key",
+            api_key_envs=["AI_API_KEY"],
+            max_retries=1,
+            retry_backoff_seconds=99.0,
+            retry_max_sleep_seconds=2.0,
+            opener=fake_opener,
+        )
+        with mock.patch("bio_literature_digest.ai.client.time.sleep") as mocked_sleep:
+            payload = client.chat_json([{"role": "user", "content": "hello"}])
+
+        self.assertEqual(payload, {"ok": True})
+        mocked_sleep.assert_called_once_with(2.0)
+        self.assertEqual(calls, 2)
+
+    def test_translation_switches_to_next_model_after_batch_failure(self) -> None:
+        seen_models: list[str] = []
+
+        class FakeClient:
+            model = "bad-model"
+
+            def pong(self, **kwargs):  # type: ignore[no-untyped-def]
+                return True
+
+            def chat_json(self, messages, *, temperature=0.0, max_tokens=None):  # type: ignore[no-untyped-def]
+                seen_models.append(self.model)
+                if self.model == "bad-model":
+                    raise TimeoutError("batch timed out")
+                return [{"id": "1", "title_zh": "中文标题", "summary_zh": "中文摘要", "confidence": 0.9}]
+
+        records = [{"title_en": "A plant method", "abstract": "A plant method abstract.", "journal": "Test"}]
+        config = {
+            "ai_chat": {
+                "model": "bad-model",
+                "model_candidates": ["bad-model", "good-model"],
+                "pong_test": {"enabled": True},
+                "max_retries": 0,
+            }
+        }
+        with mock.patch.object(translation_module, "build_chat_client", return_value=FakeClient()):
+            translated = translation_module.translate_records_with_nvidia(records, config)
+
+        self.assertEqual(translated[0]["title_zh"], "中文标题")
+        self.assertEqual(seen_models, ["bad-model", "good-model"])
 
 
 if __name__ == "__main__":

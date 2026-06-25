@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+import sys
 from typing import Any
 
 from .batching import chunk_by_limits
-from .client import OpenAICompatibleChatClient, resolve_chat_config
+from .client import build_chat_client, resolve_chat_config, select_available_model_candidates
 from .redaction import redact_record
 from .schemas import BatchRecord, ReviewResult
 
@@ -104,40 +105,57 @@ def _parse_review_items(payload: Any) -> list[ReviewResult]:
 
 def review_records_with_nvidia(records: list[dict[str, Any]], config: dict[str, Any]) -> list[dict[str, Any]]:
     ai_config = resolve_chat_config(config)
-    client = OpenAICompatibleChatClient(
-        base_url=str(ai_config.get("base_url", "http://127.0.0.1:20128/v1")),
-        model=str(ai_config.get("model", "")),
-        api_key=str(ai_config.get("api_key", "")),
-        api_key_envs=ai_config.get("api_key_envs") or ai_config.get("api_key_env") or ["AI_API_KEY", "OPENAI_API_KEY", "NGC_API_KEY", "NVIDIA_API_KEY"],
-        timeout_seconds=int(ai_config.get("timeout_seconds", 60)),
-        max_retries=int(ai_config.get("max_retries", 3)),
-        retry_backoff_seconds=float(ai_config.get("retry_backoff_seconds", 0.8)),
+    client = build_chat_client(ai_config)
+    model_candidates = select_available_model_candidates(
+        client,
+        ai_config,
+        default_ping=bool(ai_config.get("model_candidates") or ai_config.get("models")),
     )
 
     reviewed: list[dict[str, Any]] = []
     batches = build_screening_batches(records, config)
+    active_model_index = 0
     for batch in batches:
-        payload = client.chat_json(
-            [
-                {"role": "system", "content": SCREENING_SYSTEM_PROMPT},
-                {"role": "user", "content": _build_screening_user_prompt(batch)},
-            ],
-            temperature=float(ai_config.get("temperature", 0.0)),
-            max_tokens=int(ai_config.get("max_output_tokens", 2048)),
-        )
-        results = _parse_review_items(payload)
-        by_id = {item.id: item for item in results if item.id}
-        for item in batch:
-            result = by_id.get(item.id)
-            if result is None:
-                raise ValueError(f"Review response missing record id={item.id}")
-            reviewed.append(
-                {
-                    "id": item.id,
-                    "decision": result.decision,
-                    "confidence": result.confidence,
-                    "reason": result.reason,
-                    "category_override": result.category_override,
-                }
-            )
+        attempt_order = model_candidates[active_model_index:] + model_candidates[:active_model_index]
+        last_error: Exception | None = None
+        batch_payloads: list[dict[str, Any]] | None = None
+        for model in attempt_order:
+            client.model = model
+            try:
+                payload = client.chat_json(
+                    [
+                        {"role": "system", "content": SCREENING_SYSTEM_PROMPT},
+                        {"role": "user", "content": _build_screening_user_prompt(batch)},
+                    ],
+                    temperature=float(ai_config.get("temperature", 0.0)),
+                    max_tokens=int(ai_config.get("max_output_tokens", 2048)),
+                )
+                results = _parse_review_items(payload)
+                by_id = {item.id: item for item in results if item.id}
+                batch_payloads = []
+                for item in batch:
+                    result = by_id.get(item.id)
+                    if result is None:
+                        raise ValueError(f"Review response missing record id={item.id}")
+                    batch_payloads.append(
+                        {
+                            "id": item.id,
+                            "decision": result.decision,
+                            "confidence": result.confidence,
+                            "reason": result.reason,
+                            "category_override": result.category_override,
+                        }
+                    )
+                active_model_index = model_candidates.index(model)
+                break
+            except Exception as error:  # noqa: BLE001
+                last_error = error
+                print(
+                    f"[ai] review model failed; model={model} batch_size={len(batch)} "
+                    f"error={error.__class__.__name__}: {str(error)[:160]}",
+                    file=sys.stderr,
+                )
+        if batch_payloads is None:
+            raise RuntimeError(f"All AI review models failed for batch_size={len(batch)}") from last_error
+        reviewed.extend(batch_payloads)
     return reviewed

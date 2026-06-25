@@ -65,6 +65,75 @@ def normalize_model_candidates(model: str, model_candidates: Any) -> list[str]:
     return candidates
 
 
+def bool_config(value: Any, *, default: bool = False) -> bool:
+    """Read common YAML/env-style boolean values."""
+
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def build_chat_client(ai_config: dict[str, Any]) -> "OpenAICompatibleChatClient":
+    """Build a configured OpenAI-compatible chat client."""
+
+    return OpenAICompatibleChatClient(
+        base_url=str(ai_config.get("base_url", "http://127.0.0.1:20128/v1")),
+        model=str(ai_config.get("model", "")),
+        api_key=str(ai_config.get("api_key", "")),
+        api_key_envs=ai_config.get("api_key_envs")
+        or ai_config.get("api_key_env")
+        or ["AI_API_KEY", "OPENAI_API_KEY", "NGC_API_KEY", "NVIDIA_API_KEY"],
+        timeout_seconds=int(ai_config.get("timeout_seconds", 60)),
+        max_retries=int(ai_config.get("max_retries", 3)),
+        retry_backoff_seconds=float(ai_config.get("retry_backoff_seconds", 0.8)),
+        retry_max_sleep_seconds=float(ai_config.get("retry_max_sleep_seconds", 20.0)),
+    )
+
+
+def select_available_model_candidates(
+    client: "OpenAICompatibleChatClient",
+    ai_config: dict[str, Any],
+    *,
+    default_ping: bool = False,
+) -> list[str]:
+    """Return model candidates that should be tried for real work."""
+
+    model_candidates = ai_config.get("model_candidates") or ai_config.get("models")
+    candidates = normalize_model_candidates(client.model, model_candidates)
+    if not candidates:
+        raise ValueError("No AI model candidates configured")
+
+    pong_config = ai_config.get("pong_test", {})
+    if not isinstance(pong_config, dict):
+        pong_config = {}
+    if not bool_config(pong_config.get("enabled"), default=default_ping):
+        return candidates
+
+    prompt = str(pong_config.get("prompt") or "Reply with exactly: pong")
+    expected = str(pong_config.get("expected") or "pong")
+    max_tokens = int(pong_config.get("max_tokens") or 8)
+    original_model = client.model
+    passed: list[str] = []
+    errors: list[str] = []
+    for model in candidates:
+        client.model = model
+        try:
+            if client.pong(prompt=prompt, expected=expected, max_tokens=max_tokens):
+                passed.append(model)
+                print(f"[ai] model pong ok: {model}")
+            else:
+                errors.append(f"{model}: response did not contain {expected!r}")
+        except Exception as error:  # noqa: BLE001
+            errors.append(f"{model}: {error.__class__.__name__}: {str(error)[:160]}")
+    if passed:
+        client.model = passed[0]
+        return passed
+    client.model = original_model
+    raise ValueError("No AI model passed pong test. " + "; ".join(errors))
+
+
 def parse_json_content(text: str) -> Any:
     """Parse model output that may be wrapped in markdown fences."""
 
@@ -115,6 +184,7 @@ class OpenAICompatibleChatClient:
     timeout_seconds: int = 60
     max_retries: int = 3
     retry_backoff_seconds: float = 0.8
+    retry_max_sleep_seconds: float = 20.0
     opener: Any = urlopen
 
     def __post_init__(self) -> None:
@@ -160,7 +230,12 @@ class OpenAICompatibleChatClient:
                 last_error = error
                 if attempt >= self.max_retries:
                     raise
-            time.sleep(self.retry_backoff_seconds * (attempt + 1))
+            except (OSError, TimeoutError) as error:
+                last_error = error
+                if attempt >= self.max_retries:
+                    raise
+            sleep_seconds = min(self.retry_max_sleep_seconds, self.retry_backoff_seconds * (attempt + 1))
+            time.sleep(sleep_seconds)
 
         if last_error is not None:
             raise last_error

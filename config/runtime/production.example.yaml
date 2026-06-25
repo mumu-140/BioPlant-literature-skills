@@ -40,6 +40,12 @@ providers:
   review_provider: placeholder
   summary_provider: nvidia-chat
 
+fetch:
+  # 有 WARP 或等价 SOCKS5H 代理时可开启；仅对直接抓取失败的 source_locator 做二次抓取。
+  retry_failed_with_proxy: false
+  proxy_url: socks5h://127.0.0.1:40000
+  curl_bin: curl
+
 web:
   # web sidecar 是可选项；未接入时保持关闭。
   base_url: ""

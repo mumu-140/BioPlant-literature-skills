@@ -140,6 +140,7 @@ def apply_runtime_defaults(args: argparse.Namespace) -> argparse.Namespace:
     delivery = config.get("delivery", {})
     providers = config.get("providers", {})
     environment = config.get("environment", {})
+    fetch = config.get("fetch", {})
     web = config.get("web", {})
     database = config.get("database", {})
 
@@ -185,6 +186,12 @@ def apply_runtime_defaults(args: argparse.Namespace) -> argparse.Namespace:
         args.window_policy = str(delivery.get("window_policy", "") or "previous_day")
     if not getattr(args, "allow_review_pending_explicit", False):
         args.allow_review_pending = bool(delivery.get("allow_review_pending", True))
+    if not getattr(args, "retry_failed_feeds_with_proxy_explicit", False):
+        args.retry_failed_feeds_with_proxy = bool(fetch.get("retry_failed_with_proxy", False))
+    if not getattr(args, "feed_proxy_url", None):
+        args.feed_proxy_url = str(fetch.get("proxy_url", "") or "socks5h://127.0.0.1:40000")
+    if not getattr(args, "feed_curl_bin", None):
+        args.feed_curl_bin = str(fetch.get("curl_bin", "") or "curl")
 
     if not getattr(args, "review_provider", None):
         args.review_provider = str(providers.get("review_provider", "") or "placeholder")
@@ -291,6 +298,17 @@ def build_command(args: argparse.Namespace) -> list[str]:
 
     if args.manual_review_csv:
         command.extend(["--manual-review-csv", str(Path(args.manual_review_csv).resolve())])
+
+    if getattr(args, "retry_failed_feeds_with_proxy", False):
+        command.extend(
+            [
+                "--retry-failed-feeds-with-proxy",
+                "--feed-proxy-url",
+                str(getattr(args, "feed_proxy_url", "") or "socks5h://127.0.0.1:40000"),
+                "--feed-curl-bin",
+                str(getattr(args, "feed_curl_bin", "") or "curl"),
+            ]
+        )
 
     summary_provider = args.summary_provider
     summary_config = Path(args.summary_config).resolve() if args.summary_config else None
@@ -490,6 +508,10 @@ def main() -> int:
     parser.add_argument("--manual-review-csv")
     parser.add_argument("--allow-review-pending", action="store_true", default=True)
     parser.add_argument("--no-allow-review-pending", action="store_false", dest="allow_review_pending")
+    parser.add_argument("--retry-failed-feeds-with-proxy", action="store_true", default=False)
+    parser.add_argument("--no-retry-failed-feeds-with-proxy", action="store_false", dest="retry_failed_feeds_with_proxy")
+    parser.add_argument("--feed-proxy-url")
+    parser.add_argument("--feed-curl-bin")
     parser.add_argument("--skip-email", action="store_true")
     parser.add_argument("--print-command", action="store_true")
     parser.add_argument("--lock-stale-hours", type=int, default=12)
@@ -501,6 +523,9 @@ def main() -> int:
     args.summary_config_explicit = "--summary-config" in sys.argv
     args.allow_review_pending_explicit = (
         ("--allow-review-pending" in sys.argv) or ("--no-allow-review-pending" in sys.argv)
+    )
+    args.retry_failed_feeds_with_proxy_explicit = (
+        ("--retry-failed-feeds-with-proxy" in sys.argv) or ("--no-retry-failed-feeds-with-proxy" in sys.argv)
     )
     args = apply_runtime_defaults(args)
 
