@@ -338,7 +338,9 @@ def main() -> int:
     if not fields:
         raise SystemExit(f"Backlog is empty: {args.backlog_dir}")
     pending_rows = [row for row in rows if str(row.get("review_status", "")).strip() == "reviewed_pending_optimization"]
-    evidence = build_evidence(args, pending_rows, source)
+    prioritized_rows = [row for row in pending_rows if row.get("admission_tier") != "observe"]
+    prioritized_rows.extend(row for row in pending_rows if row.get("admission_tier") == "observe")
+    evidence = build_evidence(args, prioritized_rows, source)
     selection_path = args.backlog_dir / "optimization_selection.json"
     if not pending_rows:
         write_selection(selection_path, {"_model": "", "deferred_rows": []}, {"selected_rows": [], "applied_rules": [], "applied_glossary": []}, evidence)
@@ -347,7 +349,7 @@ def main() -> int:
 
     ai_config = load_optimizer_config(args.config)
     plan = call_optimizer(evidence, ai_config, args)
-    applied = apply_ai_plan(plan, pending_rows, args)
+    applied = apply_ai_plan(plan, prioritized_rows, args)
     write_selection(selection_path, plan, applied, evidence)
     if args.mark_finalize:
         mark_and_finalize(args, selection_path)
