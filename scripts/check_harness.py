@@ -13,7 +13,19 @@ except ModuleNotFoundError:
     from _bootstrap import SKILL_DIR
 
 
-IGNORED_DIR_NAMES = {".venv", "__pycache__", "archives", "reviews", "logs", "local", "var", ".git"}
+IGNORED_DIR_NAMES = {
+    ".archive",
+    ".git",
+    ".helloagents",
+    ".pytest_cache",
+    ".venv",
+    "__pycache__",
+    "archives",
+    "local",
+    "logs",
+    "reviews",
+    "var",
+}
 IGNORED_FILE_NAMES = {".DS_Store", ".env.local"}
 IGNORED_SUFFIXES = {".pyc"}
 LOCAL_CONFIG_SUFFIX = ".local.yaml"

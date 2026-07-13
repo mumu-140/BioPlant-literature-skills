@@ -29,7 +29,7 @@ python3 -m venv .venv
 pip install -r requirements.txt
 ```
 
-依赖目前很轻，只要求 Python 3 和 `PyYAML`。
+核心流水线要求 Python 3 和 `PyYAML`；远程 API 另外使用 `FastAPI`、`Uvicorn` 和 `httpx`，均由 `requirements.txt` 安装。
 
 ### AI 安装
 
@@ -257,6 +257,22 @@ cp config/integrations/email_style.example.yaml local/integrations/email_style.y
 ```bash
 .venv/bin/python3 scripts/check_project.py
 ```
+
+远程 API：
+
+```bash
+.venv/bin/python3 scripts/serve_api.py
+```
+
+API 默认仅监听 `127.0.0.1:8787`，正式环境通过 Caddy 提供 HTTPS。接口、鉴权、systemd 和 Caddy 配置见 `docs/https_api_deployment.md`。
+
+构建不含私有配置和运行数据的便携包：
+
+```bash
+python3 scripts/build_portable_package.py --output-dir /path/to/dist
+```
+
+构建脚本只打包指定 Git 提交，自动排除 `local/`、`var/`、虚拟环境、缓存和归档目录，并同时生成 SHA-256 校验文件。
 
 数据库同步（SQLite）：
 

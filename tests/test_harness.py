@@ -43,6 +43,34 @@ class HarnessTest(unittest.TestCase):
             self.assertIn("个人化 scheduler label", joined)
             self.assertIn("生成型 plist", joined)
 
+    def test_harness_ignores_runtime_metadata(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="bio-harness-metadata-") as tmpdir:
+            root = Path(tmpdir)
+            for path in [
+                root / "config" / "content",
+                root / "config" / "integrations",
+                root / "config" / "runtime",
+                root / "local",
+                root / "var",
+                root / "docs",
+                root / "ops" / "launchd",
+                root / "scripts",
+                root / ".helloagents" / "sessions",
+                root / ".archive" / "backup",
+            ]:
+                path.mkdir(parents=True, exist_ok=True)
+
+            (root / "config" / "env.local.example").write_text("SMTP_APP_PASSWORD=\n", encoding="utf-8")
+            (root / "docs" / "engineering_harness.md").write_text("# harness\n", encoding="utf-8")
+            (root / "ops" / "launchd" / "bio-digest-daily.plist.template").write_text("template\n", encoding="utf-8")
+            private_path = "/" + "Users/someone/private"
+            (root / ".helloagents" / "sessions" / "STATE.md").write_text(private_path, encoding="utf-8")
+            legacy_reference = "references" + "/old\n"
+            (root / ".archive" / "backup" / "legacy.md").write_text(legacy_reference, encoding="utf-8")
+
+            issues, _ = build_report(root)
+            self.assertEqual(issues, [])
+
 
 if __name__ == "__main__":
     unittest.main()

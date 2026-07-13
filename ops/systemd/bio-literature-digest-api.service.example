@@ -1,0 +1,23 @@
+[Unit]
+Description=Bio Literature Digest API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+UMask=0077
+User=bio-digest
+Group=bio-digest
+WorkingDirectory=/opt/bio-literature-digest
+EnvironmentFile=/opt/bio-literature-digest/local/.env.local
+ExecStart=/opt/bio-literature-digest/.venv/bin/python3 /opt/bio-literature-digest/scripts/serve_api.py
+Restart=on-failure
+RestartSec=5
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/bio-literature-digest/local /opt/bio-literature-digest/var /opt/bio-literature-digest/config/content
+
+[Install]
+WantedBy=multi-user.target

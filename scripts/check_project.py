@@ -22,12 +22,14 @@ except ModuleNotFoundError:
 
 
 DEFAULT_TESTS = [
+    "tests.test_api",
     "tests.test_config",
     "tests.test_harness",
     "tests.test_launchd_generator",
+    "tests.test_portable_package",
     "tests.test_production_entry",
     "tests.test_review_backlog_flow",
-    "tests.test_send_email_recipients",
+    "tests.test_send_email",
     "tests.test_sync_digest_db",
     "tests.test_with_env",
 ]
