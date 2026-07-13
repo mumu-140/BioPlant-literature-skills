@@ -38,7 +38,6 @@ from bio_literature_digest.review.backlog import (
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-VENV_PYTHON = SKILL_DIR / ".venv" / "bin" / "python3"
 CANONICAL_PATHS = canonical_paths()
 RUNTIME_DEFAULTS = load_runtime_config(DEFAULT_RUNTIME_CONFIG_PATH)
 DEFAULT_WORK_DIR = Path(str(RUNTIME_DEFAULTS.get("paths", {}).get("work_dir", SKILL_DIR / "var" / "work" / "current")))
@@ -51,8 +50,6 @@ RUN_LOCK_FILENAME = ".run_production_digest.lock"
 
 
 def default_python() -> str:
-    if VENV_PYTHON.exists():
-        return str(VENV_PYTHON)
     return sys.executable
 
 

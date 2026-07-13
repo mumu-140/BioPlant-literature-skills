@@ -20,6 +20,15 @@ def load_module():
 
 
 class FetchParserTest(unittest.TestCase):
+    def test_public_url_validation_rejects_private_dns_results(self) -> None:
+        private_result = [(2, 1, 6, "", ("127.0.0.1", 443))]
+        with mock.patch.object(fetch_http.socket, "getaddrinfo", return_value=private_result):
+            with self.assertRaisesRegex(ValueError, "private or local"):
+                fetch_http.validate_public_http_url("https://feed.example.org/rss")
+
+    def test_public_url_validation_accepts_public_syntax_without_dns(self) -> None:
+        fetch_http.validate_public_http_url("https://feed.example.org/rss", resolve_host=False)
+
     def test_should_skip_front_matter_titles(self) -> None:
         module = load_module()
         self.assertTrue(module.should_skip_record({"title": "Advisory Board and Contents"}))

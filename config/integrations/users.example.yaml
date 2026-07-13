@@ -24,6 +24,6 @@ users:
     smtp_profile: primary_smtp
 
 notes:
-  - `users` 是收件人和账户初始化的单一来源。
-  - SMTP 凭证只放在 `local/integrations/email_config.yaml` 和 `local/.env.local`。
-  - `group` 会映射到 web 侧的 `user_group`，常见值是 `internal` 或 `outsider`。
+  - "users 是邮件收件人配置的单一来源，与 API 登录账户分离。"
+  - "SMTP 凭证只放在 local/integrations/email_config.yaml 和 local/.env.local。"
+  - "group 会映射到 web 侧的 user_group，常见值是 internal 或 outsider。"

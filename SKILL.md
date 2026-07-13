@@ -257,7 +257,7 @@ Compatibility wrappers (`rule_feedback_report.py`, `classification_suggestions.p
 
 Use configuration files for journal scope, filtering, and SMTP settings. Avoid encoding editorial logic directly in the mailer or fetch scripts.
 
-The current script bundle requires Python + `PyYAML`. `translate_and_summarize.py` ships with:
+The current bundle requires Python, `PyYAML`, `FastAPI`, `Uvicorn`, and `httpx`. `translate_and_summarize.py` ships with:
 - `placeholder` mode for offline validation
 - `command` mode for plugging in an external LLM or translation command without changing the rest of the pipeline
 - `http-json` mode for plugging in a JSON-speaking translation service through configuration
