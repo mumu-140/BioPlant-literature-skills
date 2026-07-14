@@ -252,6 +252,96 @@ class FilterRulesTest(unittest.TestCase):
         self.assertFalse(keep)
         self.assertIn("editorial title prefix", annotated["relevance_reason"])
 
+    def test_zotero_preferred_plant_regulatory_paper_is_kept(self) -> None:
+        module = load_module()
+        rules = yaml.safe_load(CANONICAL_PATHS["rules"].read_text(encoding="utf-8"))
+        watchlist = yaml.safe_load(CANONICAL_PATHS["watchlist"].read_text(encoding="utf-8"))
+        watchlist["by_id"] = {journal["id"]: journal for journal in watchlist["journals"]}
+        record = {
+            "source_id": "nature-communications",
+            "journal": "Nature Communications",
+            "group": "nature-family",
+            "title_en": "The RAE1-STOP1-GL2-RHD6 module regulates ALMT1-dependent aluminum resistance in Arabidopsis",
+            "abstract": "A transcriptional regulatory module controls root adaptation in Arabidopsis.",
+            "doi": "10.1038/s41467-026-00001-1",
+            "tags": ["Plant molecular biology", "Gene regulation"],
+        }
+        keep, annotated = module.evaluate_record(record, rules, watchlist)
+        self.assertTrue(keep, annotated["relevance_reason"])
+        self.assertGreaterEqual(annotated["relevance_score"], 3)
+
+    def test_ai_signal_requires_biology_anchor(self) -> None:
+        module = load_module()
+        rules = yaml.safe_load(CANONICAL_PATHS["rules"].read_text(encoding="utf-8"))
+        watchlist = yaml.safe_load(CANONICAL_PATHS["watchlist"].read_text(encoding="utf-8"))
+        watchlist["by_id"] = {journal["id"]: journal for journal in watchlist["journals"]}
+        record = {
+            "source_id": "nature-machine-intelligence",
+            "journal": "Nature Machine Intelligence",
+            "group": "ai-conditional",
+            "title_en": "A transformer framework for urban traffic forecasting",
+            "abstract": "The model predicts vehicle flow across road networks.",
+            "doi": "10.1038/s42256-026-00001-1",
+            "tags": ["Machine learning"],
+        }
+        keep, annotated = module.evaluate_record(record, rules, watchlist)
+        self.assertFalse(keep)
+        self.assertIn("without biology anchor", annotated["relevance_reason"])
+
+    def test_protein_language_model_has_ai_and_biology_evidence(self) -> None:
+        module = load_module()
+        rules = yaml.safe_load(CANONICAL_PATHS["rules"].read_text(encoding="utf-8"))
+        watchlist = yaml.safe_load(CANONICAL_PATHS["watchlist"].read_text(encoding="utf-8"))
+        watchlist["by_id"] = {journal["id"]: journal for journal in watchlist["journals"]}
+        record = {
+            "source_id": "nature-machine-intelligence",
+            "journal": "Nature Machine Intelligence",
+            "group": "ai-conditional",
+            "title_en": "A protein language model for enzyme function prediction",
+            "abstract": "The model learns protein sequence representations for functional annotation.",
+            "doi": "10.1038/s42256-026-00002-2",
+            "tags": ["Protein design", "Machine learning"],
+        }
+        keep, annotated = module.evaluate_record(record, rules, watchlist)
+        self.assertTrue(keep, annotated["relevance_reason"])
+        self.assertIn("protein", [hit.lower() for hit in annotated["relevance_bio_anchor_hits"]])
+
+    def test_fundamental_human_regulation_is_not_treated_as_pure_clinical(self) -> None:
+        module = load_module()
+        rules = yaml.safe_load(CANONICAL_PATHS["rules"].read_text(encoding="utf-8"))
+        watchlist = yaml.safe_load(CANONICAL_PATHS["watchlist"].read_text(encoding="utf-8"))
+        watchlist["by_id"] = {journal["id"]: journal for journal in watchlist["journals"]}
+        record = {
+            "source_id": "nature",
+            "journal": "Nature",
+            "group": "flagship-general",
+            "title_en": "Position-dependent function of human sequence-specific transcription factors",
+            "abstract": "A systematic assay maps enhancer and promoter context effects on transcriptional regulation.",
+            "doi": "10.1038/s41586-026-00001-1",
+            "tags": ["Gene regulation", "High-throughput screening"],
+        }
+        keep, annotated = module.evaluate_record(record, rules, watchlist)
+        self.assertTrue(keep, annotated["relevance_reason"])
+        self.assertEqual([], annotated["relevance_human_disease_hits"])
+
+    def test_patient_cancer_therapy_remains_rejected(self) -> None:
+        module = load_module()
+        rules = yaml.safe_load(CANONICAL_PATHS["rules"].read_text(encoding="utf-8"))
+        watchlist = yaml.safe_load(CANONICAL_PATHS["watchlist"].read_text(encoding="utf-8"))
+        watchlist["by_id"] = {journal["id"]: journal for journal in watchlist["journals"]}
+        record = {
+            "source_id": "science-advances",
+            "journal": "Science Advances",
+            "group": "science-family",
+            "title_en": "Targeted alpha-particle therapy improves survival in patients with ovarian cancer",
+            "abstract": "A clinical cohort evaluates treatment response and prognosis.",
+            "doi": "10.1126/sciadv.0000001",
+            "tags": ["Cancer"],
+        }
+        keep, annotated = module.evaluate_record(record, rules, watchlist)
+        self.assertFalse(keep)
+        self.assertIn("clinical disease scope", annotated["relevance_reason"])
+
 
 if __name__ == "__main__":
     unittest.main()
