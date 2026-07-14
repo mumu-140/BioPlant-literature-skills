@@ -32,7 +32,8 @@ HARD_REJECT_HINTS = {
     "solar cells",
     "frequency upconversion",
     "triboelectric",
-    "peat",
+    "peatland",
+    "peat soil",
     "bioregionalisation",
     "global change drivers",
     "ecological research",
@@ -151,6 +152,8 @@ def placeholder_review(record: dict[str, Any]) -> dict[str, Any]:
         if any(hint in text for hint in STRONG_BIO_HINTS):
             return {"decision": "keep", "confidence": 0.83, "reason": "biology relevance is clear even though rule-based category remained other"}
         return {"decision": "review", "confidence": 0.62, "reason": "relevance or category remains ambiguous after rule-based classification"}
+    if record.get("category_review_needed"):
+        return {"decision": "review", "confidence": 0.68, "reason": "top rule-based category scores have a narrow evidence margin"}
     if record.get("publication_stage") == "preprint":
         return {"decision": "keep", "confidence": 0.82, "reason": "preprint is biology-relevant but should remain marked as preprint"}
     return {"decision": "keep", "confidence": 0.92, "reason": "rule-based filtering and category assignment are consistent with biology scope"}
@@ -232,7 +235,7 @@ def nvidia_review_payloads(records: list[dict[str, Any]], config: dict[str, Any]
     return payloads
 
 
-def main() -> int:
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Review filtered biology papers with an LLM or placeholder reviewer.")
     parser.add_argument("--input", required=True, help="Classified input JSONL")
     parser.add_argument("--output", required=True, help="Full reviewed audit JSONL")
@@ -242,7 +245,37 @@ def main() -> int:
     parser.add_argument("--provider", choices=["placeholder", "command", "http-json", "nvidia-chat"], default="placeholder")
     parser.add_argument("--command", help="Shell command that reads one JSON record on stdin and returns JSON")
     parser.add_argument("--config", help="YAML config for provider-specific settings")
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+def provider_review_payload(
+    record: dict[str, Any],
+    index: int,
+    args: argparse.Namespace,
+    config: dict[str, Any],
+    prepared_payloads: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if args.provider == "command":
+        return command_review(args.command, record)
+    if args.provider == "nvidia-chat":
+        return prepared_payloads[index]
+    if args.provider != "http-json":
+        return placeholder_review(record)
+
+    raw_payload = call_http_json(record, config)
+    response_fields = config.get("response_fields", {})
+    return {
+        "decision": json_path_get(raw_payload, response_fields.get("decision_path")) or raw_payload.get("decision"),
+        "confidence": json_path_get(raw_payload, response_fields.get("confidence_path")) or raw_payload.get("confidence"),
+        "reason": json_path_get(raw_payload, response_fields.get("reason_path")) or raw_payload.get("reason"),
+        "category_override": json_path_get(raw_payload, response_fields.get("category_override_path"))
+        if response_fields.get("category_override_path")
+        else raw_payload.get("category_override"),
+    }
+
+
+def main() -> int:
+    args = parse_args()
 
     if args.provider == "command" and not args.command:
         raise SystemExit("--command is required when --provider=command")
@@ -256,30 +289,10 @@ def main() -> int:
     review_records: list[dict[str, Any]] = []
     reject_records: list[dict[str, Any]] = []
 
-    if args.provider == "nvidia-chat":
-        prepared_payloads = nvidia_review_payloads(records, config)
-    else:
-        prepared_payloads = []
+    prepared_payloads = nvidia_review_payloads(records, config) if args.provider == "nvidia-chat" else []
 
     for index, record in enumerate(records):
-        if args.provider == "command":
-            review_payload = command_review(args.command, record)
-        elif args.provider == "http-json":
-            raw_payload = call_http_json(record, config)
-            response_fields = config.get("response_fields", {})
-            review_payload = {
-                "decision": json_path_get(raw_payload, response_fields.get("decision_path")) or raw_payload.get("decision"),
-                "confidence": json_path_get(raw_payload, response_fields.get("confidence_path")) or raw_payload.get("confidence"),
-                "reason": json_path_get(raw_payload, response_fields.get("reason_path")) or raw_payload.get("reason"),
-                "category_override": json_path_get(raw_payload, response_fields.get("category_override_path"))
-                if response_fields.get("category_override_path")
-                else raw_payload.get("category_override"),
-            }
-        elif args.provider == "nvidia-chat":
-            review_payload = prepared_payloads[index]
-        else:
-            review_payload = placeholder_review(record)
-
+        review_payload = provider_review_payload(record, index, args, config, prepared_payloads)
         annotated = finalize_review(record, review_payload, config)
         reviewed.append(annotated)
         if annotated["final_decision"] == "keep":

@@ -25,6 +25,8 @@ def is_uncertain_review_candidate(record: dict[str, Any]) -> bool:
     category = str(record.get("category", "") or "").lower()
     if status != "keep":
         return False
+    if record.get("category_review_needed") is True:
+        return True
     explicit_review_flag = record.get("relevance_review_needed")
     if isinstance(explicit_review_flag, bool):
         return explicit_review_flag

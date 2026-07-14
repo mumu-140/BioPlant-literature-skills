@@ -20,6 +20,32 @@ def load_module():
 
 
 class LlmReviewTest(unittest.TestCase):
+    def test_placeholder_review_routes_close_category_score_to_review(self) -> None:
+        module = load_module()
+        payload = module.placeholder_review(
+            {
+                "title_en": "A plant regulatory atlas",
+                "abstract": "A genomics resource for transcriptional regulation.",
+                "tags": ["Plant molecular biology"],
+                "category": "omics",
+                "category_review_needed": True,
+            }
+        )
+        self.assertEqual("review", payload["decision"])
+        self.assertIn("category", payload["reason"])
+
+    def test_placeholder_review_does_not_reject_peat_protein_acronym(self) -> None:
+        module = load_module()
+        payload = module.placeholder_review(
+            {
+                "title_en": "The PEAT protein complex controls Arabidopsis chromatin",
+                "abstract": "PEAT is a PWWP-EPCR-ARID-TRB protein complex.",
+                "tags": ["Arabidopsis"],
+                "category": "gene-function-regulation",
+            }
+        )
+        self.assertEqual("keep", payload["decision"])
+
     def test_placeholder_review_routes_other_to_review(self) -> None:
         with tempfile.TemporaryDirectory(prefix="bio-llm-review-") as tmpdir:
             tmpdir_path = Path(tmpdir)
