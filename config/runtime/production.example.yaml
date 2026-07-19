@@ -21,7 +21,7 @@ paths:
   users_config: ${SKILL_DIR}/local/integrations/users.yaml
   style_config: ${SKILL_DIR}/local/integrations/email_style.yaml
   template: ${SKILL_DIR}/assets/email_template.html
-  summary_config: ${SKILL_DIR}/local/integrations/nvidia_ai.yaml  # 文件名保留兼容，内容已是通用 OpenAI-compatible
+  summary_config: ${SKILL_DIR}/local/integrations/translation_tencent_tmt.yaml
 
 delivery:
   # 这里填写要启用的 SMTP profile 名称；profile 细节在 `local/integrations/email_config.yaml`。
@@ -34,11 +34,10 @@ delivery:
   allow_review_pending: true
 
 providers:
-  # 默认使用 OpenAI-compatible AI 翻译配置；provider 名仍兼容 `nvidia-chat`。
-  # 在 `local/integrations/nvidia_ai.yaml` 里配置 base_url/model/api_key_envs 或本机私有 api_key。
-  # 公开模板已重命名为 `config/integrations/ai_chat.example.yaml`。
+  # 默认使用 Tencent TMT 翻译；失败条目集中交给 NVIDIA OpenAI-compatible AI 批量保底。
+  # 在 `local/integrations/translation_tencent_tmt.yaml` 和 `local/integrations/nvidia_ai.yaml` 中配置凭证与模型。
   review_provider: placeholder
-  summary_provider: nvidia-chat
+  summary_provider: tencent-tmt
 
 fetch:
   # 有 WARP 或等价 SOCKS5H 代理时可开启；仅对直接抓取失败的 source_locator 做二次抓取。

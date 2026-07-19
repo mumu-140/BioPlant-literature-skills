@@ -4,8 +4,7 @@
 # 注：此文件原名 nvidia_ai.example.yaml，已重命名为 ai_chat.example.yaml 以反映通用性。
 
 provider: nvidia-chat
-fallback_provider: tencent-tmt
-fallback_config_path: ${SKILL_DIR}/local/integrations/translation_tencent_tmt.yaml
+fallback_provider: placeholder
 glossary_path: ${SKILL_DIR}/config/content/bio_translation_glossary.yaml
 
 # 通用 OpenAI-compatible chat 配置；不绑定 NVIDIA。
@@ -26,6 +25,7 @@ ai_chat:
     prompt: "Reply with exactly: pong"
     expected: "pong"
     max_tokens: 64
+    max_retries: 0
   # 推荐使用 api_key_envs；如果必须在私有 local YAML 里直填，也支持 api_key。
   api_key: ""
   api_key_envs:
@@ -34,12 +34,13 @@ ai_chat:
     - NVIDIA_API_KEY
     - NGC_API_KEY
   timeout_seconds: 60
-  max_retries: 10
+  max_retries: 2
+  translation_max_retries: 1
   retry_backoff_seconds: 1.0
   retry_max_sleep_seconds: 20.0
   temperature: 0.0
-  max_output_tokens: 1024
-  max_batch_items: 1
+  max_output_tokens: 4096
+  max_batch_items: 6
   max_batch_chars: 12000
 
 daily_optimization:
@@ -70,6 +71,6 @@ notes:
   - "翻译/复核默认优先 `minimaxai/minimax-m2.7`；每日优化默认优先 `deepseek-ai/deepseek-v4-pro`。"
   - "每日运行会用 `pong_test` 先探测模型，选择第一个返回 `pong` 的候选。"
   - "API key 解析顺序：先读 `ai_chat.api_key`，再按 `api_key_envs` 从环境变量读取。"
-  - "本 provider 是优先增强层；失败时回退到 Tencent TMT，避免产出英文 placeholder。"
+  - "本 provider 作为 Tencent TMT 的批量保底层；一次请求可处理多篇文章，失败时按候选模型顺序尝试。"
   - "`provider: nvidia-chat` 作为现有 CLI 兼容名保留；实际后端由 `ai_chat` 配置决定。"
   - "旧字段 `nvidia_chat:` 仍兼容，但新配置优先用 `ai_chat:`。"

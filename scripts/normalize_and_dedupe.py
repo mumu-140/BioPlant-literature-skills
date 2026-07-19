@@ -11,6 +11,7 @@ try:
         canonicalize_doi,
         canonicalize_url,
         count_nonempty_fields,
+        extract_doi,
         isoformat_utc,
         normalize_title,
         normalize_whitespace,
@@ -24,6 +25,7 @@ except ModuleNotFoundError:
         canonicalize_doi,
         canonicalize_url,
         count_nonempty_fields,
+        extract_doi,
         isoformat_utc,
         normalize_title,
         normalize_whitespace,
@@ -38,6 +40,12 @@ def normalize_record(raw: dict[str, Any]) -> dict[str, Any]:
     title_en = normalize_whitespace(raw.get("title") or raw.get("title_en"))
     abstract = normalize_whitespace(raw.get("abstract") or raw.get("summary") or raw.get("description"))
     article_url = canonicalize_url(raw.get("link") or raw.get("article_url") or raw.get("url"))
+    doi = (
+        extract_doi(raw.get("doi"))
+        or extract_doi(raw.get("identifier"))
+        or extract_doi(raw.get("id"))
+        or extract_doi(article_url)
+    )
     published_dt = parse_datetime_guess(raw.get("published_at") or raw.get("published") or raw.get("date"))
     tags = raw.get("tags") or []
     if isinstance(tags, str):
@@ -51,7 +59,7 @@ def normalize_record(raw: dict[str, Any]) -> dict[str, Any]:
         "article_type": normalize_whitespace(raw.get("article_type")),
         "title_en": title_en,
         "title_norm": normalize_title(title_en),
-        "doi": canonicalize_doi(raw.get("doi")),
+        "doi": canonicalize_doi(doi),
         "article_url": raw.get("link") or raw.get("article_url") or raw.get("url") or "",
         "canonical_url": article_url,
         "published_at": isoformat_utc(published_dt),

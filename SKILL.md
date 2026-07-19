@@ -197,6 +197,10 @@ Also preserve:
 - category
 - tags
 
+Production translation uses Tencent TMT first. When Tencent repeatedly fails or individual articles fail, the failed articles are collected and sent to the NVIDIA OpenAI-compatible fallback in batches. The fallback prompt requires exactly one JSON object per input `id`, rejects missing/duplicate IDs, and assigns each result back to its original article. Configure several fallback models in `model_candidates`; model probing and retries are bounded to avoid multiplying quota usage.
+
+For DOI, prefer publisher/feed metadata, then recover a DOI-shaped value from article links or feed identifiers before normalization. This covers DOI URLs and publisher paths such as `/doi/10...` and `/advance-article/doi/10...`.
+
 Write summaries to answer three questions:
 - What was studied?
 - What was found or built?

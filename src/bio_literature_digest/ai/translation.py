@@ -12,10 +12,11 @@ from .schemas import BatchRecord, TranslationResult
 
 TRANSLATION_SYSTEM_PROMPT = (
     "你是生物文献翻译助手。"
-    "只返回 JSON 数组，不要附加解释。"
-    "不要展开推理过程，只输出最终 JSON。"
+    "你将一次处理多篇文章；只返回 JSON 数组，不要附加解释，也不要输出推理过程。"
     "每个元素必须包含 id、title_zh、summary_zh、confidence。"
-    "title_zh 要自然准确，summary_zh 要用简洁中文概括标题和摘要，保持学术表达。"
+    "title_zh 要准确、简洁、自然；summary_zh 要根据对应文章的标题和摘要，用 1-3 句中文说明研究对象、主要发现或方法及生物学意义。"
+    "不得编造输入中没有的结果，不得把不同文章的信息混在一起。"
+    "必须为每个输入 id 返回且只返回一个对象，id 必须原样保留，不能遗漏、重复、改写或新增 id。"
     "输出顺序必须与输入一致。"
 )
 
@@ -57,7 +58,12 @@ def _build_translation_user_prompt(batch: list[BatchRecord]) -> str:
                 "source_id": item.source_id,
             }
         )
-    return "请翻译并概括以下条目，返回 JSON 数组：\n" + json.dumps(payload, ensure_ascii=False, indent=2)
+    return (
+        f"请处理以下 {len(batch)} 篇文章。每篇文章独立翻译和概括，返回恰好 {len(batch)} 个 JSON 对象。\n"
+        "把输入中的 id 当作唯一关联键，完成后按 id 分配回原文章；不要使用数组下标代替 id。\n"
+        "输入：\n"
+        + json.dumps(payload, ensure_ascii=False, indent=2)
+    )
 
 
 def _parse_translation_items(payload: Any) -> list[TranslationResult]:
@@ -82,6 +88,23 @@ def _parse_translation_items(payload: Any) -> list[TranslationResult]:
             )
         )
     return results
+
+
+def _validate_translation_results(batch: list[BatchRecord], results: list[TranslationResult]) -> dict[str, TranslationResult]:
+    expected_ids = [item.id for item in batch]
+    actual_ids = [item.id for item in results]
+    if len(results) != len(batch):
+        raise ValueError(f"Translation response count mismatch: expected={len(batch)} actual={len(results)}")
+    if len(set(actual_ids)) != len(actual_ids) or set(actual_ids) != set(expected_ids):
+        raise ValueError("Translation response ids do not exactly match the input batch")
+    by_id = {item.id: item for item in results}
+    for item in batch:
+        result = by_id[item.id]
+        if not result.title_zh:
+            raise ValueError(f"Translation response missing title_zh for record id={item.id}")
+        if item.abstract and not result.summary_zh:
+            raise ValueError(f"Translation response missing summary_zh for record id={item.id}")
+    return by_id
 
 
 def build_translation_client(ai_config: dict[str, Any]) -> OpenAICompatibleChatClient:
@@ -111,7 +134,7 @@ def _translate_batch_with_model_fallback(
                 max_tokens=int(ai_config.get("max_output_tokens", 4096)),
             )
             results = _parse_translation_items(payload)
-            by_id = {item.id: item for item in results if item.id}
+            by_id = _validate_translation_results(batch, results)
             translated: list[dict[str, str]] = []
             for item in batch:
                 result = by_id.get(item.id)
@@ -145,13 +168,21 @@ def translate_records_with_nvidia(records: list[dict[str, Any]], config: dict[st
     translated: list[dict[str, str]] = []
     active_model_index = 0
     batches = build_translation_batches(records, config)
-    for batch in batches:
-        batch_translations, active_model_index = _translate_batch_with_model_fallback(
-            client,
-            batch,
-            ai_config,
-            model_candidates,
-            active_model_index,
-        )
-        translated.extend(batch_translations)
+    original_max_retries = getattr(client, "max_retries", None)
+    if original_max_retries is not None:
+        configured_retries = int(ai_config.get("translation_max_retries", 1))
+        client.max_retries = max(0, min(int(original_max_retries), configured_retries))
+    try:
+        for batch in batches:
+            batch_translations, active_model_index = _translate_batch_with_model_fallback(
+                client,
+                batch,
+                ai_config,
+                model_candidates,
+                active_model_index,
+            )
+            translated.extend(batch_translations)
+    finally:
+        if original_max_retries is not None:
+            client.max_retries = original_max_retries
     return translated

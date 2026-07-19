@@ -468,6 +468,115 @@ def normalize_nvidia_localization(
     return title_zh, apply_summary_sentence_limit(summary_zh, max_sentences)
 
 
+def _collect_tencent_translations(
+    records: list[dict[str, Any]],
+    config: dict[str, Any],
+    *,
+    continue_on_error: bool,
+    disable_after: int,
+) -> tuple[dict[int, tuple[str, str]], list[tuple[int, dict[str, Any]]]]:
+    localized_by_index: dict[int, tuple[str, str]] = {}
+    failed: list[tuple[int, dict[str, Any]]] = []
+    consecutive_failures = 0
+    primary_enabled = True
+
+    for index, record in enumerate(records):
+        if not primary_enabled:
+            failed.append((index, record))
+            continue
+        try:
+            localized_by_index[index] = localize_via_tencent_tmt(record, config)
+            consecutive_failures = 0
+        except Exception as error:  # noqa: BLE001
+            if not continue_on_error:
+                raise
+            failed.append((index, record))
+            consecutive_failures += 1
+            print(
+                f"[translate] Tencent primary failed for record {index + 1}/{len(records)} "
+                f"({summarize_error(error)}); queued for NVIDIA batch fallback"
+            )
+            if consecutive_failures >= disable_after:
+                primary_enabled = False
+                print(
+                    f"[translate] disabling Tencent for remaining records after {consecutive_failures} "
+                    "consecutive failures"
+                )
+    return localized_by_index, failed
+
+
+def _apply_nvidia_batch_fallback(
+    failed: list[tuple[int, dict[str, Any]]],
+    localized_by_index: dict[int, tuple[str, str]],
+    config: dict[str, Any],
+    max_sentences: int,
+) -> None:
+    fallback_config = load_fallback_provider_config(config, "nvidia-chat")
+    failed_records = [record for _, record in failed]
+    translated = translate_records_with_nvidia(failed_records, fallback_config)
+    if len(translated) != len(failed_records):
+        raise ValueError("NVIDIA batch fallback count does not match failed Tencent records")
+    glossary = load_glossary(fallback_config)
+    for (index, record), localized_fields in zip(failed, translated):
+        localized_by_index[index] = normalize_nvidia_localization(
+            record,
+            localized_fields,
+            glossary,
+            max_sentences,
+        )
+
+
+def _build_localized_output(
+    records: list[dict[str, Any]],
+    localized_by_index: dict[int, tuple[str, str]],
+    max_sentences: int,
+) -> list[dict[str, Any]]:
+    output: list[dict[str, Any]] = []
+    for index, record in enumerate(records):
+        title_zh, summary_zh = localized_by_index.get(index, build_placeholder(record))
+        output.append(
+            record
+            | {
+                "title_zh": title_zh,
+                "summary_zh": apply_summary_sentence_limit(summary_zh, max_sentences),
+            }
+        )
+    return output
+
+
+def _localize_tencent_with_nvidia_batch_fallback(
+    records: list[dict[str, Any]],
+    config: dict[str, Any],
+    *,
+    max_sentences: int,
+    output_path: Path | None,
+) -> list[dict[str, Any]]:
+    """Use Tencent per record, then send all failed records to NVIDIA in one batch."""
+
+    runtime_config = config.get("runtime", {}) if isinstance(config.get("runtime"), dict) else {}
+    continue_on_error = bool(runtime_config.get("continue_on_error", True))
+    disable_after = max(1, int(runtime_config.get("disable_primary_after_failures", 2)))
+    localized_by_index, failed = _collect_tencent_translations(
+        records,
+        config,
+        continue_on_error=continue_on_error,
+        disable_after=disable_after,
+    )
+    if failed:
+        try:
+            _apply_nvidia_batch_fallback(failed, localized_by_index, config, max_sentences)
+            print(f"[translate] NVIDIA fallback localized {len(failed)} records in one or more batches")
+        except Exception as error:  # noqa: BLE001
+            if not continue_on_error:
+                raise
+            print(f"[translate] NVIDIA batch fallback failed ({summarize_error(error)}); using placeholders")
+
+    output = _build_localized_output(records, localized_by_index, max_sentences)
+    if output_path is not None:
+        write_jsonl(output_path, output)
+    return output
+
+
 def localize_records(
     records: list[dict[str, Any]],
     provider: str,
@@ -484,9 +593,10 @@ def localize_records(
 
     primary_provider = normalize_provider_name(provider) or "placeholder"
     fallback_provider = ""
-    if primary_provider == "nvidia-chat":
+    fallback_already_attempted = bool(config.get("_fallback_attempted"))
+    if primary_provider == "nvidia-chat" and not fallback_already_attempted:
         fallback_provider = normalize_provider_name(config.get("fallback_provider")) or "placeholder"
-    elif primary_provider not in {"placeholder", "command"}:
+    elif primary_provider not in {"placeholder", "command"} and not fallback_already_attempted:
         fallback_provider = normalize_provider_name(config.get("fallback_provider"))
     if fallback_provider == primary_provider:
         fallback_provider = ""
@@ -529,7 +639,7 @@ def localize_records(
                 return localize_records(
                     records,
                     fallback_provider,
-                    fallback_config,
+                    fallback_config | {"_fallback_attempted": True},
                     command=command,
                     max_sentences=max_sentences,
                     output_path=output_path,
@@ -545,6 +655,14 @@ def localize_records(
             if output_path is not None:
                 write_jsonl(output_path, output)
             return output
+
+    if primary_provider == "tencent-tmt" and fallback_provider == "nvidia-chat":
+        return _localize_tencent_with_nvidia_batch_fallback(
+            records,
+            config,
+            max_sentences=max_sentences,
+            output_path=output_path,
+        )
 
     for index, record in enumerate(records, start=1):
         title = str(record.get("title_en", "")).strip() or "(untitled)"

@@ -51,6 +51,7 @@ class FetchParserTest(unittest.TestCase):
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["journal"], "The Plant Cell")
         self.assertIn("/plcell/advance-article/doi/10.1093/plcell/koaf001/8123456", records[0]["link"])
+        self.assertEqual(records[0]["doi"], "10.1093/plcell/koaf001/8123456")
 
     def test_parse_pnas_toc_html_extracts_doi_links(self) -> None:
         module = load_module()
@@ -68,6 +69,25 @@ class FetchParserTest(unittest.TestCase):
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["journal"], "PNAS")
         self.assertIn("/doi/10.1073/pnas.2601234123", records[0]["link"])
+        self.assertEqual(records[0]["doi"], "10.1073/pnas.2601234123")
+
+    def test_parse_rss_extracts_doi_from_article_link_when_identifier_is_missing(self) -> None:
+        module = load_module()
+        rss_text = """
+        <rss><channel>
+          <item>
+            <title>A plant immune signaling circuit</title>
+            <link>https://doi.org/10.1126/sciadv.0000001</link>
+            <pubDate>Sat, 14 Mar 2026 00:00:00 GMT</pubDate>
+          </item>
+        </channel></rss>
+        """
+        records = module.parse_feed_xml(
+            rss_text,
+            {"id": "science-advances", "journal_name": "Science Advances"},
+            "https://example.org/rss",
+        )
+        self.assertEqual(records[0]["doi"], "10.1126/sciadv.0000001")
 
     def test_main_retries_failed_locator_with_proxy_and_merges_records(self) -> None:
         module = load_module()

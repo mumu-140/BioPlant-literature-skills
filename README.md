@@ -73,6 +73,8 @@ AI 安装不替代本机配置。即使由 AI 代你执行，真实运行时仍�
 - `var/`
   运行产物。不要手工把真实配置塞到这里。
 
+生产翻译默认使用 Tencent TMT；失败的文章会集中交给 NVIDIA OpenAI-compatible 配置批量翻译。在 `local/integrations/nvidia_ai.yaml` 的 `model_candidates` 中配置多个模型，程序会按优先级探测并尝试，且按稳定 `id` 将结果一一分配回原文献。DOI 会优先读取 feed/publisher 元数据；缺失时从 DOI URL、OUP/PNAS 等 publisher 链接和 Atom identifier 中回填。
+
 一句话规则：
 
 - `config/` 里放“可公开模板和共享规则”

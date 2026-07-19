@@ -19,6 +19,7 @@ TRACKING_QUERY_KEYS = {
     "spm",
 }
 TRACKING_QUERY_PREFIXES = ("utm_",)
+DOI_PATTERN = re.compile(r"(?i)(?<![a-z0-9])10\.\d{4,9}/[-._;()/:a-z0-9]+")
 
 
 def ensure_parent_dir(path: str | Path) -> Path:
@@ -78,6 +79,17 @@ def canonicalize_doi(value: str | None) -> str:
     doi = re.sub(r"^https?://(dx\.)?doi\.org/", "", doi, flags=re.IGNORECASE)
     doi = re.sub(r"^doi:\s*", "", doi, flags=re.IGNORECASE)
     return doi.strip().lower()
+
+
+def extract_doi(value: Any) -> str:
+    """Extract and canonicalize a DOI from a field, URL, or free-form text."""
+
+    text = normalize_whitespace(str(value or ""))
+    match = DOI_PATTERN.search(text)
+    if not match:
+        return ""
+    doi = match.group(0).rstrip(".,;:!?)]}>\"'")
+    return canonicalize_doi(doi)
 
 
 def canonicalize_url(value: str | None) -> str:

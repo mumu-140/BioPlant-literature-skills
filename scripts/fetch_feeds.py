@@ -17,9 +17,9 @@ except ModuleNotFoundError:
 from bio_literature_digest.fetching.http import fetch_and_parse_locator
 
 try:
-    from scripts.common import current_timestamp_utc, isoformat_utc, load_watchlist, parse_datetime_guess, within_utc_window, write_jsonl
+    from scripts.common import current_timestamp_utc, extract_doi, isoformat_utc, load_watchlist, parse_datetime_guess, within_utc_window, write_jsonl
 except ModuleNotFoundError:
-    from common import current_timestamp_utc, isoformat_utc, load_watchlist, parse_datetime_guess, within_utc_window, write_jsonl
+    from common import current_timestamp_utc, extract_doi, isoformat_utc, load_watchlist, parse_datetime_guess, within_utc_window, write_jsonl
 
 
 NON_ARTICLE_TITLE_EXACT = {
@@ -65,6 +65,14 @@ def child_attr(node: ET.Element, child_name: str, attr_name: str) -> str:
     return ""
 
 
+def first_doi(*values: Any) -> str:
+    for value in values:
+        doi = extract_doi(value)
+        if doi:
+            return doi
+    return ""
+
+
 def parse_feed_xml(xml_text: str, source_meta: dict[str, Any], source_url: str) -> list[dict[str, Any]]:
     root = ET.fromstring(xml_text)
     root_name = local_name(root.tag)
@@ -89,7 +97,7 @@ def parse_feed_xml(xml_text: str, source_meta: dict[str, Any], source_url: str) 
                     "published": child_text(item, "date", "published"),
                     "abstract": abstract,
                     "article_type": child_text(item, "type"),
-                    "doi": child_text(item, "doi", "identifier"),
+                    "doi": first_doi(child_text(item, "doi", "identifier"), links[0] if links else ""),
                     "tags": categories,
                     "authors": child_texts(item, "creator"),
                 }
@@ -116,7 +124,7 @@ def parse_feed_xml(xml_text: str, source_meta: dict[str, Any], source_url: str) 
                     "published": child_text(item, "pubDate", "published", "date"),
                     "abstract": child_text(item, "description", "encoded", "summary"),
                     "article_type": child_text(item, "type"),
-                    "doi": child_text(item, "identifier"),
+                    "doi": first_doi(child_text(item, "doi", "identifier"), child_text(item, "link")),
                     "tags": categories,
                 }
             )
@@ -126,11 +134,10 @@ def parse_feed_xml(xml_text: str, source_meta: dict[str, Any], source_url: str) 
                 continue
             categories = [child.attrib.get("term", "").strip() for child in entry if local_name(child.tag) == "category" and child.attrib.get("term")]
             link = child_attr(entry, "link", "href") or child_text(entry, "link")
-            doi = child_text(entry, "doi", "identifier")
+            doi = first_doi(child_text(entry, "doi", "identifier"), child_attr(entry, "link", "href"), child_text(entry, "link"))
             if not doi:
                 entry_id = child_text(entry, "id")
-                if "doi.org/" in entry_id.lower():
-                    doi = entry_id.rsplit("/", 1)[-1]
+                doi = first_doi(entry_id)
             records.append(
                 {
                     "source_id": source_meta["id"],
@@ -205,7 +212,7 @@ def parse_oup_advance_html(html_text: str, source_meta: dict[str, Any], source_u
                 "published": "",
                 "abstract": "",
                 "article_type": "",
-                "doi": "",
+                "doi": extract_doi(link),
                 "tags": [],
             }
         )
@@ -239,7 +246,7 @@ def parse_pnas_toc_html(html_text: str, source_meta: dict[str, Any], source_url:
                 "published": "",
                 "abstract": "",
                 "article_type": "",
-                "doi": "",
+                "doi": extract_doi(link),
                 "tags": [],
             }
         )

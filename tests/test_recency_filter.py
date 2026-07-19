@@ -19,6 +19,31 @@ def iso_utc(dt: datetime) -> str:
 
 
 class RecencyFilterTest(unittest.TestCase):
+    def test_normalize_and_dedupe_recovers_doi_from_article_url(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="bio-digest-doi-url-") as tmpdir:
+            root = Path(tmpdir)
+            input_path = root / "raw.jsonl"
+            output_path = root / "normalized.jsonl"
+            input_path.write_text(
+                json.dumps(
+                    {
+                        "journal": "PNAS",
+                        "title": "A plant immune signaling circuit",
+                        "link": "https://www.pnas.org/doi/10.1073/pnas.2601234123",
+                        "published": iso_utc(datetime.now(timezone.utc) - timedelta(hours=1)),
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            subprocess.run(
+                [sys.executable, str(SCRIPT_PATH), "--input", str(input_path), "--output", str(output_path)],
+                check=True,
+                cwd=SKILL_DIR,
+            )
+            normalized = json.loads(output_path.read_text(encoding="utf-8").splitlines()[0])
+            self.assertEqual(normalized["doi"], "10.1073/pnas.2601234123")
+
     def test_normalize_and_dedupe_keeps_only_recent_published_records(self) -> None:
         with tempfile.TemporaryDirectory(prefix="bio-digest-recency-") as tmpdir:
             tmpdir_path = Path(tmpdir)

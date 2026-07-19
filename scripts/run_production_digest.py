@@ -171,7 +171,7 @@ def apply_runtime_defaults(args: argparse.Namespace) -> argparse.Namespace:
         elif provider_explicit and provider == "tencent-tmt":
             args.summary_config = str(CANONICAL_PATHS["translation_tencent_local"])
         else:
-            args.summary_config = str(paths.get("summary_config", "") or CANONICAL_PATHS["nvidia_ai_config_local"])
+            args.summary_config = str(paths.get("summary_config", "") or CANONICAL_PATHS["translation_tencent_local"])
 
     if not getattr(args, "smtp_profile", None):
         args.smtp_profile = str(delivery.get("smtp_profile", "") or "primary_smtp")
@@ -193,7 +193,7 @@ def apply_runtime_defaults(args: argparse.Namespace) -> argparse.Namespace:
     if not getattr(args, "review_provider", None):
         args.review_provider = str(providers.get("review_provider", "") or "placeholder")
     if not getattr(args, "summary_provider", None):
-        args.summary_provider = str(providers.get("summary_provider", "") or "nvidia-chat")
+        args.summary_provider = str(providers.get("summary_provider", "") or "tencent-tmt")
 
     if not getattr(args, "web_base_url", None):
         args.web_base_url = str(web.get("base_url", "") or "")
@@ -312,12 +312,12 @@ def build_command(args: argparse.Namespace) -> list[str]:
     if not summary_provider:
         nvidia_config = CANONICAL_PATHS["nvidia_ai_config_local"]
         tencent_config = CANONICAL_PATHS["translation_tencent_local"] if CANONICAL_PATHS["translation_tencent_local"].exists() else None
-        if nvidia_config.exists():
-            summary_provider = "nvidia-chat"
-            summary_config = nvidia_config.resolve()
-        elif tencent_config:
+        if tencent_config:
             summary_provider = "tencent-tmt"
             summary_config = tencent_config.resolve()
+        elif nvidia_config.exists():
+            summary_provider = "nvidia-chat"
+            summary_config = nvidia_config.resolve()
         else:
             summary_provider = "placeholder"
 

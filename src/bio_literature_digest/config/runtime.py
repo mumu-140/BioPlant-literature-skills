@@ -90,7 +90,7 @@ def fallback_runtime_config() -> dict[str, Any]:
             "users_config": str(paths["users_config_local"]),
             "style_config": str(paths["email_style_local"]),
             "template": str(paths["email_template"]),
-            "summary_config": str(paths["nvidia_ai_config_local"]),
+            "summary_config": str(paths["translation_tencent_local"]),
         },
         "delivery": {
             "smtp_profile": "primary_smtp",
@@ -101,7 +101,7 @@ def fallback_runtime_config() -> dict[str, Any]:
         },
         "providers": {
             "review_provider": "placeholder",
-            "summary_provider": "nvidia-chat",
+            "summary_provider": "tencent-tmt",
         },
         "web": {
             "base_url": "",

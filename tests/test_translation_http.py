@@ -258,6 +258,57 @@ class TranslationHttpTest(unittest.TestCase):
         self.assertEqual(localized[0]["title_zh"], "单细胞流程基准")
         self.assertIn("植物数据集基准", localized[0]["summary_zh"])
 
+    def test_tencent_primary_batches_failed_records_into_nvidia_fallback(self) -> None:
+        module = load_module()
+        records = [
+            {
+                "journal": "Nature Methods",
+                "title_en": f"Paper {index}",
+                "abstract": f"Abstract {index}",
+                "category": "methods-datasets-resources",
+                "publication_stage": "journal",
+            }
+            for index in range(1, 5)
+        ]
+        config = {
+            "provider": "tencent-tmt",
+            "fallback_provider": "nvidia-chat",
+            "runtime": {"disable_primary_after_failures": 2},
+            "ai_chat": {
+                "model": "fallback-model",
+                "model_candidates": ["fallback-model"],
+                "pong_test": {"enabled": False},
+                "max_batch_items": 8,
+                "max_batch_chars": 12000,
+            },
+        }
+        tencent_calls: list[str] = []
+        nvidia_inputs: list[list[dict[str, str]]] = []
+
+        def fake_tencent(record, _config):  # type: ignore[override]
+            tencent_calls.append(record["title_en"])
+            raise RuntimeError("Tencent quota exhausted")
+
+        def fake_nvidia(batch_records, _config):  # type: ignore[override]
+            nvidia_inputs.append(batch_records)
+            return [
+                {
+                    "id": str(index),
+                    "title_zh": f"中文标题 {index}",
+                    "summary_zh": f"中文摘要 {index}。",
+                }
+                for index in range(1, len(batch_records) + 1)
+            ]
+
+        with mock.patch.object(module, "localize_via_tencent_tmt", side_effect=fake_tencent):
+            with mock.patch.object(module, "translate_records_with_nvidia", side_effect=fake_nvidia):
+                localized = module.localize_records(records, "tencent-tmt", config, max_sentences=4)
+
+        self.assertEqual(tencent_calls, ["Paper 1", "Paper 2"])
+        self.assertEqual(len(nvidia_inputs), 1)
+        self.assertEqual([record["title_en"] for record in nvidia_inputs[0]], ["Paper 1", "Paper 2", "Paper 3", "Paper 4"])
+        self.assertEqual([record["title_zh"] for record in localized], ["中文标题 1", "中文标题 2", "中文标题 3", "中文标题 4"])
+
 
 if __name__ == "__main__":
     unittest.main()
