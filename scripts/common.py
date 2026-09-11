@@ -1,25 +1,43 @@
 #!/usr/bin/env python3
+"""Shared helpers for the digest pipeline scripts.
+
+Identity normalization and digest-window computation now live in the package
+tree (``bio_literature_digest.identity`` / ``bio_literature_digest.scheduling``)
+so that ``scripts/*`` and ``src/*`` share a single implementation. They are
+re-exported here unchanged: every existing ``from common import ...`` keeps
+working.
+"""
 from __future__ import annotations
 
 import json
 import re
-from html import unescape
-from datetime import datetime, time, timedelta, timezone
-from email.utils import parsedate_to_datetime
+import sys
 from pathlib import Path
 from typing import Any, Iterable
-from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
-from zoneinfo import ZoneInfo
 
-TRACKING_QUERY_KEYS = {
-    "fbclid",
-    "gclid",
-    "mc_cid",
-    "mc_eid",
-    "spm",
-}
-TRACKING_QUERY_PREFIXES = ("utm_",)
-DOI_PATTERN = re.compile(r"(?i)(?<![a-z0-9])10\.\d{4,9}/[-._;()/:a-z0-9]+")
+_SKILL_DIR = Path(__file__).resolve().parent.parent
+_SRC_DIR = _SKILL_DIR / "src"
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
+
+from bio_literature_digest.identity.normalize import (  # noqa: E402
+    DOI_PATTERN,
+    TRACKING_QUERY_KEYS,
+    TRACKING_QUERY_PREFIXES,
+    canonicalize_doi,
+    canonicalize_url,
+    extract_doi,
+    normalize_title,
+    normalize_whitespace,
+)
+from bio_literature_digest.scheduling.window import (  # noqa: E402
+    compute_scheduled_digest_window,
+    current_timestamp_utc,
+    isoformat_utc,
+    parse_clock_hhmm,
+    parse_datetime_guess,
+    within_utc_window,
+)
 
 
 def ensure_parent_dir(path: str | Path) -> Path:
@@ -56,96 +74,6 @@ def write_jsonl(path: str | Path, records: Iterable[dict[str, Any]]) -> None:
         for record in records:
             handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True))
             handle.write("\n")
-
-
-def normalize_whitespace(value: str | None) -> str:
-    if not value:
-        return ""
-    cleaned = unescape(value)
-    cleaned = re.sub(r"<[^>]+>", " ", cleaned)
-    return re.sub(r"\s+", " ", cleaned).strip()
-
-
-def normalize_title(value: str | None) -> str:
-    cleaned = normalize_whitespace(value).lower()
-    cleaned = re.sub(r"[^a-z0-9]+", " ", cleaned)
-    return cleaned.strip()
-
-
-def canonicalize_doi(value: str | None) -> str:
-    if not value:
-        return ""
-    doi = normalize_whitespace(value)
-    doi = re.sub(r"^https?://(dx\.)?doi\.org/", "", doi, flags=re.IGNORECASE)
-    doi = re.sub(r"^doi:\s*", "", doi, flags=re.IGNORECASE)
-    return doi.strip().lower()
-
-
-def extract_doi(value: Any) -> str:
-    """Extract and canonicalize a DOI from a field, URL, or free-form text."""
-
-    text = normalize_whitespace(str(value or ""))
-    match = DOI_PATTERN.search(text)
-    if not match:
-        return ""
-    doi = match.group(0).rstrip(".,;:!?)]}>\"'")
-    return canonicalize_doi(doi)
-
-
-def canonicalize_url(value: str | None) -> str:
-    if not value:
-        return ""
-    parsed = urlparse(value.strip())
-    if not parsed.scheme or not parsed.netloc:
-        return value.strip()
-    filtered_query = []
-    for key, raw_value in parse_qsl(parsed.query, keep_blank_values=True):
-        if key in TRACKING_QUERY_KEYS or any(key.startswith(prefix) for prefix in TRACKING_QUERY_PREFIXES):
-            continue
-        filtered_query.append((key, raw_value))
-    clean_path = parsed.path or "/"
-    return urlunparse(
-        (
-            parsed.scheme.lower(),
-            parsed.netloc.lower(),
-            clean_path,
-            "",
-            urlencode(filtered_query, doseq=True),
-            "",
-        )
-    )
-
-
-def parse_datetime_guess(value: str | None) -> datetime | None:
-    if not value:
-        return None
-    text = normalize_whitespace(value)
-    if not text:
-        return None
-    candidates = [text]
-    if text.endswith("Z"):
-        candidates.append(text.replace("Z", "+00:00"))
-    for candidate in candidates:
-        try:
-            parsed = datetime.fromisoformat(candidate)
-            if parsed.tzinfo is None:
-                return parsed.replace(tzinfo=timezone.utc)
-            return parsed.astimezone(timezone.utc)
-        except ValueError:
-            continue
-    try:
-        parsed = parsedate_to_datetime(text)
-    except (TypeError, ValueError, IndexError):
-        return None
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
-
-
-def isoformat_utc(value: datetime | None) -> str:
-    if value is None:
-        return ""
-    return value.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def count_nonempty_fields(record: dict[str, Any]) -> int:
@@ -201,50 +129,3 @@ def load_watchlist(path: str | Path) -> dict[str, Any]:
     data["by_id"] = by_id
     data["by_name"] = by_name
     return data
-
-
-def current_timestamp_utc() -> str:
-    return isoformat_utc(datetime.now(timezone.utc))
-
-
-def parse_clock_hhmm(value: str) -> tuple[int, int]:
-    hour_text, minute_text = value.strip().split(":", 1)
-    hour = int(hour_text)
-    minute = int(minute_text)
-    if not (0 <= hour <= 23 and 0 <= minute <= 59):
-        raise ValueError(f"Invalid HH:MM value: {value}")
-    return hour, minute
-
-
-def compute_scheduled_digest_window(
-    timezone_name: str,
-    delivery_time: str,
-    now_utc: datetime | None = None,
-    window_policy: str = "previous_day",
-) -> tuple[datetime, datetime]:
-    tz = ZoneInfo(timezone_name)
-    current_utc = now_utc or datetime.now(timezone.utc)
-    local_now = current_utc.astimezone(tz)
-    hour, minute = parse_clock_hhmm(delivery_time)
-    anchor = local_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    delivery_date = local_now.date() if local_now >= anchor else (local_now.date() - timedelta(days=1))
-
-    if window_policy == "previous_day":
-        start_local = datetime.combine(delivery_date - timedelta(days=1), time(0, 0), tzinfo=tz)
-        end_local = datetime.combine(delivery_date, time(0, 0), tzinfo=tz)
-    elif window_policy == "previous_day_to_delivery":
-        start_local = datetime.combine(delivery_date - timedelta(days=1), time(0, 0), tzinfo=tz)
-        end_local = datetime.combine(delivery_date, time(hour, minute), tzinfo=tz)
-    else:
-        raise ValueError(f"Unsupported window_policy: {window_policy}")
-    return start_local.astimezone(timezone.utc), end_local.astimezone(timezone.utc)
-
-
-def within_utc_window(value: datetime | None, window_start: datetime | None, window_end: datetime | None) -> bool:
-    if value is None:
-        return False
-    if window_start is not None and value < window_start:
-        return False
-    if window_end is not None and value > window_end:
-        return False
-    return True
