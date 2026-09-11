@@ -2,61 +2,86 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light" />
   <title>Bio Literature Digest</title>
   <style>
+    * {
+      box-sizing: border-box;
+    }
     body {
       margin: 0;
       padding: 0;
-      font-family: Georgia, "Times New Roman", serif;
-      color: #1a1f18;
-      background: #eef2e6;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "WenQuanYi Micro Hei", sans-serif;
+      color: #1e293b;
+      background-color: #f1f5f2;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      line-height: 1.5;
     }
     .page {
       width: 100%;
-      padding: 18px 0;
+      min-height: 100vh;
+      padding: 24px 0 36px;
       background:
-        radial-gradient(circle at top left, rgba(183, 214, 154, 0.28), transparent 36%),
-        radial-gradient(circle at top right, rgba(208, 184, 124, 0.18), transparent 28%),
-        linear-gradient(180deg, #eef2e6 0%, #f8f6ef 100%);
+        radial-gradient(circle at top left, rgba(209, 231, 214, 0.45), transparent 45%),
+        radial-gradient(circle at top right, rgba(220, 235, 224, 0.35), transparent 35%),
+        linear-gradient(180deg, #ecf2ed 0%, #f4f7f4 180px, #f1f5f2 100%);
     }
     .container {
-      max-width: 920px;
+      max-width: 860px;
       margin: 0 auto;
-      padding: 0 6px;
+      padding: 0 16px;
     }
     .hero {
-      background: linear-gradient(135deg, #17362b 0%, #284f3e 52%, #8d6c36 100%);
-      color: #f8f5ef;
+      background: linear-gradient(135deg, #092e20 0%, #114e38 52%, #19684c 100%);
+      color: #f8fafc;
       border-radius: 16px;
-      padding: 16px 14px;
-      box-shadow: 0 18px 36px rgba(23, 54, 43, 0.22);
+      padding: 24px 22px;
+      box-shadow: 0 10px 25px -4px rgba(9, 46, 32, 0.25), 0 4px 10px -2px rgba(9, 46, 32, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.12);
     }
     .hero h1 {
       margin: 0 0 10px;
-      font-size: 24px;
-      line-height: 1.1;
-      letter-spacing: 0.02em;
+      font-size: 25px;
+      line-height: 1.25;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #ffffff;
     }
     .hero p {
       margin: 0;
-      color: rgba(248, 245, 239, 0.86);
-      font-size: 11px;
-      line-height: 1.45;
+      color: rgba(248, 250, 252, 0.9);
+      font-size: 13px;
+      line-height: 1.6;
     }
-    .section {
-      margin-top: 18px;
+    .hero-note {
+      margin-top: 8px !important;
+      color: rgba(248, 250, 252, 0.8) !important;
+      font-size: 12px !important;
+    }
+    .hero-stat {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.26);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
     }
     .hero-access {
-      margin: 12px 0 0;
-      padding: 12px 12px 11px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, rgba(255, 247, 230, 0.22) 0%, rgba(255, 232, 184, 0.28) 100%);
-      border: 1px solid rgba(255, 236, 196, 0.34);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+      margin: 16px 0 0;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
     }
     .hero-access-kicker {
-      margin: 0 0 6px;
-      color: #ffe7b0;
+      margin: 0 0 4px;
+      color: #a7f3d0;
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.08em;
@@ -64,213 +89,290 @@
     }
     .hero-access-title {
       margin: 0;
-      color: #fff8eb;
-      font-size: 16px;
-      line-height: 1.25;
-      font-weight: 700;
+      color: #ffffff;
+      font-size: 14.5px;
+      line-height: 1.4;
+      font-weight: 600;
     }
     .hero-access-copy {
       margin: 6px 0 0;
-      color: rgba(255, 247, 232, 0.92);
-      font-size: 11px;
+      color: rgba(255, 255, 255, 0.85);
+      font-size: 12px;
       line-height: 1.5;
     }
     .hero-access-url {
-      color: #fff2c6;
-      font-weight: 700;
+      color: #6ee7b7;
+      font-weight: 600;
       word-break: break-all;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .hero-access-url:hover {
+      color: #a7f3d0;
     }
     .hero-links {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 10px;
+      gap: 10px;
+      margin-top: 12px;
     }
     .hero-link {
       display: inline-block;
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: #fff6df;
-      border: 1px solid #ffe2a0;
-      box-shadow: 0 8px 18px rgba(32, 20, 4, 0.12);
-      color: #5f4106;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.02em;
+      padding: 8px 16px;
+      border-radius: 8px;
+      background: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.95);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      color: #064e3b;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
       text-align: center;
       text-decoration: none;
+      transition: all 0.15s ease;
+    }
+    .hero-link:hover {
+      background: #f0fdf4;
+      color: #047857;
+    }
+    .hero-link.hero-link-subtle {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      color: #ffffff;
+      box-shadow: none;
+    }
+    .hero-link.hero-link-subtle:hover {
+      background: rgba(255, 255, 255, 0.22);
+      color: #ffffff;
+    }
+    .section {
+      margin-top: 24px;
     }
     .section-title {
-      margin: 0 0 8px;
-      font-size: 16px;
-      color: #203126;
-      letter-spacing: 0.01em;
+      margin: 0 0 4px;
+      font-size: 18px;
+      font-weight: 700;
+      color: #0f2b20;
+      letter-spacing: -0.01em;
     }
     .section-subtitle {
-      margin: 0 0 10px;
-      color: #5c665a;
-      font-size: 10px;
+      margin: 0 0 12px;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 500;
     }
     .group-details {
-      margin: 0 0 10px;
+      margin: 0 0 14px;
       padding: 0;
-      border: 1px solid #d9dfcf;
-      border-radius: 16px;
-      background: rgba(255, 252, 244, 0.92);
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
       overflow: hidden;
     }
     .group-summary {
       display: block;
-      padding: 10px 11px;
-      background: linear-gradient(180deg, #f7f3e7 0%, #efe9d9 100%);
-      color: #253327;
-      font-size: 12px;
-      font-weight: 700;
+      padding: 12px 16px;
+      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+      color: #0f172a;
+      font-size: 14px;
+      font-weight: 600;
       cursor: pointer;
       list-style: none;
-      line-height: 1.35;
+      line-height: 1.4;
+      border-bottom: 1px solid transparent;
+      user-select: none;
+      transition: background-color 0.15s ease;
+    }
+    .group-details[open] > .group-summary {
+      border-bottom-color: #e2e8f0;
+      background: #f1f5f9;
     }
     .group-summary::-webkit-details-marker {
       display: none;
     }
+    .group-summary::before {
+      content: "▶";
+      display: inline-block;
+      margin-right: 10px;
+      font-size: 10px;
+      color: #64748b;
+      vertical-align: 1px;
+      transition: transform 0.18s ease;
+    }
+    .group-details[open] > .group-summary::before {
+      transform: rotate(90deg);
+      color: #0f766e;
+    }
     .group-count {
       float: right;
-      min-width: 28px;
-      padding: 2px 7px;
+      min-width: 22px;
+      padding: 2px 9px;
       border-radius: 999px;
-      background: #213f31;
-      color: #f8f5ef;
+      background: #0f766e;
+      color: #ffffff;
       text-align: center;
-      font-size: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.4;
     }
     .group-description {
       margin: 0;
-      padding: 6px 12px 0;
-      color: #687164;
-      font-size: 9px;
-      line-height: 1.45;
+      padding: 10px 16px 4px;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.5;
     }
     .card {
-      margin: 5px 5px 7px;
-      border: 1px solid #dce3d2;
-      border-radius: 14px;
-      background: #fffdf8;
-      box-shadow: 0 14px 26px rgba(54, 70, 50, 0.08);
+      margin: 10px 10px 14px;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: 0 2px 6px -1px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
       overflow: hidden;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .card:hover {
+      border-color: #cbd5e1;
+      box-shadow: 0 6px 16px -2px rgba(15, 23, 42, 0.08);
     }
     .card-main {
       display: block;
-      padding: 10px 10px 7px;
+      padding: 14px 14px 10px;
       text-decoration: none;
       color: inherit;
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(249, 247, 239, 0.94) 100%);
+      background: #ffffff;
+      border-bottom: 1px solid #f1f5f9;
+      transition: background-color 0.15s ease;
     }
     .card-main:hover {
-      background: linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(244, 249, 239, 1) 100%);
+      background-color: #f8fafc;
     }
     .card-meta {
-      margin: 0 0 6px;
-      font-size: 8px;
-      color: #64705e;
-      line-height: 1.4;
+      margin: 0 0 8px;
+      font-size: 11.5px;
+      color: #64748b;
+      line-height: 1.6;
     }
     .badge {
       display: inline-block;
       margin-right: 6px;
       margin-bottom: 3px;
-      padding: 2px 6px;
-      border-radius: 999px;
-      font-size: 7px;
-      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-size: 10.5px;
+      font-weight: 600;
       letter-spacing: 0.02em;
       text-transform: uppercase;
+      line-height: 1.35;
     }
     .badge-stage {
-      background: #dfe9d6;
-      color: #284833;
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
     }
     .badge-category {
-      background: #efe3c7;
-      color: #775523;
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid #cbd5e1;
     }
     .card-title {
       margin: 0;
-      font-size: 14px;
-      line-height: 1.22;
-      color: #16281f;
+      font-size: 16px;
+      line-height: 1.35;
+      color: #0f172a;
+      font-weight: 700;
+      letter-spacing: -0.01em;
     }
     .card-title-zh {
-      margin: 4px 0 0;
+      margin: 6px 0 0;
       font-size: 14px;
-      line-height: 1.22;
-      color: #385446;
-      font-weight: 700;
+      line-height: 1.45;
+      color: #166534;
+      font-weight: 500;
     }
     .card-interest-row {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 6px;
-      margin-top: 6px;
-      color: #566456;
+      gap: 8px;
+      margin-top: 8px;
     }
     .interest-stars {
-      color: #b9851c;
-      font-size: 10px;
+      color: #f59e0b;
+      font-size: 13px;
       letter-spacing: 0.08em;
+      line-height: 1;
     }
     .interest-level {
-      font-size: 8px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
+      color: #92400e;
+      background: #fef3c7;
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid #fde68a;
+      line-height: 1.3;
       text-transform: uppercase;
-      letter-spacing: 0.03em;
-      color: #6f5c2a;
     }
     .interest-tag {
-      font-size: 8px;
-      line-height: 1.2;
-      color: #4a5e56;
-      padding: 2px 5px;
-      border-radius: 999px;
-      background: #edf4ee;
-      border: 1px solid #d4e1d8;
+      font-size: 11px;
+      font-weight: 500;
+      color: #065f46;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      line-height: 1.3;
     }
     .card-authors {
-      margin: 5px 0 0;
-      font-size: 9px;
-      line-height: 1.32;
-      color: #2f3b32;
+      margin: 7px 0 0;
+      font-size: 11.5px;
+      line-height: 1.4;
+      color: #64748b;
       display: -webkit-box;
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 2;
       overflow: hidden;
     }
     .card-cta {
-      display: inline-block;
-      margin-top: 7px;
-      padding: 4px 8px;
-      border-radius: 999px;
-      background: #1f4737;
-      color: #f6f2ea;
-      font-size: 8px;
-      font-weight: 700;
-      letter-spacing: 0.03em;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 10px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: #0f766e;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
       text-transform: uppercase;
+      box-shadow: 0 1px 2px rgba(15, 118, 110, 0.2);
+      transition: background-color 0.15s ease;
+    }
+    .card-cta::after {
+      content: " →";
+      font-size: 11px;
+    }
+    .card-cta:hover {
+      background: #0d5f58;
     }
     .card-body {
-      padding: 0 10px 8px;
+      padding: 10px 14px 12px;
+      background: #ffffff;
     }
     .abstract-shell {
-      margin-top: 4px;
-      padding: 7px 7px 0;
-      border-radius: 10px;
-      background: #f5f7f1;
-      border: 1px solid #e0e6d8;
+      margin-top: 2px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
     }
     .abstract-label {
-      margin: 0 0 8px;
-      color: #506052;
-      font-size: 9px;
+      margin: 0 0 6px;
+      color: #0f766e;
+      font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -291,109 +393,180 @@
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 2;
       overflow: hidden;
-      max-height: 2.9em;
-      color: #5d675c;
-      font-size: 9px;
-      line-height: 1.45;
+      max-height: 3.2em;
+      color: #475569;
+      font-size: 13px;
+      line-height: 1.6;
     }
     .abstract-toggle {
       display: inline-block;
-      margin-top: 4px;
+      margin-top: 6px;
+      color: #0f766e;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 0.15s ease;
+    }
+    .abstract-toggle:hover {
+      color: #0d5f58;
+      text-decoration: underline;
+    }
+    .abstract-toggle::after {
+      content: " ▾";
+      font-size: 10px;
+    }
+    details[open] summary .abstract-preview {
+      display: none;
+    }
+    details[open] summary .abstract-toggle {
+      display: none;
+    }
+    details[open] summary::after {
+      content: "收起摘要 ▴";
+      display: inline-block;
       margin-bottom: 8px;
-      color: #0d6a61;
-      font-size: 9px;
-      font-weight: 700;
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    details[open] summary:hover::after {
+      color: #0f766e;
     }
     .abstract-full {
-      padding: 0 0 8px;
-      color: #4a554a;
-      font-size: 9px;
-      line-height: 1.45;
+      padding: 2px 0 4px;
+      color: #334155;
+      font-size: 13.5px;
+      line-height: 1.65;
+      text-align: justify;
     }
     .card-footer {
-      padding-top: 6px;
-      font-size: 8px;
-      color: #58645a;
-      line-height: 1.45;
+      padding-top: 10px;
+      font-size: 12px;
+      color: #64748b;
+      line-height: 1.5;
     }
     .card-footer a {
-      color: #0d6a61;
+      color: #0f766e;
       text-decoration: none;
-      font-weight: 700;
+      font-weight: 600;
+      transition: color 0.15s ease;
+    }
+    .card-footer a:hover {
+      color: #047857;
+      text-decoration: underline;
     }
     .empty-state {
-      padding: 24px;
-      border-radius: 18px;
-      background: #fffdf8;
-      border: 1px solid #dce3d2;
-      color: #5f675d;
-      font-size: 14px;
+      padding: 28px;
+      border-radius: 12px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      color: #64748b;
+      font-size: 13.5px;
+      text-align: center;
       line-height: 1.6;
     }
     a {
-      color: #0d6a61;
+      color: #0f766e;
       text-decoration: none;
     }
     @media screen and (max-width: 640px) {
       .page {
-        padding: 10px 0 14px;
+        padding: 10px 0 20px;
       }
       .container {
-        padding: 0 3px;
+        padding: 0 8px;
       }
       .hero {
-        border-radius: 14px;
-        padding: 14px 12px;
+        border-radius: 12px;
+        padding: 18px 14px;
       }
       .hero h1 {
-        font-size: 20px;
+        font-size: 21px;
+      }
+      .hero p {
+        font-size: 12.5px;
+      }
+      .hero-note {
+        font-size: 11.5px !important;
+      }
+      .hero-access {
+        padding: 12px 12px;
+      }
+      .hero-access-title {
+        font-size: 13.5px;
+      }
+      .hero-links {
+        flex-direction: column;
+        gap: 8px;
+      }
+      .hero-link {
+        display: block;
+        width: 100%;
+        padding: 9px 12px;
+        box-sizing: border-box;
       }
       .section-title {
-        font-size: 16px;
+        font-size: 17px;
       }
       .group-summary {
-        padding: 10px 10px;
-        font-size: 12px;
+        padding: 11px 12px;
+        font-size: 13px;
       }
       .group-description {
-        padding: 6px 10px 0;
+        padding: 8px 12px 2px;
+        font-size: 11.5px;
       }
       .card {
-        margin: 4px 4px 6px;
-        border-radius: 12px;
+        margin: 8px 4px 12px;
+        border-radius: 10px;
       }
       .card-main {
-        padding: 10px 10px 6px;
+        padding: 12px 12px 8px;
       }
       .card-body {
-        padding: 0 10px 8px;
+        padding: 8px 12px 10px;
       }
       .card-title {
-        font-size: 13px;
+        font-size: 15px;
+        line-height: 1.35;
       }
       .card-title-zh {
-        font-size: 13px;
+        font-size: 13.5px;
+        line-height: 1.4;
       }
       .card-authors {
-        font-size: 8px;
+        font-size: 11.5px;
       }
-      .card-interest-row {
-        gap: 5px;
-      }
-      .interest-stars,
-      .interest-level,
-      .interest-tag {
-        font-size: 7px;
-      }
-      .card-meta,
-      .card-footer,
-      .abstract-full,
-      .abstract-preview {
-        font-size: 8px;
+      .card-meta {
+        font-size: 11px;
       }
       .badge {
-        font-size: 7px;
-        padding: 2px 5px;
+        font-size: 10px;
+        padding: 2px 6px;
+      }
+      .interest-stars {
+        font-size: 12px;
+      }
+      .interest-level,
+      .interest-tag {
+        font-size: 10.5px;
+        padding: 2px 6px;
+      }
+      .card-cta {
+        font-size: 10.5px;
+        padding: 4px 9px;
+      }
+      .abstract-shell {
+        padding: 8px 10px;
+      }
+      .abstract-preview,
+      .abstract-full {
+        font-size: 12.5px;
+        line-height: 1.55;
+      }
+      .card-footer {
+        font-size: 11px;
       }
     }
 ${style_override_css}
@@ -405,8 +578,8 @@ ${style_override_css}
       <section class="hero">
         <h1>Daily Bio Literature Digest</h1>
         <p>${greeting_line}</p>
-        <p style="margin-top:8px;">以下文献按数据库中的发布日期整理。附件已包含 CSV 与 XLSX 下载表格，邮件与网页均以发布日期为准。</p>
-        <p style="margin-top:10px;">Total records: ${record_count}</p>
+        <p class="hero-note" style="margin-top:8px;">附件已包含 CSV 与 XLSX 下载表格，邮件与网页均以文献发布日期为准。</p>
+        <p style="margin-top:10px;"><span class="hero-stat">Total records: <strong>${record_count}</strong></span></p>
         ${web_digest_button}
       </section>
       ${sections}

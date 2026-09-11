@@ -1,44 +1,21 @@
-# 公开示例：复制到 `local/integrations/email_style.yaml` 后再按品牌风格调整。
-# 这里只包含模板末尾追加的 CSS，不包含任何账号或运行时敏感信息。
+# 公开示例：复制到 `local/integrations/email_style.yaml` 后可按需覆盖默认样式。
+# 邮件模板已内置现代化自适应排版，如无个性化定制需求留空即可继承默认精美样式。
 
 base_css: |
-  /* 桌面端 / 平板端示例样式 */
-  .hero h1 {
-    font-size: 22px;
+  /* 桌面端 / 平板端自定义覆盖示例（可选） */
+  /*
+  .card-title {
+    font-size: 16.5px;
   }
-
-  .card-title,
-  .card-title-zh {
-    font-size: 13px;
-    line-height: 1.2;
-  }
-
-  .card-authors {
-    font-size: 8px;
-  }
-
-  .container {
-    padding: 0 4px;
-  }
+  */
 
 mobile_css: |
-  /* 移动端示例样式（默认在 640px 以下生效） */
-  .hero h1 {
-    font-size: 19px;
+  /* 移动端自定义覆盖示例（默认在 640px 以下生效，可选） */
+  /*
+  .card-title {
+    font-size: 15px;
   }
-
-  .card-title,
-  .card-title-zh {
-    font-size: 12px;
-  }
-
-  .card-meta,
-  .card-authors,
-  .abstract-preview,
-  .abstract-full,
-  .card-footer {
-    font-size: 7px;
-  }
+  */
 
 notes:
   - "修改 `base_css` 可调整桌面端和平板端邮件样式。"

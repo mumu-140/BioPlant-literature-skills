@@ -657,7 +657,7 @@ def build_web_digest_button(web_base_url: str) -> str:
         f'<p class="hero-access-copy">主入口：<a class="hero-access-url" href="{login_url}">{base_label}</a></p>'
         '<div class="hero-links">'
         f'<a class="hero-link" href="{login_url}">立即打开网页端</a>'
-        f'<a class="hero-link" href="{login_url}">查看按发布日期整理的文献表格</a>'
+        f'<a class="hero-link hero-link-subtle" href="{login_url}">查看按发布日期整理的文献表格</a>'
         "</div>"
         "</div>"
     )
@@ -862,30 +862,35 @@ def build_review_table_css() -> str:
     return """
 .review-toolbar {
   margin-top: 18px;
-  padding: 12px 14px;
-  border: 1px solid #d9dfcf;
-  border-radius: 14px;
-  background: rgba(255, 252, 244, 0.92);
+  padding: 14px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 .review-toolbar button {
-  padding: 8px 12px;
+  padding: 8px 16px;
   border: 0;
-  border-radius: 999px;
-  background: #1f4737;
-  color: #f6f2ea;
-  font-size: 12px;
-  font-weight: 700;
+  border-radius: 8px;
+  background: #0f766e;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.review-toolbar button:hover {
+  background: #0d5f58;
 }
 table select,
 table textarea {
   width: 100%;
   font: inherit;
   color: inherit;
-  border: 1px solid #d9dfcf;
-  border-radius: 8px;
-  background: #fffdf8;
-  padding: 4px 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 6px 8px;
   box-sizing: border-box;
 }
 table textarea {
