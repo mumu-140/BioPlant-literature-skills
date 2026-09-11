@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import argparse
+import json
 import mimetypes
 import os
 import re
 import smtplib
+import subprocess
 import sys
 import time
 from email.message import EmailMessage
@@ -164,9 +166,152 @@ def build_message(
     return message
 
 
-def send_digest_email(
+def parse_agently_json(stdout: str) -> dict[str, object]:
+    start = stdout.find("{")
+    end = stdout.rfind("}")
+    if start < 0 or end < start:
+        raise RuntimeError(f"agently-cli did not return JSON: {stdout.strip()}")
+    payload = json.loads(stdout[start : end + 1])
+    if not isinstance(payload, dict):
+        raise RuntimeError("agently-cli returned a non-object JSON payload")
+    return payload
+
+
+def safe_body_filename(recipient: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", recipient.lower()).strip("-")
+    return f".agently-body-{slug or 'recipient'}.html"
+
+
+def relative_path_for_cli(path: str | Path, cwd: Path) -> str:
+    resolved = Path(path).resolve()
+    try:
+        return str(resolved.relative_to(cwd.resolve()))
+    except ValueError as exc:
+        raise RuntimeError(f"agently-cli path must be inside {cwd}: {resolved}") from exc
+
+
+def run_agently_send_command(args: list[str], cwd: Path) -> dict[str, object]:
+    completed = subprocess.run(args, cwd=cwd, text=True, capture_output=True, check=False)
+    if completed.returncode != 0:
+        detail = (completed.stdout + "\n" + completed.stderr).strip()
+        raise RuntimeError(f"agently-cli send failed with exit {completed.returncode}: {detail}")
+    return parse_agently_json(completed.stdout)
+
+
+def send_agently_message(
     *,
-    config_path: str | Path,
+    recipient: str,
+    subject: str,
+    html_body: str,
+    csv_attachment_path: str | Path,
+    xlsx_attachment_path: str | Path,
+    work_dir: Path,
+    cli_bin: str,
+) -> None:
+    body_path = work_dir / safe_body_filename(recipient)
+    body_path.write_text(html_body, encoding="utf-8")
+    base_command = [
+        cli_bin,
+        "message",
+        "+send",
+        "--to",
+        recipient,
+        "--subject",
+        subject,
+        "--body-file",
+        relative_path_for_cli(body_path, work_dir),
+        "--attachment",
+        relative_path_for_cli(csv_attachment_path, work_dir),
+        "--attachment",
+        relative_path_for_cli(xlsx_attachment_path, work_dir),
+    ]
+    try:
+        first_payload = run_agently_send_command(base_command, work_dir)
+        data = first_payload.get("data") if isinstance(first_payload.get("data"), dict) else {}
+        token = str(data.get("confirmation_token", "") if isinstance(data, dict) else "").strip()
+        if not token:
+            raise RuntimeError(f"agently-cli did not return confirmation_token: {first_payload}")
+        final_payload = run_agently_send_command(base_command + ["--confirmation-token", token], work_dir)
+        final_data = final_payload.get("data") if isinstance(final_payload.get("data"), dict) else {}
+        queued = bool(final_payload.get("queued")) or bool(final_data.get("queued") if isinstance(final_data, dict) else False)
+        if not queued:
+            raise RuntimeError(f"agently-cli did not queue message: {final_payload}")
+    finally:
+        try:
+            body_path.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def send_agently_digest_email(
+    *,
+    config: dict[str, object],
+    profile_name: str,
+    html_body_path: str | Path,
+    csv_attachment_path: str | Path,
+    xlsx_attachment_path: str | Path,
+    subject: str,
+    users_config: str | Path | None,
+) -> list[str]:
+    profiles = config.get("agently_profiles", {})
+    profile = profiles.get(profile_name) if isinstance(profiles, dict) else None
+    if not isinstance(profile, dict):
+        raise SystemExit(f"Unknown Agently profile: {profile_name}")
+    users_profile = str(profile.get("users_profile", "") or profile_name).strip()
+    users_config_path = resolve_users_config_path(str(users_config) if users_config else None)
+    recipients = resolve_recipients(profile, smtp_profile=users_profile, users_config_path=users_config_path)
+    if not recipients:
+        raise SystemExit(
+            f"No recipients configured for profile: {profile_name}. "
+            f"Checked users config: {users_config_path} using users_profile={users_profile}."
+        )
+
+    html_body = Path(html_body_path).read_text(encoding="utf-8")
+    work_dir = Path(html_body_path).resolve().parent
+    cli_bin = str(profile.get("cli_bin", "agently-cli") or "agently-cli")
+    sent_recipients: list[str] = []
+    failed_recipients: dict[str, str] = {}
+
+    for recipient in recipients:
+        recipient_html_body = personalize_html_body(html_body, recipient)
+        try:
+            send_agently_message(
+                recipient=recipient,
+                subject=subject,
+                html_body=recipient_html_body,
+                csv_attachment_path=csv_attachment_path,
+                xlsx_attachment_path=xlsx_attachment_path,
+                work_dir=work_dir,
+                cli_bin=cli_bin,
+            )
+        except Exception as exc:  # noqa: BLE001 - include all CLI/local failures for SMTP fallback.
+            failed_recipients[recipient] = str(exc)
+            print(f"[warn] Agently send failed for {recipient}: {exc}", file=sys.stderr)
+            continue
+        sent_recipients.append(recipient)
+
+    if failed_recipients:
+        fallback_profile = str(profile.get("fallback_smtp_profile", "") or "").strip()
+        if not fallback_profile:
+            failed = ", ".join(f"{recipient}: {reason}" for recipient, reason in failed_recipients.items())
+            raise SystemExit(f"Agently send incomplete. Failed recipients: {failed}")
+        fallback_sent = send_smtp_digest_email(
+            config=config,
+            profile_name=fallback_profile,
+            html_body_path=html_body_path,
+            csv_attachment_path=csv_attachment_path,
+            xlsx_attachment_path=xlsx_attachment_path,
+            subject=subject,
+            users_config=users_config,
+            recipients_override=list(failed_recipients),
+        )
+        sent_recipients.extend(fallback_sent)
+    return sent_recipients
+
+
+def send_smtp_digest_email(
+    *,
+    config: dict[str, object],
     profile_name: str,
     html_body_path: str | Path,
     csv_attachment_path: str | Path,
@@ -174,10 +319,10 @@ def send_digest_email(
     subject: str,
     text_body: str = "See attached daily literature digest.",
     users_config: str | Path | None = None,
+    recipients_override: list[str] | None = None,
     max_attempts: int = 3,
     retry_sleep_seconds: int = 20,
 ) -> list[str]:
-    config = load_yaml_file(config_path) or {}
     profiles = config.get("smtp_profiles", {})
     profile = profiles.get(profile_name)
     if not profile:
@@ -189,7 +334,9 @@ def send_digest_email(
         raise SystemExit(f"Missing SMTP secret in environment variable: {password_env}")
 
     users_config_path = resolve_users_config_path(str(users_config) if users_config else None)
-    recipients = resolve_recipients(profile, smtp_profile=profile_name, users_config_path=users_config_path)
+    recipients = dedupe_emails(recipients_override or [])
+    if not recipients:
+        recipients = resolve_recipients(profile, smtp_profile=profile_name, users_config_path=users_config_path)
     if not recipients:
         raise SystemExit(
             f"No recipients configured for profile: {profile_name}. "
@@ -278,6 +425,45 @@ def send_digest_email(
         failed = ", ".join(f"{recipient}: {reason}" for recipient, reason in failed_recipients.items())
         raise SystemExit(f"SMTP send incomplete. Failed recipients: {failed}")
     return sent_recipients
+
+
+def send_digest_email(
+    *,
+    config_path: str | Path,
+    profile_name: str,
+    html_body_path: str | Path,
+    csv_attachment_path: str | Path,
+    xlsx_attachment_path: str | Path,
+    subject: str,
+    text_body: str = "See attached daily literature digest.",
+    users_config: str | Path | None = None,
+    max_attempts: int = 3,
+    retry_sleep_seconds: int = 20,
+) -> list[str]:
+    config = load_yaml_file(config_path) or {}
+    agently_profiles = config.get("agently_profiles", {})
+    if isinstance(agently_profiles, dict) and profile_name in agently_profiles:
+        return send_agently_digest_email(
+            config=config,
+            profile_name=profile_name,
+            html_body_path=html_body_path,
+            csv_attachment_path=csv_attachment_path,
+            xlsx_attachment_path=xlsx_attachment_path,
+            subject=subject,
+            users_config=users_config,
+        )
+    return send_smtp_digest_email(
+        config=config,
+        profile_name=profile_name,
+        html_body_path=html_body_path,
+        csv_attachment_path=csv_attachment_path,
+        xlsx_attachment_path=xlsx_attachment_path,
+        subject=subject,
+        text_body=text_body,
+        users_config=users_config,
+        max_attempts=max_attempts,
+        retry_sleep_seconds=retry_sleep_seconds,
+    )
 
 
 def main() -> int:

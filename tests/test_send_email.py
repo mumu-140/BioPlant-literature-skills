@@ -182,6 +182,125 @@ class SendEmailRecipientsTest(unittest.TestCase):
 
         self.assertEqual(sent, ["first@example.com", "later@example.com"])
 
+    def test_send_digest_email_uses_agently_confirmation_flow(self) -> None:
+        calls: list[list[str]] = []
+
+        def fake_run(args, cwd, text, capture_output, check):  # type: ignore[no-untyped-def]
+            calls.append(list(args))
+            if "--confirmation-token" in args:
+                stdout = '{"ok": true, "data": {"queued": true}}\n'
+            else:
+                stdout = '{"data": {"confirmation_required": true, "confirmation_token": "ctk_test"}}\n'
+            return mock.Mock(returncode=0, stdout=stdout, stderr="")
+
+        with tempfile.TemporaryDirectory(prefix="bio-agently-email-") as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            email_config = tmpdir_path / "email.yaml"
+            users_config = tmpdir_path / "users.yaml"
+            html_path = tmpdir_path / "digest.html"
+            csv_path = tmpdir_path / "digest.csv"
+            xlsx_path = tmpdir_path / "digest.xlsx"
+            email_config.write_text(
+                "\n".join(
+                    [
+                        "agently_profiles:",
+                        "  agent_mail:",
+                        "    cli_bin: agently-cli",
+                        "    users_profile: qq_mail",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            users_config.write_text(
+                "\n".join(
+                    [
+                        "users:",
+                        "  - email: first@example.com",
+                        "    is_active: true",
+                        "    receives_digest: true",
+                        "    smtp_profile: qq_mail",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            html_path.write_text("<html><body>Hi</body></html>", encoding="utf-8")
+            csv_path.write_text("a,b\n1,2\n", encoding="utf-8")
+            xlsx_path.write_bytes(b"fake-xlsx")
+
+            with mock.patch("scripts.send_email.subprocess.run", fake_run):
+                sent = send_digest_email(
+                    config_path=email_config,
+                    profile_name="agent_mail",
+                    html_body_path=html_path,
+                    csv_attachment_path=csv_path,
+                    xlsx_attachment_path=xlsx_path,
+                    subject="Test",
+                    users_config=users_config,
+                )
+
+        self.assertEqual(sent, ["first@example.com"])
+        self.assertEqual(len(calls), 2)
+        self.assertIn("--confirmation-token", calls[1])
+        self.assertIn("ctk_test", calls[1])
+
+    def test_agently_failure_without_fallback_does_not_send_smtp(self) -> None:
+        def fake_run(args, cwd, text, capture_output, check):  # type: ignore[no-untyped-def]
+            return mock.Mock(returncode=1, stdout="", stderr="network error")
+
+        with tempfile.TemporaryDirectory(prefix="bio-agently-no-fallback-") as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            email_config = tmpdir_path / "email.yaml"
+            users_config = tmpdir_path / "users.yaml"
+            html_path = tmpdir_path / "digest.html"
+            csv_path = tmpdir_path / "digest.csv"
+            xlsx_path = tmpdir_path / "digest.xlsx"
+            email_config.write_text(
+                "\n".join(
+                    [
+                        "agently_profiles:",
+                        "  agent_mail:",
+                        "    cli_bin: agently-cli",
+                        "    users_profile: qq_mail",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            users_config.write_text(
+                "\n".join(
+                    [
+                        "users:",
+                        "  - email: first@example.com",
+                        "    is_active: true",
+                        "    receives_digest: true",
+                        "    smtp_profile: qq_mail",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            html_path.write_text("<html><body>Hi</body></html>", encoding="utf-8")
+            csv_path.write_text("a,b\n1,2\n", encoding="utf-8")
+            xlsx_path.write_bytes(b"fake-xlsx")
+
+            with mock.patch("scripts.send_email.subprocess.run", fake_run):
+                with mock.patch("scripts.send_email.smtplib.SMTP_SSL") as smtp_ssl:
+                    with self.assertRaises(SystemExit):
+                        send_digest_email(
+                            config_path=email_config,
+                            profile_name="agent_mail",
+                            html_body_path=html_path,
+                            csv_attachment_path=csv_path,
+                            xlsx_attachment_path=xlsx_path,
+                            subject="Test",
+                            users_config=users_config,
+                            max_attempts=1,
+                        )
+
+        smtp_ssl.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
