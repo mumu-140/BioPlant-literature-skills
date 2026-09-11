@@ -2,15 +2,12 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import os
-import sqlite3
 import subprocess
 import sys
 import time
 from pathlib import Path
-from types import SimpleNamespace
 
 try:
     from scripts._bootstrap import SKILL_DIR, DEFAULT_RUNTIME_CONFIG_PATH, canonical_paths, load_runtime_config
@@ -121,16 +118,6 @@ def release_run_lock(lock_path: Path) -> None:
         return
 
 
-def default_web_project_root() -> Path:
-    env_override = os.environ.get("BIO_DIGEST_WEB_ROOT", "").strip()
-    if env_override:
-        return Path(env_override).resolve()
-    configured_root = str(RUNTIME_DEFAULTS.get("web", {}).get("project_root", "") or "").strip()
-    if configured_root:
-        return Path(configured_root).resolve()
-    raise RuntimeError("web.project_root is empty in runtime config; set it explicitly before enabling web sync")
-
-
 def apply_runtime_defaults(args: argparse.Namespace) -> argparse.Namespace:
     config = load_runtime_config(args.runtime_config)
     paths = config.get("paths", {})
@@ -197,10 +184,6 @@ def apply_runtime_defaults(args: argparse.Namespace) -> argparse.Namespace:
 
     if not getattr(args, "web_base_url", None):
         args.web_base_url = str(web.get("base_url", "") or "")
-    if not getattr(args, "web_project_root", None):
-        args.web_project_root = str(web.get("project_root", "") or "")
-    if not getattr(args, "sync_web_explicit", False):
-        args.sync_web = bool(web.get("sync_enabled", False))
     if not getattr(args, "database_path", None):
         args.database_path = str(database.get("sqlite_path", "") or "")
     if not getattr(args, "sync_db_explicit", False):
@@ -208,26 +191,6 @@ def apply_runtime_defaults(args: argparse.Namespace) -> argparse.Namespace:
 
     args.runtime_defaults = config
     return args
-
-
-def resolve_web_sync_settings(project_root: Path | None = None) -> SimpleNamespace:
-    resolved_root = (project_root or default_web_project_root()).resolve()
-    tools_dir = resolved_root / "tools"
-    if str(tools_dir) not in sys.path:
-        sys.path.insert(0, str(tools_dir))
-    try:
-        from instance_paths import get_instance_paths  # type: ignore
-    except ModuleNotFoundError as exc:
-        raise RuntimeError(f"Missing web tooling module under {tools_dir}: instance_paths") from exc
-
-    instance_paths = get_instance_paths(resolved_root)
-    backend_dir = resolved_root / "backend"
-    return SimpleNamespace(
-        project_root=resolved_root,
-        importer=backend_dir / "import_digest_run.py",
-        importer_python=backend_dir / ".venv" / "bin" / "python",
-        backend_env_file=instance_paths.backend_env_file,
-    )
 
 
 def build_command(args: argparse.Namespace) -> list[str]:
@@ -363,44 +326,6 @@ write_backlog_csv = canonical_write_backlog_csv
 export_backlog_views = canonical_export_backlog_views
 
 
-def resolve_web_sync_args(args: argparse.Namespace) -> SimpleNamespace:
-    explicit_root = Path(args.web_project_root).resolve() if getattr(args, "web_project_root", None) else None
-    defaults = resolve_web_sync_settings(explicit_root)
-    return SimpleNamespace(
-        project_root=defaults.project_root,
-        importer=Path(args.web_importer).resolve() if getattr(args, "web_importer", None) else defaults.importer,
-        importer_python=(
-            Path(args.web_importer_python).resolve()
-            if getattr(args, "web_importer_python", None)
-            else defaults.importer_python
-        ),
-        backend_env_file=(
-            Path(args.web_backend_env_file).resolve()
-            if getattr(args, "web_backend_env_file", None)
-            else defaults.backend_env_file
-        ),
-    )
-
-
-def sync_web_digest(args: argparse.Namespace, run_dir: Path) -> None:
-    settings = resolve_web_sync_args(args)
-    importer_path = settings.importer
-    importer_python = settings.importer_python
-    if not importer_path.exists():
-        raise FileNotFoundError(f"Missing web importer script: {importer_path}")
-    if not importer_python.exists():
-        raise FileNotFoundError(f"Missing web importer python: {importer_python}")
-    command = [
-        str(importer_python),
-        str(importer_path),
-        "--run-dir",
-        str(run_dir.resolve()),
-    ]
-    print("[production] syncing web digest:", " ".join(command))
-    subprocess.run(command, check=True)
-    verify_web_digest_sync(args, run_dir)
-
-
 def sync_digest_database(args: argparse.Namespace, run_dir: Path, archive_date: str) -> None:
     if not args.database_path:
         raise SystemExit("database sync is enabled but database_path is empty in runtime config")
@@ -416,51 +341,6 @@ def sync_digest_database(args: argparse.Namespace, run_dir: Path, archive_date: 
     ]
     print("[production] syncing digest database:", " ".join(command))
     subprocess.run(command, check=True)
-
-
-def resolve_web_sqlite_path(env_file: Path) -> Path:
-    database_url = ""
-    for raw_line in env_file.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        if key.strip() == "DATABASE_URL":
-            database_url = value.strip()
-            break
-    if not database_url.startswith("sqlite:///"):
-        raise ValueError(f"Only sqlite DATABASE_URL is supported for verification, got: {database_url}")
-    sqlite_path = database_url.removeprefix("sqlite:///")
-    return Path(sqlite_path).resolve()
-
-
-def verify_web_digest_sync(args: argparse.Namespace, run_dir: Path) -> None:
-    env_file = resolve_web_sync_args(args).backend_env_file
-    if not env_file.exists():
-        raise FileNotFoundError(f"Missing web backend env file for sync verification: {env_file}")
-    db_path = resolve_web_sqlite_path(env_file)
-    digest_csv = run_dir / "digest.csv"
-    run_metadata = json.loads((run_dir / "run_metadata.json").read_text(encoding="utf-8"))
-    expected_date = resolve_archive_date(args)
-    expected_rows = 0
-    with digest_csv.open("r", encoding="utf-8", newline="") as handle:
-        expected_rows = sum(1 for _ in csv.DictReader(handle))
-    with sqlite3.connect(str(db_path)) as connection:
-        row = connection.execute(
-            "select count(*) from paper_daily_entries where digest_date = ?",
-            (expected_date,),
-        ).fetchone()
-    actual_rows = int(row[0] if row else 0)
-    if actual_rows != expected_rows:
-        raise RuntimeError(
-            f"Web digest sync mismatch for {expected_date}: expected {expected_rows} rows from {digest_csv}, got {actual_rows} rows in {db_path}"
-        )
-    print(
-        "[production] verified web sync:",
-        expected_date,
-        f"{actual_rows} rows",
-        "matches digest.csv and email artifacts",
-    )
 
 
 def main() -> int:
@@ -491,12 +371,6 @@ def main() -> int:
     parser.add_argument("--archive-dir")
     parser.add_argument("--review-workspace-dir")
     parser.add_argument("--backlog-dir")
-    parser.add_argument("--web-project-root")
-    parser.add_argument("--web-importer")
-    parser.add_argument("--web-importer-python")
-    parser.add_argument("--web-backend-env-file")
-    parser.add_argument("--sync-web", action="store_true", default=False)
-    parser.add_argument("--no-sync-web", action="store_false", dest="sync_web")
     parser.add_argument("--database-path")
     parser.add_argument("--sync-db", action="store_true", default=False)
     parser.add_argument("--no-sync-db", action="store_false", dest="sync_db")
@@ -514,7 +388,6 @@ def main() -> int:
     parser.add_argument("--lock-stale-hours", type=int, default=12)
     args = parser.parse_args()
 
-    args.sync_web_explicit = ("--sync-web" in sys.argv) or ("--no-sync-web" in sys.argv)
     args.sync_db_explicit = ("--sync-db" in sys.argv) or ("--no-sync-db" in sys.argv)
     args.summary_provider_explicit = "--summary-provider" in sys.argv
     args.summary_config_explicit = "--summary-config" in sys.argv
@@ -541,8 +414,6 @@ def main() -> int:
             archive_date = archive_outputs(args)
             if args.sync_db:
                 sync_digest_database(args, work_dir, archive_date)
-            if completed.returncode == 0 and args.sync_web:
-                sync_web_digest(args, work_dir)
         return completed.returncode
     finally:
         release_run_lock(lock_path)

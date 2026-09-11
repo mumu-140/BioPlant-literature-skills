@@ -105,8 +105,6 @@ def fallback_runtime_config() -> dict[str, Any]:
         },
         "web": {
             "base_url": "",
-            "sync_enabled": False,
-            "project_root": "",
         },
         "database": {
             "enabled": False,

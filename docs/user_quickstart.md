@@ -87,8 +87,7 @@ LLM_REVIEW_API_KEY=
 - `delivery.window_policy`
 - `providers.review_provider`
 - `providers.summary_provider`
-- `web.sync_enabled`
-- `web.project_root`
+- `web.base_url`
 - `database.enabled`
 - `database.sqlite_path`
 

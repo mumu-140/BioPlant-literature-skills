@@ -46,10 +46,8 @@ fetch:
   curl_bin: curl
 
 web:
-  # web sidecar 是可选项；未接入时保持关闭。
+  # web sidecar 是可选项；配置公网入口后，日报邮件会渲染“在 Web 查看”按钮。
   base_url: ""
-  sync_enabled: false
-  project_root: ""
 
 database:
   # SQLite 是本地可选能力，库文件应位于 `var/db/`。

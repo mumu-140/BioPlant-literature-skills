@@ -349,7 +349,7 @@ class ProductionEntryTest(unittest.TestCase):
             self.assertTrue((archived_dir / "digest.csv").exists())
             self.assertTrue((review_workspace_dir / archive_date.strftime("%Y-%m-%d") / "review_manifest.json").exists())
 
-    def test_run_production_digest_smoke_succeeds_without_web_project(self) -> None:
+    def test_run_production_digest_smoke_succeeds(self) -> None:
         with tempfile.TemporaryDirectory(prefix="bio-prod-smoke-") as tmpdir:
             root = Path(tmpdir)
             work_dir = root / "work"
@@ -390,8 +390,6 @@ class ProductionEntryTest(unittest.TestCase):
                 window_start,
                 "--window-end",
                 window_end,
-                "--web-project-root",
-                str(root / "missing-web-project"),
             ]
 
             completed = subprocess.run(command, check=True, cwd=SKILL_DIR, capture_output=True, text=True)
