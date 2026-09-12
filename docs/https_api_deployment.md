@@ -5,7 +5,7 @@
 本文档用于将 Bio Literature Digest 部署为可远程访问的 HTTPS API，并覆盖：
 
 - Linux 服务器安装和初始化
-- Caddy HTTPS 终止
+- HTTPS 入口：Caddy 直接监听 443，或上游边缘隧道终止 TLS 后转发到本机 Caddy
 - systemd 长期运行
 - Bootstrap 管理员和个人访问令牌
 - 用户、角色和权限管理
@@ -18,6 +18,8 @@
 API 服务不接受任意命令、任意服务器路径或文件上传。底层 `command` provider 只能在服务器本地配置和调用。
 
 ## 2. 系统架构
+
+拓扑 A：Caddy 直接持有证书并监听公网 443。本文第 9 节的配置流程针对这种部署。
 
 ```text
 Remote client
@@ -34,9 +36,24 @@ FastAPI / Uvicorn
 Producer CLI -> RSS/API -> digest artifacts -> email/archive/review backlog
 ```
 
+拓扑 B：TLS 在上游边缘（CDN 或出站隧道）终止，本机 Caddy 只在内网端口做反向代理。服务器不监听
+80/443，也不签发证书。已有多站点共用 Caddy 的主机适合这种方式，见第 9.2 节。
+
+```text
+Remote client
+    |
+    | HTTPS :443
+    v
+Edge (TLS 终止) --outbound tunnel--> Caddy (本机内网端口)
+                                       |
+                                       | HTTP 127.0.0.1:8787
+                                       v
+                                     FastAPI / Uvicorn
+```
+
 安全边界：
 
-- Caddy 是唯一公网入口。
+- 反向代理是唯一入口，API 进程本身不接受外部连接。
 - Uvicorn 只监听 `127.0.0.1`。
 - 所有 `/api/v1/*` 接口均要求个人访问令牌。
 - `/healthz` 和 `/docs` 不要求令牌。
@@ -49,8 +66,8 @@ Producer CLI -> RSS/API -> digest artifacts -> email/archive/review backlog
 - Ubuntu 22.04/24.04、Debian 12 或兼容 Linux
 - Python 3.10 或更高版本
 - 可用域名，例如 `digest-api.example.com`
-- 域名 A/AAAA 记录指向服务器公网地址
-- TCP 80、443 对公网开放
+- 拓扑 A：域名 A/AAAA 记录指向服务器公网地址，TCP 80、443 对公网开放
+- 拓扑 B：边缘侧已能到达本机（出站隧道或同等通道），本机无需开放 80/443
 - TCP 8787 不对公网开放
 - 服务器可以访问期刊 RSS、SMTP 和配置的 AI Provider
 
@@ -267,7 +284,28 @@ sudo systemctl restart bio-literature-digest-api
 
 缺少第三项会导致期刊和分类规则在线修改失败。
 
-## 9. Caddy HTTPS
+部署路径或运行身份与模板不同时，不要就地改 `/etc/systemd/system/` 里的文件后不留痕迹。做法是在
+`ops/systemd/` 下另存一份主机专用单元并纳入版本控制，安装时从该文件复制，使已上线配置始终可以和
+仓库比对：
+
+```bash
+sudo diff /etc/systemd/system/bio-literature-digest-api.service \
+  ops/systemd/你的主机单元文件
+```
+
+`ops/systemd/bio-literature-digest-api.vps219.service` 是这种主机专用单元的实例，可作为改写参考。
+和通用模板相比它有两处必须同步修改的偏离，并在文件注释里写明了原因：
+
+- 安装目录在 `/root/software` 下时 `ProtectHome=true` 会遮蔽整个 `/root`，服务起不来，必须改为
+  `ProtectHome=false`，并把 `ReadWritePaths` 一并指向真实路径。
+- 本机已有以 root 运行的 Producer 定时任务时，`User`/`Group` 必须与其一致，否则两边读写不到同一套
+  `local/` 和 `var/`。
+
+## 9. 反向代理与 HTTPS
+
+按第 2 节选定的拓扑执行 9.1 或 9.2，两者都要满足 9.3。
+
+### 9.1 拓扑 A：Caddy 直接终止 TLS
 
 复制模板：
 
@@ -285,13 +323,52 @@ curl -I https://你的真实域名/healthz
 sudo journalctl -u caddy -n 100 --no-pager
 ```
 
-正式环境要求：
+### 9.2 拓扑 B：边缘终止 TLS，本机 Caddy 共用
 
-- 防火墙只开放必要的 SSH、80 和 443。
-- 不开放 8787。
+这种主机上的 Caddy 通常已经在服务其他站点，配置文件不属于本项目。不要用模板覆盖它，只追加一段
+主机名匹配，并且必须放在兜底站点之前，否则请求会被前面的规则吃掉：
+
+```caddyfile
+@digestApi host 你的真实域名
+handle @digestApi {
+    reverse_proxy 127.0.0.1:8787
+}
+```
+
+改共用配置前先备份，再校验并重载。容器化 Caddy 用容器内路径校验，宿主原生安装用 `systemctl`：
+
+```bash
+sudo cp /path/to/Caddyfile "/path/to/backup/Caddyfile.before-digest-api-$(date +%Y%m%d-%H%M%S)"
+# 容器
+sudo docker exec caddy caddy validate --config /etc/caddy/Caddyfile
+sudo docker exec caddy caddy reload  --config /etc/caddy/Caddyfile
+# 原生
+sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
+```
+
+在边缘侧把公网主机名指向本机 Caddy 监听的内网端口。域名与路由记录保存在边缘控制台，不落在
+主机上，因此排查时要同时看边缘配置和本机 Caddy 日志。
+
+验证时先确认本机链路，再确认公网链路：
+
+```bash
+curl -sS http://127.0.0.1:8787/healthz
+curl -sS http://127.0.0.1:本机Caddy端口/healthz -H "Host: 你的真实域名"
+curl -sS https://你的真实域名/healthz
+```
+
+三条都返回 `{"status":"ok"}` 才算通。第二条失败说明 Caddy 匹配没生效，第三条单独失败说明边缘映射
+或隧道有问题，与本项目无关。
+
+### 9.3 正式环境要求
+
+- 拓扑 A 的防火墙只开放必要的 SSH、80 和 443；拓扑 B 不需要开放 80/443。
+- 不开放 8787，也不开放本机 Caddy 的内网端口。
 - Uvicorn 保持 `127.0.0.1`。
 - `local/.env.local` 权限为 `600`。
-- Caddy 和 API 服务分别使用非 root 运行账户。
+- 反向代理和 API 服务分别使用非 root 运行账户。如果本机已有以 root 身份运行的 Producer 定时任务，
+  API 必须复用同一身份才能读写同一套 `local/` 和 `var/`；此时以目录权限和 systemd 沙箱选项作为
+  替代边界，并在单元文件里写明这一偏离及原因。
 
 ## 10. 鉴权方式
 
@@ -654,7 +731,7 @@ sudo systemctl start bio-literature-digest-api
 1. 停止 API 服务。
 2. 备份当前损坏或错误状态。
 3. 恢复 `local/`、`config/content/` 和需要的 `var/` 数据。
-4. 修正所有权为 `bio-digest:bio-digest`。
+4. 修正所有权为服务运行账户。
 5. 启动服务并执行验收检查。
 
 不要只恢复 `auth.sqlite3` 而丢失对应的 API Key 管理记录和审计上下文。
@@ -713,10 +790,20 @@ sudo systemctl start bio-literature-digest-api
 ### 配置接口返回只读文件系统
 
 - 检查 systemd 的 `ReadWritePaths` 是否包含 `config/content`。
-- 检查目录所有者是否为 `bio-digest`。
+- 检查目录所有者是否为服务运行账户。
 - 执行 `systemctl daemon-reload` 并重启服务。
 
+### 公网访问失败但本机正常
+
+先用第 9.2 节的三条 `curl` 定位断点，再按断点排查：
+
+- 本机 `127.0.0.1:8787` 失败：问题在 API 服务，看 `journalctl -u bio-literature-digest-api`。
+- 本机 Caddy 端口失败：主机名匹配没生效或被兜底站点吃掉，检查匹配段的位置，重新校验并重载。
+- 只有公网失败：问题在边缘侧的主机名和路由配置，本机日志不会有记录。
+
 ### Caddy 无法签发证书
+
+仅拓扑 A 需要签发证书。拓扑 B 由边缘持有证书，本机不签发，出现这类报错说明拓扑配置串了。
 
 - 检查域名解析。
 - 检查 80/443 防火墙。
@@ -738,8 +825,9 @@ sudo systemctl start bio-literature-digest-api
 
 ## 23. 部署验收清单
 
-- [ ] 域名解析到正确服务器
-- [ ] TCP 80/443 可访问，8787 未暴露公网
+- [ ] 公网主机名指向本部署：拓扑 A 解析到服务器地址，拓扑 B 在边缘侧指向本机 Caddy 端口
+- [ ] `8787` 和本机 Caddy 内网端口都未暴露公网；拓扑 A 的 80/443 可访问，拓扑 B 无需开放
+- [ ] `https://你的真实域名/healthz` 返回 `{"status":"ok"}`
 - [ ] `local/.env.local` 权限为 `600`
 - [ ] `local/`、`var/api/` 目录仅服务账户可访问，敏感 YAML 和 SQLite 为 `600`
 - [ ] Bootstrap 管理员可调用 `/api/v1/me`
@@ -750,7 +838,7 @@ sudo systemctl start bio-literature-digest-api
 - [ ] 分类规则和收件人配置修改会生成备份
 - [ ] 日报测试任务可以完成并下载 `digest.csv`
 - [ ] systemd 重启后服务自动恢复
-- [ ] Caddy HTTPS 证书有效
+- [ ] HTTPS 证书有效：拓扑 A 检查本机 Caddy 签发结果，拓扑 B 检查边缘侧证书
 - [ ] 已验证身份库、配置和 review 数据的备份恢复流程
 
 ## 24. 接口索引
