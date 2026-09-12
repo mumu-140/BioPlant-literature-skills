@@ -1,0 +1,28 @@
+[Unit]
+Description=Bio Literature Digest API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+UMask=0077
+# This host has no bio-digest user: the producer cron already runs as root from
+# /root/software, and the API must share that identity to read the same
+# local/ config and write the same var/ tree.
+User=root
+Group=root
+WorkingDirectory=/root/software/bio-literature-digest
+EnvironmentFile=/root/software/bio-literature-digest/local/.env.local
+ExecStart=/root/software/bio-literature-digest/.venv/bin/python3 /root/software/bio-literature-digest/scripts/serve_api.py
+Restart=on-failure
+RestartSec=5
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+# ProtectHome=true from the template would hide /root and make the install
+# unreachable, since the deployment lives under /root/software.
+ProtectHome=false
+ReadWritePaths=/root/software/bio-literature-digest/local /root/software/bio-literature-digest/var /root/software/bio-literature-digest/config/content
+
+[Install]
+WantedBy=multi-user.target
