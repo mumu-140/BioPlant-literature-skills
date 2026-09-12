@@ -88,24 +88,22 @@ class ConfigManager:
             if not isinstance(journal_id, str):
                 return _dump_yaml({"journals": updated})
             block_end = starts[index + 1] if index + 1 < len(starts) else end
-            blocks[journal_id] = lines[starts[index]:block_end]
-            if index + 1 == len(starts):
-                while blocks[journal_id] and not blocks[journal_id][-1].strip():
-                    blocks[journal_id].pop()
+            block = lines[starts[index]:block_end]
+            while block and not block[-1].strip():
+                block.pop()
+            blocks[journal_id] = block
         body: list[str] = []
-        kept_original_blocks = True
         current_by_id = {item.get("id"): item for item in current if isinstance(item, dict)}
         for journal in updated:
             journal_id = journal.get("id")
+            if body:
+                body.append("\n")
             if journal_id in blocks and current_by_id.get(journal_id) == journal:
                 block = blocks[journal_id]
             else:
-                kept_original_blocks = False
                 block = _dump_journal(journal)
-                if body:
-                    block.insert(0, "\n")
             body.extend(block)
-        separator = [] if kept_original_blocks else (["\n"] if body and suffix else [])
+        separator = ["\n"] if body and suffix else []
         return "".join(lines[: starts[0]] + body + separator + suffix) if starts else _dump_yaml({"journals": updated})
 
     def replace(self, name: str, payload: dict[str, Any]) -> dict[str, Any]:
