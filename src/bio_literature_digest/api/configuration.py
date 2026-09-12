@@ -12,6 +12,29 @@ from bio_literature_digest.fetching.http import validate_public_http_url
 from .store import utc_now
 
 
+class _IndentedSafeDumper(yaml.SafeDumper):
+    """Match the repository's indented block-sequence style."""
+
+    def increase_indent(self, flow: bool = False, indentless: bool = False) -> None:
+        return super().increase_indent(flow, False)
+
+
+def _dump_yaml(payload: Any) -> str:
+    return yaml.dump(
+        payload,
+        Dumper=_IndentedSafeDumper,
+        allow_unicode=True,
+        default_flow_style=False,
+        sort_keys=False,
+        width=4096,
+    )
+
+
+def _dump_journal(journal: dict[str, Any]) -> list[str]:
+    rendered = _dump_yaml([journal])
+    return [f"  {line}" if line.strip() else line for line in rendered.splitlines(keepends=True)]
+
+
 class ConfigManager:
     """Validate and atomically update API-managed YAML configuration."""
 
@@ -27,14 +50,73 @@ class ConfigManager:
             raise ValueError(f"{name} config must be an object")
         return payload
 
+    def _write(self, name: str, payload: dict[str, Any], path: Path) -> None:
+        if name == "journals":
+            current_text = path.read_text(encoding="utf-8") if path.exists() else "journals:\n"
+            current_payload = yaml.safe_load(current_text) or {}
+            current_journals = current_payload.get("journals", [])
+            updated_journals = payload.get("journals", [])
+            if current_payload == payload:
+                text = current_text
+            elif isinstance(current_journals, list) and isinstance(updated_journals, list):
+                text = self._update_journals(current_text, current_journals, updated_journals)
+            else:
+                text = _dump_yaml(payload)
+        else:
+            text = _dump_yaml(payload)
+        temporary = path.with_suffix(path.suffix + ".tmp")
+        temporary.write_text(text, encoding="utf-8")
+        temporary.replace(path)
+
+    @staticmethod
+    def _update_journals(
+        text: str,
+        current: list[dict[str, Any]],
+        updated: list[dict[str, Any]],
+    ) -> str:
+        lines = text.splitlines(keepends=True)
+        starts = [i for i, line in enumerate(lines) if line.startswith("  - id:")]
+        if len(starts) != len(current):
+            return _dump_yaml({"journals": updated})
+        end = next((i for i, line in enumerate(lines[starts[-1] + 1 :], starts[-1] + 1) if line and not line.startswith(" ")), len(lines)) if starts else len(lines)
+        suffix = lines[end:]
+        while suffix and not suffix[0].strip():
+            suffix.pop(0)
+        blocks: dict[str, list[str]] = {}
+        for index, journal in enumerate(current):
+            journal_id = journal.get("id")
+            if not isinstance(journal_id, str):
+                return _dump_yaml({"journals": updated})
+            block_end = starts[index + 1] if index + 1 < len(starts) else end
+            blocks[journal_id] = lines[starts[index]:block_end]
+            if index + 1 == len(starts):
+                while blocks[journal_id] and not blocks[journal_id][-1].strip():
+                    blocks[journal_id].pop()
+        body: list[str] = []
+        kept_original_blocks = True
+        current_by_id = {item.get("id"): item for item in current if isinstance(item, dict)}
+        for journal in updated:
+            journal_id = journal.get("id")
+            if journal_id in blocks and current_by_id.get(journal_id) == journal:
+                block = blocks[journal_id]
+            else:
+                kept_original_blocks = False
+                block = _dump_journal(journal)
+                if body:
+                    block.insert(0, "\n")
+            body.extend(block)
+        separator = [] if kept_original_blocks else (["\n"] if body and suffix else [])
+        return "".join(lines[: starts[0]] + body + separator + suffix) if starts else _dump_yaml({"journals": updated})
+
     def replace(self, name: str, payload: dict[str, Any]) -> dict[str, Any]:
         self._validate(name, payload)
         path = self.paths[name]
         with self._lock:
+            current = self.read(name)
             self._backup(name, path)
-            temporary = path.with_suffix(path.suffix + ".tmp")
-            temporary.write_text(yaml.safe_dump(payload, allow_unicode=True, sort_keys=False), encoding="utf-8")
-            temporary.replace(path)
+            if current == payload:
+                return current
+            self._write(name, payload, path)
         return self.read(name)
 
     def upsert_journal(self, journal_id: str, journal: dict[str, Any], create_only: bool = False) -> dict[str, Any]:

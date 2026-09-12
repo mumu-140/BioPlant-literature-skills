@@ -42,7 +42,9 @@ class DigestApiTest(unittest.TestCase):
         watchlist.write_text("journals: []\n", encoding="utf-8")
         rules.write_text("categories:\n  - id: other\n", encoding="utf-8")
         recipients.write_text("users: []\n", encoding="utf-8")
-        configs = ConfigManager(watchlist, rules, recipients, root / "backups")
+        self.watchlist = watchlist
+        self.backup_root = root / "backups"
+        configs = ConfigManager(watchlist, rules, recipients, self.backup_root)
         app = create_app(
             api_key="test-api-key",
             run_root=self.run_root,
@@ -198,6 +200,58 @@ class DigestApiTest(unittest.TestCase):
         self.assertEqual(listing.json()["journals"][0]["id"], "example-journal")
         self.assertEqual(invalid_rules.status_code, 422)
         self.assertEqual(deleted.status_code, 204)
+
+    def test_journal_update_preserves_unchanged_blocks_and_document_suffix(self) -> None:
+        original = (
+            "journals:\n"
+            "  - id: first\n"
+            "    enabled: true\n\n"
+            "  - id: second\n"
+            "    enabled: true\n\n"
+            "defaults:\n"
+            "  delivery_time: \"08:00\"\n"
+        )
+        self.watchlist.write_text(original, encoding="utf-8")
+        response = self.client.put(
+            "/api/v1/config/journals/second",
+            headers=self.headers,
+            json={"id": "second", "enabled": False},
+        )
+        updated = self.watchlist.read_text(encoding="utf-8")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(updated.startswith("journals:\n  - id: first\n    enabled: true\n\n"))
+        self.assertIn("  - id: second\n    enabled: false\n", updated)
+        self.assertTrue(updated.endswith('defaults:\n  delivery_time: "08:00"\n'))
+
+    def test_replacing_identical_config_does_not_rewrite_but_creates_backup(self) -> None:
+        original = "journals:\n  - id: first\n    enabled: true\n"
+        self.watchlist.write_text(original, encoding="utf-8")
+        response = self.client.put(
+            "/api/v1/config/journals/first",
+            headers=self.headers,
+            json={"id": "first", "enabled": True},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.watchlist.read_text(encoding="utf-8"), original)
+        backups = list((self.backup_root / "journals").iterdir())
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(backups[0].read_text(encoding="utf-8"), original)
+
+    def test_journal_create_and_delete_leave_existing_text_unchanged(self) -> None:
+        original = "journals:\n  - id: first\n    enabled: true\n\ndefaults:\n  enabled: true\n"
+        self.watchlist.write_text(original, encoding="utf-8")
+        created = self.client.post(
+            "/api/v1/config/journals",
+            headers=self.headers,
+            json={"id": "second", "enabled": True},
+        )
+        after_create = self.watchlist.read_text(encoding="utf-8")
+        deleted = self.client.delete("/api/v1/config/journals/second", headers=self.headers)
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(deleted.status_code, 204)
+        self.assertIn("  - id: first\n    enabled: true\n", after_create)
+        self.assertIn("  - id: second\n    enabled: true\n", after_create)
+        self.assertEqual(self.watchlist.read_text(encoding="utf-8"), original)
 
     def test_rejects_malformed_category_entries(self) -> None:
         response = self.client.put(
