@@ -456,8 +456,19 @@ curl -sS "$BIO_API_URL/api/v1/runs/RUN_ID" \
 - `queued`
 - `running`
 - `success`
+- `partial_success`：产物已全部写出，但邮件投递失败。`send_email` 是流水线最后一步，此时产物可直接使用，不需要重跑。
 - `failed`
 - `interrupted`
+
+除状态外，响应还会带上 `run_metadata.json` 中的实时进度字段。Producer 在每一步结束后都会重写该文件，因此任务运行途中即可读到这些值：
+
+- `email_status`：`skipped` / `sent` / `failed` / `not_attempted`，由 Producer 判定，API 只做透传。
+- `failed_step`、`failure_type`：失败发生在哪一步、属于哪一类。
+- `completed_steps`：已完成的步骤列表。
+- `counts`：各阶段论文计数。
+- `artifacts`：已写出的产物及其下载路径。
+
+`failure_message` 中的订阅者邮箱地址已做掩码处理。
 
 ### 13.4 下载产物
 
@@ -767,3 +778,54 @@ sudo systemctl start bio-literature-digest-api
 | `PUT` | `/api/v1/config/category-rules` | admin |
 | `GET` | `/api/v1/config/recipients` | admin |
 | `PUT` | `/api/v1/config/recipients` | admin |
+
+## 25. MCP 只读接口
+
+MCP 服务器让 MCP 客户端直接查询任务和产物，不经过 HTTPS。它与 HTTP API 共用
+`bio_literature_digest.api.runs_service`，因此两个接口返回的任务视图完全一致。
+
+### 25.1 传输与依赖
+
+- 传输方式：stdio 上的换行分隔 JSON-RPC 2.0，即 MCP 的 stdio transport。
+- 依赖：仅标准库。不需要 `mcp` SDK，也不需要 FastAPI、Uvicorn、pydantic。
+  生产 venv 未安装这些包时该接口依然可用。
+- stdout 是协议通道。诊断信息一律写 stderr，任何写入 stdout 的内容都会破坏流。
+
+### 25.2 启动
+
+```bash
+.venv/bin/python3 scripts/serve_mcp.py
+```
+
+运行目录默认取 `$BIO_DIGEST_API_RUN_ROOT`，否则为 `var/api/runs`，与 `serve_api.py`
+的解析方式相同。也可用 `--run-root` 显式指定。
+
+MCP 客户端注册示例：
+
+```json
+{
+  "command": "/root/software/bio-literature-digest/.venv/bin/python3",
+  "args": ["/root/software/bio-literature-digest/scripts/serve_mcp.py"]
+}
+```
+
+### 25.3 工具
+
+| 工具 | 作用 |
+|---|---|
+| `list_runs` | 列出最近任务，最新优先；`limit` 默认 20，上限 100 |
+| `get_run` | 按 `run_id` 查询单个任务 |
+| `list_artifacts` | 列出该任务已生成的产物、字节数和 HTTP 下载路径 |
+| `read_artifact` | 读取文本产物，按 `max_bytes` 截断；默认 64 KiB，上限 1 MiB |
+
+`read_artifact` 只接受文本产物。`digest.xlsx` 等表格是二进制，只能走 HTTP 下载。
+返回文本中的订阅者邮箱地址一律经过掩码。
+
+### 25.4 安全边界
+
+- 接口是只读的。没有创建任务的工具：启动任务会改动共享状态、占用单任务锁并可能
+  发送订阅邮件，因此只保留在需要令牌的 HTTP API 上。
+- 产物读取受白名单约束，客户端无法读取运行目录内的任意路径。`status.json`
+  属于存储层簿记，不在白名单内。
+- MCP 通过 stdio 运行在服务器本地，没有按调用方区分的身份；进程本身的文件权限
+  就是它的权限边界。不要把它暴露到公网。

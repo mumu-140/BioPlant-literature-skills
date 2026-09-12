@@ -268,6 +268,16 @@ cp config/integrations/email_style.example.yaml local/integrations/email_style.y
 
 API 默认仅监听 `127.0.0.1:8787`，正式环境通过 Caddy 提供 HTTPS。接口、鉴权、systemd 和 Caddy 配置见 `docs/https_api_deployment.md`。
 
+MCP（只读，stdio）：
+
+```bash
+python3 scripts/serve_mcp.py
+```
+
+在 MCP 客户端中注册为 `{"command": "python3", "args": ["<项目目录>/scripts/serve_mcp.py"]}`。它与 API 共用
+`api/runs_service.py`，只暴露四个只读工具（`list_runs`、`get_run`、`list_artifacts`、`read_artifact`），不能启动
+run，也不会发送邮件；实现只用标准库，因此在未安装 FastAPI 的主机上也能运行。订阅者邮箱在返回文本中已掩码。
+
 构建不含私有配置和运行数据的便携包：
 
 ```bash

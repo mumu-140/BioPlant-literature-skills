@@ -23,6 +23,13 @@ try:
 except ModuleNotFoundError:
     from common import load_yaml_file
 
+# _bootstrap put src/ on sys.path, so this resolves without extra path juggling.
+from bio_literature_digest.masking import (  # noqa: E402
+    mask_email,
+    mask_email_list,
+    mask_email_text,
+)
+
 
 CANONICAL_PATHS = canonical_paths()
 
@@ -286,14 +293,20 @@ def send_agently_digest_email(
             )
         except Exception as exc:  # noqa: BLE001 - include all CLI/local failures for SMTP fallback.
             failed_recipients[recipient] = str(exc)
-            print(f"[warn] Agently send failed for {recipient}: {exc}", file=sys.stderr)
+            print(
+                f"[warn] Agently send failed for {mask_email(recipient)}: {mask_email_text(str(exc))}",
+                file=sys.stderr,
+            )
             continue
         sent_recipients.append(recipient)
 
     if failed_recipients:
         fallback_profile = str(profile.get("fallback_smtp_profile", "") or "").strip()
         if not fallback_profile:
-            failed = ", ".join(f"{recipient}: {reason}" for recipient, reason in failed_recipients.items())
+            failed = ", ".join(
+                f"{mask_email(recipient)}: {mask_email_text(reason)}"
+                for recipient, reason in failed_recipients.items()
+            )
             raise SystemExit(f"Agently send incomplete. Failed recipients: {failed}")
         fallback_sent = send_smtp_digest_email(
             config=config,
@@ -357,7 +370,10 @@ def send_smtp_digest_email(
         failed_recipients[recipient] = reason
         if recipient in pending:
             pending.remove(recipient)
-        print(f"[warn] SMTP permanent failure for {recipient}: {reason}", file=sys.stderr)
+        print(
+            f"[warn] SMTP permanent failure for {mask_email(recipient)}: {mask_email_text(reason)}",
+            file=sys.stderr,
+        )
 
     def send_all(server: smtplib.SMTP, pending: list[str]) -> None:
         server.login(profile["username"], password)
@@ -414,15 +430,21 @@ def send_smtp_digest_email(
             if attempt >= max_attempts:
                 raise
             print(
-                f"[warn] SMTP transient failure attempt {attempt}/{max_attempts}: {exc}. "
+                f"[warn] SMTP transient failure attempt {attempt}/{max_attempts}: "
+                f"{mask_email_text(str(exc))}. "
                 f"Retrying in {retry_sleep_seconds}s for remaining {len(pending_recipients)} recipients.",
                 file=sys.stderr,
             )
             time.sleep(retry_sleep_seconds)
     if pending_recipients:
-        raise SystemExit(f"SMTP send incomplete. Unsent recipients: {pending_recipients}")
+        raise SystemExit(
+            f"SMTP send incomplete. Unsent recipients: {mask_email_list(pending_recipients)}"
+        )
     if failed_recipients:
-        failed = ", ".join(f"{recipient}: {reason}" for recipient, reason in failed_recipients.items())
+        failed = ", ".join(
+            f"{mask_email(recipient)}: {mask_email_text(reason)}"
+            for recipient, reason in failed_recipients.items()
+        )
         raise SystemExit(f"SMTP send incomplete. Failed recipients: {failed}")
     return sent_recipients
 
@@ -495,7 +517,10 @@ def main() -> int:
         max_attempts=args.max_attempts,
         retry_sleep_seconds=args.retry_sleep_seconds,
     )
-    print(f"Sent digest email via profile {args.profile} to {', '.join(sent_recipients)}.")
+    print(
+        f"Sent digest email via profile {args.profile} to "
+        f"{len(sent_recipients)} recipient(s): {mask_email_list(sent_recipients)}."
+    )
     return 0
 
 

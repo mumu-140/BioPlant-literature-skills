@@ -40,14 +40,29 @@ class ArtifactInfo(BaseModel):
 
 
 class RunStatus(BaseModel):
+    """A run as clients see it: store bookkeeping plus live producer metadata.
+
+    ``partial_success`` is not cosmetic. The producer writes every artifact
+    before it sends mail, so a failure in the final ``send_email`` step leaves a
+    complete, usable digest behind. Reporting that as ``failed`` told operators
+    to re-run a pipeline whose output was already on disk.
+    """
+
     id: str
-    status: Literal["queued", "running", "success", "failed", "interrupted"]
+    status: Literal["queued", "running", "success", "partial_success", "failed", "interrupted"]
     created_at_utc: str
     started_at_utc: str = ""
     finished_at_utc: str = ""
     exit_code: int | None = None
     current_step: str = ""
     failure_message: str = ""
+    # Mirrored from run_metadata.json, which the producer rewrites after every
+    # step -- so these expose progress mid-run, not just at the end.
+    email_status: str = ""
+    failed_step: str = ""
+    failure_type: str = ""
+    completed_steps: list[str] = Field(default_factory=list)
+    counts: dict[str, int] = Field(default_factory=dict)
     artifacts: list[ArtifactInfo] = Field(default_factory=list)
 
 

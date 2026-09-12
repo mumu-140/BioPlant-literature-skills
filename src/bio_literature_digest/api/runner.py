@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import json
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
+from ..masking import mask_email_text
 from .models import RunRequest
+from .runs_service import METADATA_FILENAME, load_run_metadata, resolve_outcome
 from .store import RunStore, utc_now
 
 
@@ -54,22 +55,24 @@ class DigestRunManager:
                     stderr=subprocess.STDOUT,
                     check=False,
                 )
-            metadata = self._load_metadata(work_dir / "run_metadata.json")
-            succeeded = completed.returncode == 0 and metadata.get("status") == "success"
+            metadata = load_run_metadata(work_dir / METADATA_FILENAME)
+            status, failure_message = resolve_outcome(
+                exit_code=completed.returncode, metadata=metadata
+            )
             self.store.update(
                 run_id,
-                status="success" if succeeded else "failed",
+                status=status,
                 finished_at_utc=utc_now(),
                 exit_code=completed.returncode,
                 current_step=str(metadata.get("current_step", "")),
-                failure_message=str(metadata.get("failure_message", "")),
+                failure_message=mask_email_text(failure_message),
             )
         except Exception as exc:  # noqa: BLE001 - persist all runner failures for remote clients.
             self.store.update(
                 run_id,
                 status="failed",
                 finished_at_utc=utc_now(),
-                failure_message=f"{type(exc).__name__}: {exc}",
+                failure_message=mask_email_text(f"{type(exc).__name__}: {exc}"),
             )
         finally:
             self.store.release_active_slot(run_id)
@@ -100,11 +103,3 @@ class DigestRunManager:
                 ]
             )
         return command
-
-    @staticmethod
-    def _load_metadata(path: Path) -> dict[str, Any]:
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except (FileNotFoundError, json.JSONDecodeError):
-            return {}
-        return payload if isinstance(payload, dict) else {}
