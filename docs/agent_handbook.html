@@ -1,0 +1,754 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bio Digest 值班手册</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --paper: #f4f7f3;
+    --surface: #fbfdfb;
+    --ink: #1f2821;
+    --muted: #5e6e62;
+    --hairline: #d9e1da;
+    --accent: #2e6b48;
+    --accent-ink: #f4f9f4;
+    --accent-soft: #e8f0e9;
+    --code-bg: #edf2ed;
+    --code-ink: #24352a;
+    --warn-ink: #7c4a1d;
+    --warn-bg: #f6efdf;
+    --warn-line: #e0cfa8;
+    --shadow: rgba(31, 40, 33, .08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #131814;
+      --surface: #1a211c;
+      --ink: #e3eae3;
+      --muted: #94a49a;
+      --hairline: #2b352e;
+      --accent: #8fc9a2;
+      --accent-ink: #10231a;
+      --accent-soft: #1f2c24;
+      --code-bg: #161e18;
+      --code-ink: #c2d7c6;
+      --warn-ink: #dcb477;
+      --warn-bg: #2a2418;
+      --warn-line: #55452a;
+      --shadow: rgba(0, 0, 0, .35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #131814;
+    --surface: #1a211c;
+    --ink: #e3eae3;
+    --muted: #94a49a;
+    --hairline: #2b352e;
+    --accent: #8fc9a2;
+    --accent-ink: #10231a;
+    --accent-soft: #1f2c24;
+    --code-bg: #161e18;
+    --code-ink: #c2d7c6;
+    --warn-ink: #dcb477;
+    --warn-bg: #2a2418;
+    --warn-line: #55472b;
+    --shadow: rgba(0, 0, 0, .35);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+  }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 15.5px;
+    line-height: 1.8;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+  h1, h2 { text-wrap: balance; }
+  code, pre, .mono {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .mono { font-variant-numeric: tabular-nums; }
+
+  .frame { display: flex; align-items: flex-start; gap: 0; }
+
+  /* ------- toc rail ------- */
+  .rail {
+    width: 220px;
+    min-width: 200px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 28px 22px 40px;
+    border-right: 1px solid var(--hairline);
+    background: var(--paper);
+    font-size: 13px;
+  }
+  .rail .rail-title {
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 14px;
+  }
+  .rail nav { display: flex; flex-direction: column; gap: 2px; }
+  .rail nav a {
+    display: flex; gap: 10px; align-items: baseline;
+    padding: 6px 8px;
+    border-radius: 4px;
+    color: var(--ink);
+  }
+  .rail nav a:hover { background: var(--accent-soft); text-decoration: none; }
+  .rail nav .no {
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size: 11px; color: var(--accent);
+  }
+  .rail .rail-note {
+    margin-top: 26px;
+    padding: 12px 12px;
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 12px; line-height: 1.7;
+  }
+  .rail .rail-note strong { color: var(--ink); font-weight: 600; }
+
+  /* ------- main ------- */
+  main {
+    flex: 1;
+    min-width: 0;
+    padding: 0 40px 90px;
+  }
+  .sheet { max-width: 780px; margin: 0 auto; }
+
+  .masthead {
+    padding: 52px 0 30px;
+    border-bottom: 1px solid var(--hairline);
+    margin-bottom: 10px;
+  }
+  .masthead .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size: 11.5px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 14px;
+  }
+  .masthead h1 {
+    margin: 0 0 16px;
+    font-family: "Spectral", "Songti SC", "Noto Serif CJK SC", Georgia, serif;
+    font-weight: 500;
+    font-size: 34px;
+    line-height: 1.28;
+    letter-spacing: .01em;
+  }
+  .masthead p.lede {
+    margin: 0 0 20px;
+    color: var(--muted);
+    font-size: 15px;
+    max-width: 40em;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chips span {
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: .04em;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    padding: 4px 11px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  section { padding: 34px 0 6px; border-bottom: 1px solid var(--hairline); }
+  section:last-of-type { border-bottom: 0; }
+  section .sec-head { display: flex; align-items: baseline; gap: 14px; margin: 0 0 16px; }
+  section .sec-no {
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: .1em;
+    padding-top: 4px;
+  }
+  section h2 {
+    margin: 0;
+    font-family: "Spectral", "Songti SC", "Noto Serif CJK SC", Georgia, serif;
+    font-weight: 500;
+    font-size: 22.5px;
+    letter-spacing: .01em;
+  }
+  section h3 {
+    margin: 26px 0 10px;
+    font-size: 15.5px;
+    font-weight: 600;
+    letter-spacing: .02em;
+  }
+  section p { margin: 0 0 13px; max-width: 41em; }
+  section ul { margin: 0 0 13px; padding-left: 1.25em; max-width: 40em; }
+  section li { margin-bottom: 5px; }
+  section li::marker { color: var(--accent); }
+
+  code.inline {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: .88em;
+  }
+
+  figure.cmd {
+    margin: 16px 0 20px;
+    background: var(--code-bg);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    overflow-x: auto;
+  }
+  figure.cmd figcaption {
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 9px 16px 0;
+  }
+  figure.cmd pre {
+    margin: 0;
+    padding: 10px 16px 14px;
+    color: var(--code-ink);
+    font-size: 12.8px;
+    line-height: 1.75;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tblwrap {
+    margin: 18px 0 22px;
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    overflow-x: auto;
+  }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  caption {
+    text-align: left;
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 10px 16px 0;
+  }
+  th, td { text-align: left; padding: 8px 16px; vertical-align: top; }
+  thead th {
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    border-bottom: 1px solid var(--hairline);
+    white-space: nowrap;
+  }
+  tbody td { border-bottom: 1px solid var(--hairline); }
+  tbody tr:last-child td { border-bottom: 0; }
+  td .path, .tbl-code {
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size: 12.3px;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+
+  .role { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: 12px; }
+  .role.admin { color: var(--accent); font-weight: 600; }
+  .role.operator { color: var(--ink); }
+  .role.viewer { color: var(--muted); }
+
+  .note {
+    margin: 16px 0 20px;
+    padding: 12px 16px;
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+    max-width: 40em;
+    font-size: 14px;
+  }
+  .note p { margin: 0; }
+  .warn {
+    margin: 16px 0 20px;
+    padding: 12px 16px;
+    background: var(--warn-bg);
+    border-left: 3px solid var(--warn-line);
+    border-radius: 0 6px 6px 0;
+    max-width: 41em;
+    font-size: 14px;
+    color: var(--warn-ink);
+  }
+  .warn p { margin: 0; }
+
+  /* pipeline strip */
+  .pipe { display: grid; gap: 10px; margin: 18px 0 8px; }
+  .pipe .lane { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 0; }
+  .pipe .lane-label {
+    writing-mode: initial;
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: .1em;
+    color: var(--muted);
+    min-width: 92px;
+  }
+  .step {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: 12.8px;
+    white-space: nowrap;
+  }
+  .arrow { color: var(--accent); font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; padding: 0 8px; }
+  .opt-step { border-style: dashed; color: var(--muted); background: transparent; }
+
+  .kv {
+    margin: 14px 0 18px;
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    padding: 4px 0;
+    max-width: 42em;
+  }
+  .kv .row { display: flex; gap: 14px; padding: 9px 16px; border-bottom: 1px solid var(--hairline); }
+  .kv .row:last-child { border-bottom: 0; }
+  .kv .k {
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size: 12.3px;
+    min-width: 200px;
+    color: var(--code-ink);
+  }
+  .kv .v { font-size: 13.5px; color: var(--muted); }
+
+  footer.foot {
+    padding: 30px 0 10px;
+    color: var(--muted);
+    font-size: 12.5px;
+    max-width: 42em;
+  }
+
+  @media (max-width: 1080px) {
+    .frame { display: block; }
+    .rail {
+      position: static; height: auto; width: auto; min-width: 0;
+      border-right: 0; border-bottom: 1px solid var(--hairline); padding: 24px 26px 20px;
+    }
+    .rail nav { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+    .rail nav a { background: var(--surface); border: 1px solid var(--hairline); }
+    .rail .rail-note { max-width: 34em; }
+    main { padding: 0 22px 70px; }
+    .masthead { padding-top: 34px; }
+  }
+  @media (max-width: 560px) {
+    body { font-size: 14.5px; }
+    main { padding: 0 16px 60px; }
+    .masthead h1 { font-size: 27px; }
+    .pipe .lane-label { min-width: 100%; margin-bottom: 4px; }
+  }
+</style>
+</head>
+<body>
+<div class="frame">
+
+  <aside class="rail">
+    <p class="rail-title">目录 · Index</p>
+    <nav aria-label="章节导航">
+      <a href="#overview"><span class="no">01</span>认识项目</a>
+      <a href="#install"><span class="no">02</span>安装与最短路径</a>
+      <a href="#run"><span class="no">03</span>日常运行</a>
+      <a href="#review"><span class="no">04</span>审核与二次优化</a>
+      <a href="#artifacts"><span class="no">05</span>产物契约</a>
+      <a href="#config"><span class="no">06</span>配置速查</a>
+      <a href="#ops"><span class="no">07</span>运维入口</a>
+      <a href="#agent"><span class="no">08</span>Agent 接入</a>
+      <a href="#discipline"><span class="no">09</span>改动纪律</a>
+    </nav>
+    <div class="rail-note">
+      <strong>本页受众</strong><br>
+      给负责安装、运行、审核或优化本流水线的 AI agent 与运维者。内容整理自仓库
+      <strong>README</strong>、<strong>docs/user_quickstart.md</strong>、<strong>SKILL.md</strong>、
+      <strong>docs/daily_artifact_contract.md</strong>；与仓库冲突时以仓库为准。
+    </div>
+  </aside>
+
+  <main>
+  <div class="sheet">
+
+    <header class="masthead">
+      <p class="eyebrow">bio-literature-digest · 使用手册</p>
+      <h1>文献日报值班手册</h1>
+      <p class="lede">一个面向生物学文献的双层流水线：Producer 每天抓取、过滤、分类、翻译并发出双语日报；Optimizer 读人工审核结果，保守地优化规则。本页覆盖安装、运行、审核、产物契约与 API/MCP 速查。</p>
+      <div class="chips" aria-label="默认口径">
+        <span>Python 3.10+</span>
+        <span>时区 Asia/Shanghai · 每日 08:00 CST</span>
+        <span>窗口 覆盖前一自然日 00:00–24:00</span>
+        <span>单任务：同一时间只跑一个 run</span>
+      </div>
+    </header>
+
+    <!-- ============ 01 ============ -->
+    <section id="overview">
+      <div class="sec-head"><span class="sec-no">01</span><h2>认识项目</h2></div>
+      <p>它把可配置的期刊关注清单变成一条每日流水线：优先官方 RSS / TOC / Advance 源，归一化元数据，过滤非生物内容，归入固定分类，产出中英双语摘要（中文标题、中文摘要、摘要、DOI、期刊、发表时间、链接），按时刻投递邮件并归档。</p>
+
+      <div class="pipe" role="img" aria-label="第一层流水线与第二层优化示意">
+        <div class="lane">
+          <span class="lane-label">L1 Producer</span>
+          <span class="step">抓取 feed</span><span class="arrow">→</span>
+          <span class="step">相关性过滤</span><span class="arrow">→</span>
+          <span class="step">固定分类</span><span class="arrow">→</span>
+          <span class="step">翻译 · 摘要</span><span class="arrow">→</span>
+          <span class="step">导出 CSV / XLSX / HTML</span><span class="arrow">→</span>
+          <span class="step">邮件 · 归档 · 审核快照</span>
+        </div>
+        <div class="lane">
+          <span class="lane-label">L2 Optimizer</span>
+          <span class="step opt-step">人工审核 backlog</span><span class="arrow">→</span>
+          <span class="step opt-step">AI 读审核结果</span><span class="arrow">→</span>
+          <span class="step opt-step">保守优化规则 / prompt / 来源</span>
+        </div>
+      </div>
+      <p>Producer 可以跨机器换实现，产物契约保持稳定（见 05）。优化器和调度器不绑定平台：Mac 用 launchd，Windows 用任务计划，检查和应用层优化交给 AI。</p>
+
+      <h3>信息分层：三条铁律</h3>
+      <div class="tblwrap">
+        <table>
+          <caption>信息按类型分层，不按目录喜好</caption>
+          <thead><tr><th>层</th><th>位置</th><th>内容</th></tr></thead>
+          <tbody>
+            <tr><td><strong>公开源</strong></td><td class="path">config/ · agents/ · docs/</td><td>期刊源、分类规则、术语表、邮件/翻译/LLM 的<strong>模板形状</strong>（*.example.yaml）、runtime baseline</td></tr>
+            <tr><td><strong>本机私有</strong></td><td class="path">local/</td><td>真实密钥、真实收件人、真实 SMTP、本机路径 override；<strong>永不提交</strong></td></tr>
+            <tr><td><strong>运行产物</strong></td><td class="path">var/</td><td>工作目录、归档、审核、日志、SQLite；程序生成，<strong>永不手工塞配置</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="warn"><p>真实密钥只允许出现在 <code class="inline">local/.env.local</code>。不要写进 config/、scripts/、测试或自动化文件；不要把真实邮箱、真实本机路径写进 .example.yaml。推送 GitHub 前先跑 <code class="inline">scripts/audit_secrets.py</code>。</p></div>
+    </section>
+
+    <!-- ============ 02 ============ -->
+    <section id="install">
+      <div class="sec-head"><span class="sec-no">02</span><h2>安装与最短路径</h2></div>
+
+      <h3>手动安装</h3>
+      <figure class="cmd"><figcaption>克隆并构建虚拟环境</figcaption>
+<pre>git clone <repo-url> bio-literature-digest
+cd bio-literature-digest
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt</pre>
+      </figure>
+      <p>核心流水线只需 Python 3 和 PyYAML；远程 API 额外用 FastAPI、Uvicorn、httpx，均由 requirements.txt 覆盖。想以“技能包”形态给 Codex / Claude Code 用，把整个仓库放进 AI 的 skills 工作区，让 AI 直接读 SKILL.md、README.md、docs/user_quickstart.md、config/、scripts/（详见 08）。</p>
+
+      <h3>首次初始化：从公开模板复制本机副本</h3>
+      <figure class="cmd"><figcaption>完整集</figcaption>
+<pre>mkdir -p local/runtime local/integrations
+cp config/env.local.example local/.env.local
+cp config/runtime/production.example.yaml local/runtime/production.yaml
+cp config/integrations/email_config.example.yaml local/integrations/email_config.yaml
+cp config/integrations/users.example.yaml local/integrations/users.yaml
+cp config/integrations/email_style.example.yaml local/integrations/email_style.yaml
+cp config/integrations/ai_chat.example.yaml local/integrations/nvidia_ai.yaml
+cp config/integrations/translation_tencent_tmt.example.yaml local/integrations/translation_tencent_tmt.yaml
+cp config/integrations/llm_review_config.example.yaml local/integrations/llm_review_config.yaml</pre>
+      </figure>
+      <p>只想先占位跑通时，最小集是去掉最后三行。模板里只放<strong>配置形状与环境变量名</strong>，真实值一律填在 local/ 副本里。</p>
+
+      <h3>最短使用步骤</h3>
+      <div class="kv">
+        <div class="row"><span class="k">1 · 建 .venv</span><span class="v">安装依赖</span></div>
+        <div class="row"><span class="k">2 · local/.env.local</span><span class="v">填真实密钥（翻译、SMTP、LLM）</span></div>
+        <div class="row"><span class="k">3 · local/runtime/production.yaml</span><span class="v">按需改路径、时区、投递参数</span></div>
+        <div class="row"><span class="k">4 · local/integrations/users.yaml</span><span class="v">收件人主名单</span></div>
+        <div class="row"><span class="k">5 · local/integrations/email_config.yaml</span><span class="v">SMTP 参数（新增通道才改）</span></div>
+        <div class="row"><span class="k">6 · config/content/journal_watchlist.yaml</span><span class="v">期刊源与抓取范围</span></div>
+        <div class="row"><span class="k">7 · audit + run</span><span class="v">audit_secrets → run_production_digest</span></div>
+      </div>
+      <figure class="cmd"><figcaption>推送前的两道闸</figcaption>
+<pre>.venv/bin/python3 scripts/audit_secrets.py   # 密钥只在本地 env
+.venv/bin/python3 scripts/check_project.py   # 改动后的统一结构检查</pre>
+      </figure>
+    </section>
+
+    <!-- ============ 03 ============ -->
+    <section id="run">
+      <div class="sec-head"><span class="sec-no">03</span><h2>日常运行</h2></div>
+
+      <h3>推荐生产入口</h3>
+      <figure class="cmd"><figcaption>一句话入口</figcaption>
+<pre>.venv/bin/python3 scripts/run_production_digest.py</pre>
+      </figure>
+      <p>它会：以 production.example.yaml 为 baseline、叠加 local/runtime/production.yaml、加载 local/.env.local、调起 run_digest.py、生成附件与 HTML、发邮件、归档到 <code class="inline">var/archives/daily-digests/YYYY-MM-DD/</code>、同步每日审核快照到 <code class="inline">var/reviews/daily-reviews/YYYY-MM-DD/</code>、刷新 active backlog、并按 runtime 配置决定是否同步 SQLite。</p>
+
+      <div class="note"><p>窗口策略保持 <code class="inline">delivery.window_policy: previous_day</code>：只覆盖 delivery.timezone 下“前一自然日 00:00–24:00”。只有确认要旧行为（前一日 00:00 到发送时刻）时才改 <code class="inline">previous_day_to_delivery</code>。</p></div>
+
+      <h3>不发邮件的样例干跑</h3>
+      <figure class="cmd"><figcaption>固定样例数据 + placeholder 模型</figcaption>
+<pre>.venv/bin/python3 scripts/run_production_digest.py \
+  --input-file tests/fixtures/sample_raw.jsonl \
+  --skip-email \
+  --summary-provider placeholder \
+  --review-provider placeholder \
+  --window-start 2026-03-13T00:00:00Z \
+  --window-end 2026-03-15T00:00:00Z</pre>
+      </figure>
+
+      <h3>只预览邮件样式</h3>
+      <figure class="cmd"><figcaption>用已有 localized 输入渲染</figcaption>
+<pre>.venv/bin/python3 scripts/send_style_preview.py \
+  --localized-input /path/to/work-dir/localized_records.jsonl \
+  --style-config local/integrations/email_style.yaml \
+  --email-config local/integrations/email_config.yaml \
+  --users-config local/integrations/users.yaml \
+  --smtp-profile primary_smtp</pre>
+      </figure>
+    </section>
+
+    <!-- ============ 04 ============ -->
+    <section id="review">
+      <div class="sec-head"><span class="sec-no">04</span><h2>审核与二次优化</h2></div>
+      <p>人工审核的唯一权威文件是 <code class="inline">var/reviews/backlog/review_backlog.xlsx</code>。每一天的快照只是只读记录，改动都落在 backlog 上。</p>
+      <figure class="cmd"><figcaption>第二层优化三步，顺序固定</figcaption>
+<pre>.venv/bin/python3 scripts/refresh_review_backlog.py
+.venv/bin/python3 scripts/mark_review_backlog_optimized.py \
+  --selection-json var/reviews/backlog/optimization_selection.json
+.venv/bin/python3 scripts/finalize_review_backlog.py</pre>
+      </figure>
+      <p>审核以确定性回退为前提：摘要失败的文章保留英文标题并留可重试占位符、分类不确定入 other、结果里保留 “研究了什么 / 得到了什么 / 对生物或 AI-for-bio 意味着什么” 三问的事实化摘要。</p>
+    </section>
+
+    <!-- ============ 05 ============ -->
+    <section id="artifacts">
+      <div class="sec-head"><span class="sec-no">05</span><h2>产物契约</h2></div>
+      <p>契约 = 实现可以换机，文件不变。每次运行 <strong>必须</strong> 写出核心九件；优化器只依赖契约，不依赖平台。</p>
+      <div class="tblwrap">
+        <table>
+          <caption>核心产物（缺一即异常）</caption>
+          <thead><tr><th>文件</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td class="tbl-code">digest.html / .csv / .xlsx</td><td>日报邮件正文与附件（双语标题 + 中文摘要列）</td></tr>
+            <tr><td class="tbl-code">review_queue.html / .csv / .xlsx</td><td>待人工检查的 review 队列</td></tr>
+            <tr><td class="tbl-code">daily_review.csv / .xlsx</td><td>每日审核快照，含可编辑 interest_level / interest_tag 列</td></tr>
+            <tr><td class="tbl-code">run_metadata.json</td><td>运行元数据；必须包含解析后的 UTC 窗口与逐阶段计数</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="tblwrap">
+        <table>
+          <caption>建议的调试与优化附件</caption>
+          <thead><tr><th>文件</th></tr></thead>
+          <tbody>
+            <tr><td class="tbl-code">raw_records.jsonl · normalized_records.jsonl · final_review_queue.jsonl</td></tr>
+            <tr><td class="tbl-code">rule_feedback_report.md · classification_suggestions.md / .json · glossary_candidates.md · daily_review.html</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>长期目录</h3>
+      <ul>
+        <li><code class="inline">var/archives/daily-digests/YYYY-MM-DD/</code> — 日报归档</li>
+        <li><code class="inline">var/reviews/daily-reviews/YYYY-MM-DD/</code> — 每日审核快照</li>
+        <li><code class="inline">var/reviews/backlog/review_backlog.xlsx</code> — 唯一可编辑 backlog</li>
+        <li><code class="inline">var/db/bio_digest.sqlite3</code> — 启用 database 同步时的库</li>
+      </ul>
+      <figure class="cmd"><figcaption>校验某次产物</figcaption>
+<pre>.venv/bin/python3 scripts/validate_daily_artifacts.py --run-dir /path/to/work-dir</pre>
+      </figure>
+    </section>
+
+    <!-- ============ 06 ============ -->
+    <section id="config">
+      <div class="sec-head"><span class="sec-no">06</span><h2>配置速查</h2></div>
+
+      <h3>密钥（全部只进 local/.env.local）</h3>
+      <div class="tblwrap">
+        <table>
+          <thead><tr><th>变量</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td class="tbl-code">TENCENT_TMT_SECRET_ID / _KEY / _SESSION_TOKEN</td><td>生产翻译主通道 Tencent TMT</td></tr>
+            <tr><td class="tbl-code">SMTP_APP_PASSWORD / SMTP_BACKUP_APP_PASSWORD</td><td>QQ 或 163 邮箱 SMTP 应用授权码</td></tr>
+            <tr><td class="tbl-code">LLM_REVIEW_API_KEY</td><td>外部 LLM review 通道</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>完整清单以 <code class="inline">config/env.local.example</code> 的注释为准；其余通道（如 NVIDIA 兜底翻译）的变量名写在对应 integrations/*.yaml 的注释里。</p>
+
+      <h3>runtime 主入口：local/runtime/production.yaml</h3>
+      <p>默认路径、工作目录、归档、review、SQLite、投递都从这层管，不再写死在脚本里。常用键：</p>
+      <div class="kv">
+        <div class="row"><span class="k">environment.env_file</span><span class="v">加载 local/.env.local</span></div>
+        <div class="row"><span class="k">paths.*</span><span class="v">work_dir、archive_dir、review_workspace_dir、backlog_dir、watchlist、rules、email_config、users_config、style_config、template、summary_config</span></div>
+        <div class="row"><span class="k">delivery.smtp_profile / timezone / delivery_time</span><span class="v">SMTP profile、CST、08:00</span></div>
+        <div class="row"><span class="k">delivery.window_policy</span><span class="v">previous_day（默认）</span></div>
+        <div class="row"><span class="k">providers.review_provider / summary_provider</span><span class="v">审核与摘要模型</span></div>
+        <div class="row"><span class="k">web.base_url</span><span class="v">sidecar 地址（可选）</span></div>
+        <div class="row"><span class="k">database.enabled / sqlite_path</span><span class="v">SQLite 同步开关与库路径</span></div>
+      </div>
+
+      <h3>内容与集成</h3>
+      <div class="tblwrap">
+        <table>
+          <thead><tr><th>层</th><th>文件</th><th>什么时候改</th></tr></thead>
+          <tbody>
+            <tr><td>内容（公开）</td><td class="path">config/content/journal_watchlist.yaml</td><td>期刊源、抓取范围</td></tr>
+            <tr><td>内容（公开）</td><td class="path">config/content/category_rules.yaml</td><td>固定分类、过滤与输出要求</td></tr>
+            <tr><td>内容（公开）</td><td class="path">config/content/bio_translation_glossary.yaml</td><td>术语表</td></tr>
+            <tr><td>集成（私有）</td><td class="path">local/integrations/users.yaml</td><td><strong>新增收件人只改它</strong></td></tr>
+            <tr><td>集成（私有）</td><td class="path">local/integrations/email_config.yaml</td><td> 仅新增 SMTP 通道或换发件配置</td></tr>
+            <tr><td>集成（私有）</td><td class="path">local/integrations/email_style.yaml · nvidia_ai.yaml · translation_tencent_tmt.yaml · llm_review_config.yaml</td><td>样式、翻译兜底、外部 review</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note"><p>翻译策略：Tencent TMT 是生产主通道；单篇或连续失败的文章会被收集起来，按 id 批量发往 NVIDIA OpenAI-compatible 兜底并稳定地一一分配回去。DOI 优先读 feed/publisher 元数据，缺失时从 DOI URL、OUP/PNAS 链接与 Atom identifier 回填。</p></div>
+    </section>
+
+    <!-- ============ 07 ============ -->
+    <section id="ops">
+      <div class="sec-head"><span class="sec-no">07</span><h2>运维入口</h2></div>
+      <ul>
+        <li><strong>macOS 定时</strong>：<code class="inline">ops/launchd/</code> 下的 plist 模板 + <code class="inline">scripts/generate_launchd_plist.py</code> 从 runtime YAML 生成，不手改生成物；包装脚本是 <code class="inline">scripts/run_production_digest_launchd.sh</code>。</li>
+        <li><strong>便携发行包</strong>：只打包已提交的 Git HEAD，排除 local/、var/、venv、缓存与归档，并生成 SHA-256 校验。</li>
+        <li><strong>SQLite 同步</strong>：<code class="inline">scripts/sync_digest_db.py</code> 入库 digest.csv、review_queue.csv、daily_review.csv 到 var/db/bio_digest.sqlite3，由 runtime YAML 开关控制。</li>
+        <li><strong>分层检查</strong>：<code class="inline">check_project.py</code> 统一入口；只定位结构层问题时可单独跑 <code class="inline">check_harness.py</code> 或 <code class="inline">check_alignment.py</code>。</li>
+      </ul>
+      <figure class="cmd"><figcaption>构建与测试</figcaption>
+<pre>python3 scripts/build_portable_package.py --output-dir /path/to/dist
+python3 -m unittest discover -s tests</pre>
+      </figure>
+      <p>生产环境 HTTPS API 的部署、systemd 与反向代理细节不在本页展开，见仓库 <code class="inline">docs/https_api_deployment.md</code>（覆盖拓扑 A/B、鉴权、systemd、Caddy 与验收清单）。</p>
+    </section>
+
+    <!-- ============ 08 ============ -->
+    <section id="agent">
+      <div class="sec-head"><span class="sec-no">08</span><h2>Agent 接入</h2></div>
+
+      <h3>AI 安装方式</h3>
+      <p>把整个仓库放进 AI 工具的 skills 工作区，让它直接读取 <code class="inline">SKILL.md</code>、<code class="inline">README.md</code>、<code class="inline">docs/user_quickstart.md</code>、<code class="inline">config/</code>、<code class="inline">scripts/</code>。AI 安装不替代本机配置——真实运行时仍然要配置 local/。</p>
+      <div class="kv">
+        <div class="row"><span class="k">SKILL.md 假说一</span><span class="v">CST 08:00 投递；窗口默认前一自然日 00:00–24:00，旧行为需显式指定</span></div>
+        <div class="row"><span class="k">SKILL.md 假说二</span><span class="v">包含所有文章类型；QQ / 163 SMTP；摘要三问事实化，不自编结果</span></div>
+        <div class="row"><span class="k">改前必读</span><span class="v">docs/engineering_harness.md（放置与保密契约）；改后跑 check_project.py</span></div>
+      </div>
+
+      <h3>MCP（只读，stdio，共享 runs_service）</h3>
+      <p>四个只读工具；不能发起 run、不发邮件。实现只用标准库，无 FastAPI 的主机也能跑。返回文本中订阅者邮箱一律掩码。</p>
+      <div class="tblwrap">
+        <table>
+          <caption>客户端注册 + 工具表</caption>
+          <thead><tr><th>工具</th><th>作用</th><th>参数</th></tr></thead>
+          <tbody>
+            <tr><td class="tbl-code">list_runs</td><td>最近任务，最新优先</td><td>limit 默认 20，上限 100</td></tr>
+            <tr><td class="tbl-code">get_run</td><td>按 run_id 查单个任务</td><td>run_id</td></tr>
+            <tr><td class="tbl-code">list_artifacts</td><td>产物、大小、HTTP 下载路径</td><td>run_id</td></tr>
+            <tr><td class="tbl-code">read_artifact</td><td>读文本产物（掩码邮箱）</td><td>max_bytes 默认 64KiB 上限 1MiB；仅文本，xlsx 走 HTTP</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <figure class="cmd"><figcaption>启动与注册</figcaption>
+<pre>.venv/bin/python3 scripts/serve_mcp.py   # run-root 取 $BIO_DIGEST_API_RUN_ROOT，否则 var/api/runs
+
+{"command": "python3", "args": ["<项目目录>/scripts/serve_mcp.py"]}</pre>
+      </figure>
+
+      <h3>远程 HTTPS API 速查</h3>
+      <figure class="cmd"><figcaption>鉴权与身份</figcaption>
+<pre>export BIO_API_URL="https://你的域名"
+export BIO_API_TOKEN="个人访问令牌"
+
+curl -sS "$BIO_API_URL/api/v1/me" -H "Authorization: Bearer $BIO_API_TOKEN"
+# 兼容写法：-H "X-API-Key: $BIO_API_TOKEN"</pre>
+      </figure>
+      <div class="tblwrap">
+        <table>
+          <caption>角色能力</caption>
+          <thead><tr><th>能力</th><th>admin</th><th>operator</th><th>viewer</th></tr></thead>
+          <tbody>
+            <tr><td>查询本人身份 / 读任务与配置</td><td class="role admin">✓</td><td class="role operator">✓</td><td class="role viewer">✓</td></tr>
+            <tr><td>创建日报任务（POST /runs）</td><td class="role admin">✓</td><td class="role operator">✓</td><td class="role viewer">✗</td></tr>
+            <tr><td>改期刊 / 分类规则</td><td class="role admin">✓</td><td class="role operator">✗</td><td class="role viewer">✗</td></tr>
+            <tr><td>收件人读写 / 用户管理 / 令牌轮换 / 审计日志</td><td class="role admin">✓</td><td class="role operator">✗</td><td class="role viewer">✗</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="tblwrap">
+        <table>
+          <caption>接口索引</caption>
+          <thead><tr><th>方法</th><th>路径</th><th>最低角色</th></tr></thead>
+          <tbody>
+            <tr><td class="tbl-code">GET</td><td class="tbl-code">/healthz（免鉴权）</td><td class="role">无</td></tr>
+            <tr><td class="tbl-code">GET</td><td class="tbl-code">/api/v1/me</td><td class="role viewer">viewer</td></tr>
+            <tr><td class="tbl-code">POST</td><td class="tbl-code">/api/v1/runs</td><td class="role operator">operator</td></tr>
+            <tr><td class="tbl-code">GET</td><td class="tbl-code">/api/v1/runs</td><td class="role viewer">viewer</td></tr>
+            <tr><td class="tbl-code">GET</td><td class="tbl-code">/api/v1/runs/{run_id}</td><td class="role viewer">viewer</td></tr>
+            <tr><td class="tbl-code">GET</td><td class="tbl-code">/api/v1/runs/{run_id}/artifacts</td><td class="role viewer">viewer</td></tr>
+            <tr><td class="tbl-code">GET</td><td class="tbl-code">/api/v1/runs/{run_id}/artifacts/{name}</td><td class="role viewer">viewer</td></tr>
+            <tr><td class="tbl-code">GET/POST</td><td class="tbl-code">/api/v1/users</td><td class="role admin">admin</td></tr>
+            <tr><td class="tbl-code">PATCH/DELETE</td><td class="tbl-code">/api/v1/users/{user_id}</td><td class="role admin">admin</td></tr>
+            <tr><td class="tbl-code">POST</td><td class="tbl-code">/api/v1/users/{user_id}/rotate-token</td><td class="role admin">admin</td></tr>
+            <tr><td class="tbl-code">GET</td><td class="tbl-code">/api/v1/audit-log</td><td class="role admin">admin</td></tr>
+            <tr><td class="tbl-code">GET/POST</td><td class="tbl-code">/api/v1/config/journals</td><td class="role viewer">viewer / admin</td></tr>
+            <tr><td class="tbl-code">PUT/DELETE</td><td class="tbl-code">/api/v1/config/journals/{journal_id}</td><td class="role admin">admin</td></tr>
+            <tr><td class="tbl-code">GET</td><td class="tbl-code">/api/v1/config/category-rules</td><td class="role viewer">viewer</td></tr>
+            <tr><td class="tbl-code">PUT</td><td class="tbl-code">/api/v1/config/category-rules</td><td class="role admin">admin</td></tr>
+            <tr><td class="tbl-code">GET/PUT</td><td class="tbl-code">/api/v1/config/recipients</td><td class="role admin">admin</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="tblwrap">
+        <table>
+          <caption>关键状态码</caption>
+          <thead><tr><th>码</th><th>含义</th></tr></thead>
+          <tbody>
+            <tr><td class="num">202</td><td>任务进入队列；单侧时间窗、naive 时区 → 422</td></tr>
+            <tr><td class="num">409</td><td>已有任务在跑、queued/running 期间禁改配置、管理员保护</td></tr>
+            <tr><td class="num">422</td><td>字段、时间窗或配置结构校验失败</td></tr>
+            <tr><td class="num">401 / 403</td><td>令牌缺失、错误、停用或已轮换 / 角色无权限</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note"><p>任务状态流转：queued → running → success / partial_success / failed / interrupted。partial_success 表示产物全部写出、只是邮件投递失败——产物可直接用，不必重跑。配置写入全程留存自动备份到 var/api/config-backups/。</p></div>
+    </section>
+
+    <!-- ============ 09 ============ -->
+    <section id="discipline">
+      <div class="sec-head"><span class="sec-no">09</span><h2>改动纪律</h2></div>
+      <p>改任何脚本、配置、docs、调度资产或增删文件前，先读 <code class="inline">docs/engineering_harness.md</code>——它是本项目的放置与保密契约。改完统一跑：</p>
+      <figure class="cmd"><figcaption>收尾三连</figcaption>
+<pre>.venv/bin/python3 scripts/audit_secrets.py
+.venv/bin/python3 scripts/check_project.py
+python3 -m unittest discover -s tests</pre>
+      </figure>
+      <h3>验证清单（来自 SKILL.md）</h3>
+      <ul>
+        <li>先用小期刊子集试跑；确认不相关材料、化学论文被过滤</li>
+        <li>确认 AI 类期刊只留下生物学相关论文；重复 DOI 折叠为一条</li>
+        <li>导出表含双语标题与中文摘要；人工审核 xlsx 可编辑</li>
+        <li>所选 SMTP 通道真实发信成功；产物契约 nine 文件齐全</li>
+      </ul>
+      <footer class="foot">
+        来源：README.md · docs/user_quickstart.md · SKILL.md · docs/daily_artifact_contract.md · docs/https_api_deployment.md（提交 507837f）。完整部署手册与故障排查以仓库对应文档为准。
+      </footer>
+    </section>
+
+  </div>
+  </main>
+</div>
+</body>
+</html>
