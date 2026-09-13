@@ -370,7 +370,7 @@ curl -sS https://你的真实域名/healthz
   API 必须复用同一身份才能读写同一套 `local/` 和 `var/`；此时以目录权限和 systemd 沙箱选项作为
   替代边界，并在单元文件里写明这一偏离及原因。
 
-## 10. 鉴权方式
+## 10. 鉴权与个人访问令牌
 
 推荐使用 Bearer：
 
@@ -390,6 +390,32 @@ X-API-Key: YOUR_API_KEY
 export BIO_API_URL="https://digest-api.example.com"
 export BIO_API_TOKEN="YOUR_API_KEY"
 ```
+
+### 10.1 什么是个人访问令牌
+
+- 每个令牌对应一个 API 用户，形如 `bdg_` 开头的随机字符串，随请求放在上方两种请求头之一中。
+- 服务端只保存令牌的 SHA-256 摘要和前缀，不存明文。明文只在两种响应里出现一次：创建用户（12.2）和轮换令牌（12.5），错过只能重新轮换。
+- 角色权限（第 11 节）绑定在用户上；轮换或停用会使该用户当前令牌立即失效。
+
+### 10.2 怎么获取
+
+1. Bootstrap 管理员：它的令牌就是部署主机 `local/.env.local` 里 `BIO_DIGEST_API_KEY` 的值，首次启动时自动创建（第 6 节）。在部署主机上用 `grep '^BIO_DIGEST_API_KEY' local/.env.local` 即可查到。这个值只用于你自己管理账号和应急，不共享给他人或自动化脚本；保管纪律与轮换限制见第 6 节。
+2. 其他人和 AI agent：用 admin 令牌调用 `POST /api/v1/users` 创建专用账号（12.2），每个使用者独立建户、按最小权限选角色：
+   - 只查任务、下载产物、读配置：`viewer`
+   - 需要发起日报任务：`operator`
+   - `admin` 不外发、不给自动化脚本。
+3. 轮换：令牌泄露或定期更换用 `POST /api/v1/users/{user_id}/rotate-token`（12.5），旧令牌立即失效；紧急封禁可以直接停用该用户（12.4）。泄露处置流程见第 21 节。
+
+### 10.3 给 agent 的最小接入配置
+
+agent 侧只需要两个环境变量：
+
+```bash
+export BIO_API_URL="https://digest-api.example.com"
+export BIO_API_TOKEN="bdg_该用户令牌"
+```
+
+单页版接入手册（含 MCP 只读通道速查）见 `docs/agent_handbook.html`。MCP 走 stdio 本地通道（第 25 节），不需要令牌，其权限边界就是进程本身的文件权限。
 
 ## 11. 角色权限
 
