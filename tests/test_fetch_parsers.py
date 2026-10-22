@@ -89,6 +89,69 @@ class FetchParserTest(unittest.TestCase):
         )
         self.assertEqual(records[0]["doi"], "10.1126/sciadv.0000001")
 
+    def test_parse_pnas_rdf_extracts_channel_topic_tag_and_cleans_description(self) -> None:
+        module = load_module()
+        rdf_text = """<?xml version="1.0" encoding="UTF-8"?>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+                 xmlns="http://purl.org/rss/1.0/"
+                 xmlns:dc="http://purl.org/dc/elements/1.1/">
+          <channel>
+            <title>Proceedings of the National Academy of Sciences: Plant Biology</title>
+          </channel>
+          <item>
+            <title>A transposon inserted into HELD1 repressed maize husk leaf blade extension</title>
+            <link>https://www.pnas.org/doi/abs/10.1073/pnas.2602491123?af=R</link>
+            <description>Proceedings of the National Academy of Sciences, Volume 123, Issue 42, October 2026. &lt;br/&gt;SignificanceMaize husk leaves play an essential role.</description>
+            <dc:identifier>doi:10.1073/pnas.2602491123</dc:identifier>
+            <dc:date>2026-10-16T07:00:00Z</dc:date>
+          </item>
+        </rdf:RDF>
+        """
+        records = module.parse_feed_xml(
+            rdf_text,
+            {"id": "pnas", "journal_name": "PNAS", "publisher_family": "pnas"},
+            "https://www.pnas.org/action/showFeed?type=searchTopic&taxonomyCode=topic&tagCode=plant-bio",
+        )
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["tags"], ["Plant Biology"])
+        self.assertEqual(records[0]["abstract"], "SignificanceMaize husk leaves play an essential role.")
+
+    def test_parse_crossref_works_json_and_dedupe_merges_tags_and_abstract(self) -> None:
+        module = load_module()
+        crossref_json = json.dumps(
+            {
+                "message": {
+                    "items": [
+                        {
+                            "DOI": "10.1073/pnas.2602491123",
+                            "title": ["A transposon inserted into <i>HELD1</i> repressed maize husk leaf blade extension"],
+                            "published-online": {"date-parts": [[2026, 10, 16]]},
+                            "abstract": "<jats:p>Full untruncated abstract about maize husk leaf blade extension and genetics.</jats:p>",
+                            "author": [{"given": "San", "family": "Zhang"}],
+                            "type": "journal-article",
+                        }
+                    ]
+                }
+            }
+        )
+        source_meta = {"id": "pnas", "journal_name": "PNAS", "publisher_family": "pnas", "group": "flagship-general"}
+        cr_records = module.parse_source_payload(
+            crossref_json,
+            source_meta,
+            "https://api.crossref.org/works?filter=issn:1091-6490",
+        )
+        self.assertEqual(len(cr_records), 1)
+        self.assertEqual(cr_records[0]["published"], "2026-10-16T07:00:00Z")
+        self.assertEqual(cr_records[0]["authors"], ["San Zhang"])
+        self.assertNotIn("<jats:p>", cr_records[0]["abstract"])
+
+        rss_record = dict(cr_records[0], abstract="Short...", tags=["Biological Sciences", "Plant Biology"], authors=["San Zhanghttps://ror.org/001"])
+        merged = module.dedupe_journal_records([rss_record, cr_records[0]])
+        self.assertEqual(len(merged), 1)
+        self.assertEqual(merged[0]["tags"], ["Biological Sciences", "Plant Biology"])
+        self.assertEqual(merged[0]["authors"], ["San Zhang"])
+        self.assertIn("Full untruncated abstract", merged[0]["abstract"])
+
     def test_main_retries_failed_locator_with_proxy_and_merges_records(self) -> None:
         module = load_module()
         rss_text = """

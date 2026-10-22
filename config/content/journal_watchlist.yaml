@@ -581,8 +581,21 @@ journals:
     journal_name: PNAS
     group: flagship-general
     source_strategy: official_feed_or_toc
-    source_locator: https://www.pnas.org/action/showFeed?type=etoc&feed=rss&jc=pnas
-    source_notes: verified by live 200 response from the official PNAS RSS feed endpoint; preferred over the Cloudflare-protected TOC page
+    source_locator:
+      - https://api.crossref.org/works?filter=issn:1091-6490&sort=published-online&order=desc&rows=50&select=DOI,title,abstract,author,published,published-online,published-print,created,URL,resource,type,subject
+      - https://www.pnas.org/action/showFeed?type=searchTopic&taxonomyCode=topic&tagCode=bio-sci
+      - https://www.pnas.org/action/showFeed?type=searchTopic&taxonomyCode=topic&tagCode=plant-bio
+      - https://www.pnas.org/action/showFeed?type=searchTopic&taxonomyCode=topic&tagCode=genetics
+      - https://www.pnas.org/action/showFeed?type=searchTopic&taxonomyCode=topic&tagCode=cell-bio
+      - https://www.pnas.org/action/showFeed?type=searchTopic&taxonomyCode=topic&tagCode=biochem
+      - https://www.pnas.org/action/showFeed?type=searchTopic&taxonomyCode=topic&tagCode=dev-bio
+      - https://www.pnas.org/action/showFeed?type=searchTopic&taxonomyCode=topic&tagCode=sys-bio
+      - https://www.pnas.org/action/showFeed?type=searchTopic&taxonomyCode=topic&tagCode=app-bio
+      - https://www.pnas.org/action/showFeed?type=searchTopic&taxonomyCode=topic&tagCode=ag-sci
+      - https://www.pnas.org/action/showFeed?type=searchTopic&taxonomyCode=topic&tagCode=evolution
+      - https://www.pnas.org/action/showFeed?type=searchTopic&taxonomyCode=topic&tagCode=neuro
+      - https://www.pnas.org/action/showFeed?type=etoc&feed=rss&jc=pnas
+    source_notes: combines Crossref daily online works (full abstract + cross-division coverage) with official PNAS Biological Sciences and sub-discipline RSS feeds plus weekly eTOC fallback
     article_scope: all
     topic_bias:
       include:

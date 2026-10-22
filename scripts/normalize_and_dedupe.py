@@ -145,17 +145,27 @@ def main() -> int:
             for candidate in candidates:
                 aliases[candidate] = key
             continue
+        merged_tags = list(previous.get("tags") or [])
+        for tag in normalized.get("tags") or []:
+            if tag and tag not in merged_tags:
+                merged_tags.append(tag)
         if choose_better(previous, normalized):
-            duplicates.append(previous | {"duplicate_of": key})
-            best_by_key[key] = normalized
-            for candidate in dedupe_candidates(normalized):
-                aliases[candidate] = key
-            for candidate in dedupe_candidates(previous):
-                aliases[candidate] = key
+            winner = dict(normalized)
+            loser = previous
         else:
-            duplicates.append(normalized | {"duplicate_of": key})
-            for candidate in candidates:
-                aliases[candidate] = key
+            winner = dict(previous)
+            loser = normalized
+        winner["tags"] = merged_tags
+        if len(str(loser.get("abstract") or "")) > len(str(winner.get("abstract") or "")):
+            winner["abstract"] = loser["abstract"]
+        if not winner.get("authors") and loser.get("authors"):
+            winner["authors"] = loser["authors"]
+        duplicates.append(loser | {"duplicate_of": key})
+        best_by_key[key] = winner
+        for candidate in dedupe_candidates(normalized):
+            aliases[candidate] = key
+        for candidate in dedupe_candidates(previous):
+            aliases[candidate] = key
 
     normalized_records = list(best_by_key.values())
     normalized_records.sort(key=lambda item: (item.get("published_at", ""), item.get("journal", ""), item.get("title_en", "")), reverse=True)

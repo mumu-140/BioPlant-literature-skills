@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import argparse
+import html
+import json
+import re
 import sys
 import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
@@ -25,7 +28,48 @@ except ModuleNotFoundError:
 NON_ARTICLE_TITLE_EXACT = {
     "advisory board and contents",
     "subscription and copyright information",
+    "in this issue",
 }
+
+PNAS_DESCRIPTION_PREFIX_RE = re.compile(
+    r"^Proceedings of the National Academy of Sciences,\s*(?:Volume\s+\d+,\s*Issue\s+\d+,\s*[A-Za-z]+\s+\d{4}|ahead of print)\.\s*(?:<br\s*/?>)?\s*",
+    re.IGNORECASE,
+)
+
+
+def clean_inline_markup(text: str) -> str:
+    if not text:
+        return ""
+    unescaped = html.unescape(text)
+    stripped = re.sub(r"<[^>]+>", " ", unescaped)
+    return " ".join(stripped.split()).strip()
+
+
+def clean_jats_abstract(raw_abstract: str) -> str:
+    if not raw_abstract:
+        return ""
+    cleaned = re.sub(r"<jats:title[^>]*>\s*(?:Abstract|Significance)\s*</jats:title>", " ", raw_abstract, flags=re.IGNORECASE)
+    cleaned = PNAS_DESCRIPTION_PREFIX_RE.sub("", cleaned)
+    return clean_inline_markup(cleaned)
+
+
+def extract_rdf_channel_tags(root: ET.Element, source_meta: dict[str, Any]) -> list[str]:
+    if source_meta.get("id") != "pnas" and source_meta.get("publisher_family") != "pnas":
+        return []
+    channel = next((node for node in list(root) if local_name(node.tag) == "channel"), None)
+    if channel is None:
+        return []
+    ch_title = child_text(channel, "title")
+    if ":" not in ch_title:
+        return []
+    topic = ch_title.rsplit(":", 1)[-1].strip()
+    if not topic or topic.lower() in {
+        "table of contents",
+        "proceedings of the national academy of sciences",
+        "pnas",
+    }:
+        return []
+    return [topic]
 
 
 def should_skip_record(record: dict[str, Any]) -> bool:
@@ -78,12 +122,20 @@ def parse_feed_xml(xml_text: str, source_meta: dict[str, Any], source_url: str) 
     root_name = local_name(root.tag)
     records: list[dict[str, Any]] = []
     if root_name == "RDF":
+        channel_tags = extract_rdf_channel_tags(root, source_meta)
+        is_pnas = source_meta.get("id") == "pnas" or source_meta.get("publisher_family") == "pnas"
         for item in root:
             if local_name(item.tag) != "item":
                 continue
             categories = child_texts(item, "subject", "category")
+            for tag in channel_tags:
+                if tag not in categories:
+                    categories.append(tag)
             links = child_texts(item, "link", "url")
             abstract = child_text(item, "encoded", "description", "summary")
+            if is_pnas:
+                abstract = clean_jats_abstract(abstract)
+            published = child_text(item, "date", "published") or child_text(item, "coverDate")
             records.append(
                 {
                     "source_id": source_meta["id"],
@@ -94,7 +146,8 @@ def parse_feed_xml(xml_text: str, source_meta: dict[str, Any], source_url: str) 
                     "source_url": source_url,
                     "title": child_text(item, "title"),
                     "link": links[0] if links else "",
-                    "published": child_text(item, "date", "published"),
+                    "published": published,
+                    "cover_date": child_text(item, "coverDate"),
                     "abstract": abstract,
                     "article_type": child_text(item, "type"),
                     "doi": first_doi(child_text(item, "doi", "identifier"), links[0] if links else ""),
@@ -253,8 +306,129 @@ def parse_pnas_toc_html(html_text: str, source_meta: dict[str, Any], source_url:
     return records
 
 
+def extract_crossref_published(item: dict[str, Any]) -> str:
+    for field in ("published-online", "published", "issued", "published-print"):
+        date_parts = (item.get(field) or {}).get("date-parts") or []
+        if date_parts and isinstance(date_parts[0], list) and len(date_parts[0]) >= 3:
+            year, month, day = date_parts[0][:3]
+            if isinstance(year, int) and isinstance(month, int) and isinstance(day, int):
+                return f"{year:04d}-{month:02d}-{day:02d}T07:00:00Z"
+    created_dt = (item.get("created") or {}).get("date-time")
+    return str(created_dt or "").strip()
+
+
+def extract_crossref_authors(item: dict[str, Any]) -> list[str]:
+    authors: list[str] = []
+    for author in item.get("author") or []:
+        if not isinstance(author, dict):
+            continue
+        given = str(author.get("given") or "").strip()
+        family = str(author.get("family") or "").strip()
+        full = f"{given} {family}".strip() or str(author.get("name") or "").strip()
+        if full:
+            authors.append(full)
+    return authors
+
+
+def parse_crossref_works_json(payload: str, source_meta: dict[str, Any], source_url: str) -> list[dict[str, Any]]:
+    data = json.loads(payload)
+    message = data.get("message") if isinstance(data, dict) else {}
+    items = message.get("items") if isinstance(message, dict) else []
+    if not isinstance(items, list):
+        return []
+    records: list[dict[str, Any]] = []
+    is_pnas = source_meta.get("id") == "pnas" or source_meta.get("publisher_family") == "pnas"
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        doi = first_doi(item.get("DOI"))
+        raw_titles = item.get("title") or []
+        title = clean_inline_markup(" ".join(str(t) for t in raw_titles if t))
+        if not title:
+            continue
+        if doi and doi.lower().startswith("10.1073/iti"):
+            continue
+        primary_url = ((item.get("resource") or {}).get("primary") or {}).get("URL")
+        if is_pnas and doi:
+            link = f"https://www.pnas.org/doi/abs/{doi}"
+        else:
+            link = str(primary_url or item.get("URL") or (f"https://doi.org/{doi}" if doi else "")).strip()
+        subjects = [str(s).strip() for s in (item.get("subject") or []) if str(s).strip()]
+        records.append(
+            {
+                "source_id": source_meta["id"],
+                "journal": source_meta["journal_name"],
+                "publisher_family": source_meta.get("publisher_family", ""),
+                "group": source_meta.get("group", ""),
+                "publication_stage": source_meta.get("publication_stage", "journal"),
+                "source_url": source_url,
+                "title": title,
+                "link": link,
+                "published": extract_crossref_published(item),
+                "abstract": clean_jats_abstract(str(item.get("abstract") or "")),
+                "article_type": str(item.get("type") or ""),
+                "doi": doi,
+                "tags": subjects,
+                "authors": extract_crossref_authors(item),
+            }
+        )
+    return records
+
+
+def choose_cleaner_authors(existing: list[str], candidate: list[str]) -> list[str]:
+    if not existing:
+        return candidate
+    if not candidate:
+        return existing
+    existing_has_ror = any("ror.org/" in a for a in existing)
+    candidate_has_ror = any("ror.org/" in a for a in candidate)
+    if existing_has_ror and not candidate_has_ror:
+        return candidate
+    if candidate_has_ror and not existing_has_ror:
+        return existing
+    return candidate if len(candidate) > len(existing) else existing
+
+
+def merge_same_journal_records(existing: dict[str, Any], candidate: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(existing)
+    existing_tags = list(existing.get("tags") or [])
+    for tag in candidate.get("tags") or []:
+        if tag and tag not in existing_tags:
+            existing_tags.append(tag)
+    merged["tags"] = existing_tags
+    cand_abstract = str(candidate.get("abstract") or "").strip()
+    exist_abstract = str(existing.get("abstract") or "").strip()
+    if len(cand_abstract) > len(exist_abstract):
+        merged["abstract"] = cand_abstract
+    merged["authors"] = choose_cleaner_authors(
+        list(existing.get("authors") or []),
+        list(candidate.get("authors") or []),
+    )
+    if not merged.get("article_type") and candidate.get("article_type"):
+        merged["article_type"] = candidate["article_type"]
+    if not merged.get("doi") and candidate.get("doi"):
+        merged["doi"] = candidate["doi"]
+    return merged
+
+
+def dedupe_journal_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_key: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for record in records:
+        doi = extract_doi(record.get("doi")) or extract_doi(record.get("link"))
+        key = f"doi:{doi.lower()}" if doi else f"title:{str(record.get('title') or '').strip().lower()}"
+        if key not in by_key:
+            by_key[key] = record
+            order.append(key)
+        else:
+            by_key[key] = merge_same_journal_records(by_key[key], record)
+    return [by_key[k] for k in order]
+
+
 def parse_source_payload(payload: str, source_meta: dict[str, Any], source_url: str) -> list[dict[str, Any]]:
     strategy = source_meta.get("source_strategy", "official_feed_or_toc")
+    if "api.crossref.org/" in source_url or payload.lstrip().startswith("{"):
+        return parse_crossref_works_json(payload, source_meta, source_url)
     if strategy == "official_toc":
         if "academic.oup.com" in source_url and "advance-articles" in source_url:
             return parse_oup_advance_html(payload, source_meta, source_url)
@@ -381,8 +555,10 @@ def main() -> int:
             record["fetched_at"] = current_timestamp_utc()
             record["published_at"] = isoformat_utc(published_dt)
             filtered_records.append(record)
-        output_records.extend(filtered_records[: args.limit_per_journal])
-        print(f"[ok] {journal['id']}: {len(filtered_records[: args.limit_per_journal])} records", file=sys.stderr)
+        deduped_records = dedupe_journal_records(filtered_records)
+        journal_limit = int(journal.get("limit_per_journal") or args.limit_per_journal)
+        output_records.extend(deduped_records[:journal_limit])
+        print(f"[ok] {journal['id']}: {len(deduped_records[:journal_limit])} records", file=sys.stderr)
 
     write_jsonl(Path(args.output), output_records)
     print(
