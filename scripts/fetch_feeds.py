@@ -177,8 +177,9 @@ def parse_feed_xml(xml_text: str, source_meta: dict[str, Any], source_url: str) 
                     "published": child_text(item, "pubDate", "published", "date"),
                     "abstract": child_text(item, "description", "encoded", "summary"),
                     "article_type": child_text(item, "type"),
-                    "doi": first_doi(child_text(item, "doi", "identifier"), child_text(item, "link")),
+                    "doi": first_doi(child_text(item, "doi", "identifier", "guid"), child_text(item, "link")),
                     "tags": categories,
+                    "authors": child_texts(item, "creator", "author"),
                 }
             )
     elif root_name == "feed":
@@ -411,12 +412,16 @@ def merge_same_journal_records(existing: dict[str, Any], candidate: dict[str, An
     return merged
 
 
+def record_dedupe_key(record: dict[str, Any]) -> str:
+    doi = extract_doi(record.get("doi")) or extract_doi(record.get("link"))
+    return f"doi:{doi.lower()}" if doi else f"title:{str(record.get('title') or '').strip().lower()}"
+
+
 def dedupe_journal_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     by_key: dict[str, dict[str, Any]] = {}
     order: list[str] = []
     for record in records:
-        doi = extract_doi(record.get("doi")) or extract_doi(record.get("link"))
-        key = f"doi:{doi.lower()}" if doi else f"title:{str(record.get('title') or '').strip().lower()}"
+        key = record_dedupe_key(record)
         if key not in by_key:
             by_key[key] = record
             order.append(key)
@@ -542,6 +547,10 @@ def main() -> int:
                     continue
                 journal_records.extend(parsed_records)
                 print(f"[proxy-ok] {journal['id']}: recovered {len(parsed_records)} records", file=sys.stderr)
+        merged_by_key = {
+            record_dedupe_key(rec): rec
+            for rec in dedupe_journal_records(journal_records)
+        }
         filtered_records = []
         for record in journal_records:
             if should_skip_record(record):
@@ -552,9 +561,10 @@ def main() -> int:
                     continue
             elif published_dt is not None and published_dt < cutoff:
                 continue
-            record["fetched_at"] = current_timestamp_utc()
-            record["published_at"] = isoformat_utc(published_dt)
-            filtered_records.append(record)
+            enriched = merge_same_journal_records(record, merged_by_key.get(record_dedupe_key(record), record))
+            enriched["fetched_at"] = current_timestamp_utc()
+            enriched["published_at"] = isoformat_utc(published_dt)
+            filtered_records.append(enriched)
         deduped_records = dedupe_journal_records(filtered_records)
         journal_limit = int(journal.get("limit_per_journal") or args.limit_per_journal)
         output_records.extend(deduped_records[:journal_limit])

@@ -72,6 +72,24 @@ journals:
         - gene-function
       exclude: []
 
+  - id: nature-reviews-genetics
+    enabled: true
+    publisher_family: springer-nature
+    journal_name: Nature Reviews Genetics
+    group: nature-family
+    source_strategy: official_feed_or_toc
+    source_locator: https://www.nature.com/nrg.rss
+    source_notes: verified by live 200 response from the Springer Nature RSS endpoint
+    article_scope: all
+    topic_bias:
+      include:
+        - genetics
+        - genomics
+        - epigenomics
+        - methods
+        - review
+      exclude: []
+
   - id: nature-methods
     enabled: true
     publisher_family: springer-nature
@@ -315,27 +333,24 @@ journals:
       exclude:
         - pure-ecology
 
-  - id: patterns
+  - id: developmental-cell
     enabled: true
     publisher_family: cell-press
-    journal_name: Patterns
-    group: ai-conditional
+    journal_name: Developmental Cell
+    group: cell-family
     source_strategy: official_feed_or_toc
     source_locator:
-      - https://www.cell.com/patterns/current.rss
-      - https://www.cell.com/patterns/inpress.rss
-    source_notes: verified by live 200 responses from both current and in-press Cell Press RSS endpoints
+      - https://www.cell.com/developmental-cell/inpress.rss
+      - https://www.cell.com/developmental-cell/current.rss
+    source_notes: verified by live 200 responses from both in-press and current Cell Press RSS endpoints
     article_scope: all
     topic_bias:
       include:
-        - ai-for-bio
-        - biomedical-ai
-        - omics
-        - bioinformatics
-      exclude:
-        - general-ai-without-biology
-        - social-data-science
-        - business-analytics
+        - developmental-biology
+        - cell-biology
+        - plant-biology
+        - molecular-biology
+      exclude: []
 
   - id: molecular-plant
     enabled: true
@@ -356,6 +371,45 @@ journals:
       exclude:
         - pure-ecology
 
+  - id: plant-communications
+    enabled: true
+    publisher_family: cell-press
+    journal_name: Plant Communications
+    group: plant-core
+    source_strategy: official_feed_or_toc
+    source_locator:
+      - https://www.cell.com/plant-communications/inpress.rss
+      - https://www.cell.com/plant-communications/current.rss
+    source_notes: verified by live 200 responses from both in-press and current Cell Press RSS endpoints
+    article_scope: all
+    topic_bias:
+      include:
+        - plant-biology
+        - plant-genomics
+        - crop
+        - breeding
+        - biotechnology
+      exclude:
+        - pure-ecology
+
+  - id: annual-review-of-plant-biology
+    enabled: true
+    publisher_family: annual-reviews
+    journal_name: Annual Review of Plant Biology
+    group: plant-core
+    source_strategy: official_feed_or_toc
+    source_locator:
+      - https://api.crossref.org/journals/1543-5008/works?filter=type:journal-article&sort=published&order=desc&rows=50
+    source_notes: uses Crossref journal works feed (with full JATS abstracts) because annualreviews.org direct RSS is behind Cloudflare 403 challenge
+    article_scope: all
+    topic_bias:
+      include:
+        - plant-biology
+        - plant-genetics
+        - plant-physiology
+        - review
+      exclude: []
+
   - id: the-plant-cell
     enabled: true
     publisher_family: aspb
@@ -363,9 +417,10 @@ journals:
     group: plant-core
     source_strategy: official_feed_or_toc
     source_locator:
+      - https://api.crossref.org/journals/1532-298X/works?filter=type:journal-article&sort=published&order=desc&rows=60
       - https://academic.oup.com/rss/site_6317/advanceAccess_4077.xml
-      - https://academic.oup.com/plcell/advance-articles
-    source_notes: verified from Oxford Academic advance articles page and linked RSS feed
+      - https://academic.oup.com/rss/site_6317/4077.xml
+    source_notes: combines Crossref daily works (full JATS abstracts) with Oxford Academic advance-access and current-issue RSS feeds
     article_scope: all
     topic_bias:
       include:
@@ -417,8 +472,10 @@ journals:
     journal_name: Journal of Integrative Plant Biology
     group: plant-core
     source_strategy: official_feed_or_toc
-    source_locator: https://onlinelibrary.wiley.com/feed/17447909/most-recent
-    source_notes: verified from the RSS spreadsheet and consistent with Wiley journal feed pattern
+    source_locator:
+      - https://api.crossref.org/journals/1744-7909/works?filter=type:journal-article&sort=published&order=desc&rows=50
+      - https://onlinelibrary.wiley.com/feed/17447909/most-recent
+    source_notes: combines Crossref daily works with Wiley RSS feed to avoid Wiley RSS cache lag
     article_scope: all
     topic_bias:
       include:
@@ -436,9 +493,10 @@ journals:
     group: methods-core
     source_strategy: official_feed_or_toc
     source_locator:
+      - https://api.crossref.org/journals/1362-4962/works?filter=type:journal-article&sort=published&order=desc&rows=80
       - https://academic.oup.com/rss/site_5127/advanceAccess_3091.xml
-      - https://academic.oup.com/nar/advance-articles
-    source_notes: verified from Oxford Academic advance articles page and linked RSS feed
+      - https://academic.oup.com/rss/site_5127/3091.xml
+    source_notes: combines Crossref daily works (full JATS abstracts) with Oxford Academic advance-access and current-issue RSS feeds
     article_scope: all
     topic_bias:
       include:
@@ -449,12 +507,15 @@ journals:
       exclude: []
 
   - id: genome-biology
-    enabled: false
+    enabled: true
     publisher_family: springer-nature
     journal_name: Genome Biology
     group: methods-core
     source_strategy: official_feed_or_toc
-    source_locator: https://genomebiology.biomedcentral.com/articles/most-recent/rss.xml
+    source_locator:
+      - https://link.springer.com/search.rss?search-within=Journal&facet-journal-id=13059
+      - https://api.crossref.org/journals/1474-760X/works?filter=type:journal-article&sort=published&order=desc&rows=50
+    source_notes: combines Springer Nature Link RSS (with full abstracts) and Crossref daily works (with full author metadata)
     article_scope: all
     topic_bias:
       include:

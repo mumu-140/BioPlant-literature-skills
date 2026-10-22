@@ -366,14 +366,19 @@ relevance_filter:
   trusted_biology_source_ids:
     - nature-biotechnology
     - nature-genetics
+    - nature-reviews-genetics
     - nature-methods
     - nature-plants
     - nature-protocols
     - cell
+    - developmental-cell
     - cell-reports
     - cell-genomics
     - cell-systems
     - molecular-plant
+    - plant-communications
+    - annual-review-of-plant-biology
+    - genome-biology
     - trends-in-plant-science
 
   trusted_biology_source_groups:
@@ -382,7 +387,6 @@ relevance_filter:
 
   conditional_journals:
     - Nature Machine Intelligence
-    - Patterns
 
   conditional_rule: Keep only if title or abstract shows direct biology, biomedical, plant, omics, protein, or genetics relevance.
 
@@ -1115,6 +1119,7 @@ display_priority:
     - cell
     - pnas
     - nature-genetics
+    - nature-reviews-genetics
     - nature-plants
     - nature-biotechnology
     - nature-methods
@@ -1125,24 +1130,28 @@ display_priority:
     - cell
     - pnas
     - nature-genetics
+    - nature-reviews-genetics
     - nature-plants
     - nature-biotechnology
     - nature-methods
     - nature-communications
     - the-plant-cell
     - molecular-plant
+    - plant-communications
+    - annual-review-of-plant-biology
     - plant-biotechnology-journal
     - new-phytologist
     - journal-of-integrative-plant-biology
+    - developmental-cell
     - cell-reports
     - cell-genomics
     - cell-systems
     - current-biology
     - trends-in-plant-science
-    - patterns
-    - nature-machine-intelligence
-    - nature-protocols
+    - genome-biology
     - nucleic-acids-research
+    - nature-protocols
+    - nature-machine-intelligence
   plant_priority_groups:
     - plant-core
   deferred_category_ids:
