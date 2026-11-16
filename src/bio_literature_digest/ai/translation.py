@@ -119,10 +119,13 @@ def _translate_batch_with_model_fallback(
     ai_config: dict[str, Any],
     model_candidates: list[str],
     active_model_index: int,
+    failed_models: set[str] | None = None,
 ) -> tuple[list[dict[str, str]], int]:
     attempt_order = model_candidates[active_model_index:] + model_candidates[:active_model_index]
     last_error: Exception | None = None
     for model in attempt_order:
+        if failed_models is not None and model in failed_models:
+            continue
         client.model = model
         try:
             payload = client.chat_json(
@@ -150,6 +153,8 @@ def _translate_batch_with_model_fallback(
             return translated, model_candidates.index(model)
         except Exception as error:  # noqa: BLE001
             last_error = error
+            if failed_models is not None:
+                failed_models.add(model)
             print(
                 f"[ai] translation model failed; model={model} batch_size={len(batch)} "
                 f"error={error.__class__.__name__}: {str(error)[:160]}",
@@ -167,6 +172,7 @@ def translate_records_with_nvidia(records: list[dict[str, Any]], config: dict[st
 
     translated: list[dict[str, str]] = []
     active_model_index = 0
+    failed_models: set[str] = set()
     batches = build_translation_batches(records, config)
     original_max_retries = getattr(client, "max_retries", None)
     if original_max_retries is not None:
@@ -180,6 +186,7 @@ def translate_records_with_nvidia(records: list[dict[str, Any]], config: dict[st
                 ai_config,
                 model_candidates,
                 active_model_index,
+                failed_models,
             )
             translated.extend(batch_translations)
     finally:

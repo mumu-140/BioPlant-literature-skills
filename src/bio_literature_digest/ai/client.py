@@ -10,6 +10,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
+from .model_catalog import add_catalog_fallbacks
+
 
 JSON_FENCE_PATTERN = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE | re.DOTALL)
 
@@ -102,6 +104,7 @@ def select_available_model_candidates(
 
     model_candidates = ai_config.get("model_candidates") or ai_config.get("models")
     candidates = normalize_model_candidates(client.model, model_candidates)
+    candidates = add_catalog_fallbacks(client, ai_config, candidates)
     if not candidates:
         raise ValueError("No AI model candidates configured")
 

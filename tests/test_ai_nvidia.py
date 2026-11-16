@@ -250,5 +250,31 @@ class AiChatHelpersTest(unittest.TestCase):
         self.assertEqual(seen_models, ["bad-model", "good-model"])
 
 
+    def test_failed_translation_model_skipped_for_remaining_batches(self) -> None:
+        seen: list[str] = []
+
+        class FakeClient:
+            model = "bad-model"
+            def chat_json(self, messages, *, temperature=0.0, max_tokens=None):
+                seen.append(self.model)
+                if self.model == "bad-model":
+                    raise TimeoutError("unavailable")
+                payload = json.loads(messages[-1]["content"].split("输入：\n", 1)[-1])
+                return [{"id": payload[0]["id"], "title_zh": "中文标题", "summary_zh": "中文摘要", "confidence": 0.9}]
+
+        config = {"ai_chat": {
+            "model": "bad-model",
+            "model_candidates": ["bad-model", "good-model"],
+            "pong_test": {"enabled": False},
+            "max_batch_items": 1,
+        }}
+        records = [{"title_en": "One", "abstract": "One abstract"},
+                   {"title_en": "Two", "abstract": "Two abstract"}]
+        with mock.patch.object(translation_module, "build_chat_client", return_value=FakeClient()):
+            result = translation_module.translate_records_with_nvidia(records, config)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(seen, ["bad-model", "good-model", "good-model"])
+
+
 if __name__ == "__main__":
     unittest.main()

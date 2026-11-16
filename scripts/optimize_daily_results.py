@@ -19,7 +19,10 @@ try:
 except ModuleNotFoundError:
     from common import current_timestamp_utc, load_yaml_file
 
-from bio_literature_digest.ai.client import build_chat_client, parse_json_content, resolve_chat_config
+from bio_literature_digest.ai.client import (
+    build_chat_client, normalize_model_candidates, parse_json_content, resolve_chat_config,
+)
+from bio_literature_digest.ai.model_catalog import add_catalog_fallbacks
 from bio_literature_digest.optimization.daily_helpers import (
     add_unique,
     backlog_key,
@@ -155,7 +158,10 @@ def optimizer_prompt(evidence: dict[str, Any], args: argparse.Namespace) -> list
 
 def call_optimizer(evidence: dict[str, Any], ai_config: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
     client = build_chat_client(ai_config)
-    candidates = ai_config.get("model_candidates") or ai_config.get("models") or [ai_config.get("model")]
+    candidates = add_catalog_fallbacks(
+        client, ai_config,
+        normalize_model_candidates(client.model, ai_config.get("model_candidates") or ai_config.get("models")),
+    )
     last_error: Exception | None = None
     for model in [str(item) for item in candidates if str(item).strip()]:
         client.model = model
