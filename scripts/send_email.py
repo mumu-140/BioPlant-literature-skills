@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import mimetypes
 import os
@@ -11,6 +12,10 @@ import subprocess
 import sys
 import time
 from email.message import EmailMessage
+from html import escape
+
+from lxml import etree, html as lxml_html
+from premailer import transform
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
@@ -205,6 +210,156 @@ def run_agently_send_command(args: list[str], cwd: Path) -> dict[str, object]:
     return parse_agently_json(completed.stdout)
 
 
+# Agently Mail escapes entire <!DOCTYPE>/<html>/<head> documents into visible
+# source text. The provider accepts HTML *fragments* with inline CSS.
+AGENTLY_BODY_LIMIT = 900_000  # bytes, below the provider's 1-MB body limit
+
+
+def _extract_email_fragment(html_source: str) -> str:
+    tree = lxml_html.fromstring(html_source)
+    bodies = tree.xpath("//body")
+    body = bodies[0] if bodies else tree
+    for node in body.xpath(".//script | .//style | .//iframe | .//form"):
+        node.drop_tree()
+    for node in body.iter():
+        # Agently escapes an entire message when it contains <details>/<summary>.
+        # Non-interactive email clients also need those contents expanded.
+        if isinstance(node.tag, str) and node.tag.lower() in {
+            "details", "summary", "article", "section"
+        }:
+            node.tag = "div"
+            node.attrib.pop("open", None)
+        for attr_name in list(node.attrib):
+            if attr_name.lower().startswith("on"):
+                del node.attrib[attr_name]
+    if not bodies:
+        return etree.tostring(body, encoding="unicode", method="html")
+    children = escape(body.text or "") + "".join(
+        etree.tostring(node, encoding="unicode", method="html", with_tail=True)
+        for node in body
+    )
+    style = escape(body.get("style") or "font-family:Arial,sans-serif", quote=True)
+    return f'<div style="{style}">{children}</div>'
+
+
+def render_agently_html_body(html_source: str) -> str:
+    """Inline CSS, then send just the body fragment so HTML is not escaped."""
+    try:
+        email_html = transform(
+            html_source,
+            allow_network=False,
+            disable_link_rewrites=True,
+            disable_leftover_css=True,
+            keep_style_tags=False,
+            cssutils_logging_level=50,
+        )
+        fragment = _extract_email_fragment(email_html)
+    except (ValueError, TypeError, OSError) as error:
+        print(
+            f"[mail] CSS inlining unavailable ({type(error).__name__}); using safe body fragment",
+            file=sys.stderr,
+        )
+        fragment = _extract_email_fragment(html_source)
+
+    if len(fragment.encode("utf-8")) > AGENTLY_BODY_LIMIT:
+        print("[mail] inlined email exceeds provider limit; removing inlined CSS", file=sys.stderr)
+        fragment = _extract_email_fragment(html_source)
+    if len(fragment.encode("utf-8")) > AGENTLY_BODY_LIMIT:
+        print("[mail] full report exceeds provider limit; sending compact summary with attachments", file=sys.stderr)
+        fragment = (
+            '<div style="font-family:Arial,sans-serif;color:#1e293b;">'
+            '<h2>Bio Literature Digest</h2>'
+            '<p>今日文献较多，完整日报可在 '
+            '<a href="https://accept.yangsen666.cloud/papers/published">文献网站</a> 查看。</p>'
+            '<p>本邮件的 CSV、XLSX 附件包含完整文献清单。</p>'
+            '</div>'
+        )
+    # The 1-MB API limit is not the HTML rendering limit; excessive node
+    # counts are converted to visible source text even for a valid fragment.
+    if sum(1 for _ in lxml_html.fromstring(fragment).iter()) > 330:
+        print("[mail] excessive HTML node count; sending compact link cover", file=sys.stderr)
+        fragment = (
+            '<div style="font-family:Arial,sans-serif;color:#1e293b;">'
+            '<h2>Bio Literature Digest</h2>'
+            '<p>完整日报请访问 '
+            '<a href="https://accept.yangsen666.cloud/papers/published">在线文献库</a>。'
+            '文献清单见 CSV/XLSX 附件。</p></div>'
+        )
+    if not fragment.strip() or fragment.lstrip().lower().startswith(("<!doctype", "<html", "<head", "<body")):
+        raise ValueError("Agently HTML must be a non-empty body fragment")
+    return fragment
+
+
+def render_agently_digest_preview(csv_path: str | Path, subject: str) -> str | None:
+    """Compact all daily titles into safe mail HTML; preserve full data in attachments/Web."""
+    with Path(csv_path).open(encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        if not reader.fieldnames or not {"title_en", "title_zh", "article_url"}.issubset(reader.fieldnames):
+            return None
+        rows = list(reader)
+    if not rows:
+        return None
+
+    def make_preview(selected: list[dict[str, str]]) -> str:
+        header = (
+            '<div style="max-width:760px;margin:0 auto;padding:20px 16px;'
+            'font-family:Arial,sans-serif;color:#1e293b;background:#ffffff;">'
+            '<h2 style="color:#114e38;margin:0 0 12px;">Bio Literature Digest · 每日文献</h2>'
+            f'<p style="line-height:1.6;color:#475569;">{escape(subject)}。'
+            f'共 {len(rows)} 篇，本邮件显示 {len(selected)} 篇标题与要点。'
+            '完整日报请查看'
+            ' <a href="https://accept.yangsen666.cloud/papers/published">在线文献库</a>'
+            '，原始清单见 CSV/XLSX 附件。</p>'
+            '<ol style="padding-left:22px;">'
+        )
+        fragments = []
+        for record in selected:
+            title = str(record.get("title_zh") or record.get("title_en") or "").strip()
+            if not title:
+                continue
+            title = title[:220]
+            url = str(record.get("article_url") or "").strip()
+            if not url.startswith(("https://", "http://")):
+                url = "https://accept.yangsen666.cloud/papers/published"
+            label = " · ".join(
+                t for t in (
+                    str(record.get("journal") or "").strip()[:65],
+                    str(record.get("category") or "").strip()[:48],
+                ) if t
+            )
+            summary = str(record.get("summary_zh") or "").strip()
+            if any(phrase in summary for phrase in (
+                "当前未配置自动中文翻译模型",
+                "未抓取到可用摘要",
+                "后续需补充标题翻译与中文总结",
+            )):
+                summary = ""
+            summary = summary[:140]
+            extra = " — " + escape(label) if label else ""
+            extra += "。 " + escape(summary) if summary else ""
+            fragments.append(
+                '<li style="margin:0 0 10px;padding:0 0 8px;line-height:1.55;'
+                'border-bottom:1px solid #e2e8f0;">'
+                f'<a href="{escape(url, quote=True)}" '
+                f'style="color:#0f766e;text-decoration:none;font-weight:600;">'
+                f'{escape(title)}</a>{extra}</li>'
+            )
+        return (
+            header + "".join(fragments) + "</ol>"
+            '<p style="color:#64748b;font-size:13px;">'
+            '邮件中链接指向文献原文；可在在线文献库查看完整译文和历史记录。</p></div>'
+        )
+
+    # Agently's HTML renderer escapes *all* markup if there are too many DOM
+    # elements; tested: 400 elements render, 600 are escaped even at 12 KB.
+    for limit in (150, 110, 60):
+        html_preview = make_preview(rows[:limit])
+        node_count = sum(1 for _ in lxml_html.fromstring(html_preview).iter())
+        if node_count <= 330 and len(html_preview.encode("utf-8")) <= 200_000:
+            return html_preview
+    raise ValueError("Could not fit compact digest into Agently safe HTML limits")
+
+
 def send_agently_message(
     *,
     recipient: str,
@@ -216,7 +371,8 @@ def send_agently_message(
     cli_bin: str,
 ) -> None:
     body_path = work_dir / safe_body_filename(recipient)
-    body_path.write_text(html_body, encoding="utf-8")
+    html_preview = render_agently_digest_preview(csv_attachment_path, subject)
+    body_path.write_text(html_preview or render_agently_html_body(html_body), encoding="utf-8")
     base_command = [
         cli_bin,
         "message",

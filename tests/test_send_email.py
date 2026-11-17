@@ -8,12 +8,16 @@ Merged from:
 from __future__ import annotations
 
 import tempfile
+import csv
 import unittest
 from pathlib import Path
 from unittest import mock
 import smtplib
 
-from scripts.send_email import build_message, resolve_recipients, send_digest_email
+from scripts.send_email import (
+    build_message, render_agently_digest_preview, render_agently_html_body,
+    resolve_recipients, send_digest_email,
+)
 
 
 class SendEmailBuildMessageTest(unittest.TestCase):
@@ -42,6 +46,81 @@ class SendEmailBuildMessageTest(unittest.TestCase):
             self.assertEqual(len(attachments), 2)
             filenames = {attachment.get_filename() for attachment in attachments}
             self.assertEqual(filenames, {"digest.csv", "digest.xlsx"})
+
+
+class AgentlyMailHTMLRegressionTest(unittest.TestCase):
+    def test_full_html_document_becomes_styled_body_fragment(self) -> None:
+        html_document = (
+            '<!DOCTYPE html><html lang="zh-CN"><head><style>'
+            '.card { color: #123456; background: #eef6ef; }'
+            '</style></head><body><div class="card">'
+            '<strong>中文标题</strong><a href="https://example.org/paper?a=1&amp;b=2">查看</a>'
+            '<details><summary>英文摘要</summary><p>Abstract content</p></details>'
+            '<script>window.bad = 1</script></div></body></html>'
+        )
+        fragment = render_agently_html_body(html_document)
+        self.assertTrue(fragment.startswith("<div"))
+        self.assertNotIn("<!DOCTYPE", fragment)
+        self.assertNotIn("<html", fragment)
+        self.assertNotIn("<head", fragment)
+        self.assertNotIn("<script", fragment)
+        self.assertNotIn("<details", fragment)
+        self.assertNotIn("<summary", fragment)
+        self.assertIn("Abstract content", fragment)
+        self.assertNotIn("&lt;strong", fragment)
+        self.assertIn("<strong>", fragment)
+        self.assertIn("中文标题", fragment)
+        self.assertIn("color:#123456", fragment)
+        self.assertIn("https://example.org/paper?a=1&amp;b=2", fragment)
+
+    def test_oversized_inlined_html_uses_non_inlined_fragment(self) -> None:
+        source = "<html><body><p>Full report intact</p></body></html>"
+        oversized = "<html><body><p style='" + ("x" * 920_000) + "'>Large</p></body></html>"
+        with mock.patch("scripts.send_email.transform", return_value=oversized):
+            fragment = render_agently_html_body(source)
+        self.assertIn("Full report intact", fragment)
+        self.assertNotIn("<html", fragment)
+        self.assertLess(len(fragment.encode("utf-8")), 900_000)
+
+
+    def test_compact_preview_all_papers_keep_links_and_summaries(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="bio-mail-preview-") as tmp:
+            csv_path = Path(tmp) / "digest.csv"
+            columns = ["title_en", "title_zh", "article_url", "journal", "category", "summary_zh"]
+            with csv_path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=columns)
+                writer.writeheader()
+                for i in range(142):
+                    writer.writerow({
+                        "title_en": f"Original paper {i}",
+                        "title_zh": f"中文标题{i}",
+                        "article_url": f"https://example.org/paper/{i}?a=1&b=2",
+                        "journal": "Nature",
+                        "category": "分子生物学",
+                        "summary_zh": (
+                            "当前未配置自动中文翻译模型"
+                            if i == 0 else f"中文摘要内容{i}"
+                        ),
+                    })
+            preview = render_agently_digest_preview(csv_path, "Bio Digest Through 2026-11-16")
+        self.assertIsNotNone(preview)
+        assert preview is not None
+        self.assertEqual(preview.count("<li "), 142)
+        self.assertEqual(preview.count("https://example.org/paper/"), 142)
+        self.assertLess(preview.count("<li "), 150)
+        self.assertIn("中文摘要内容1", preview)
+        self.assertNotIn("当前未配置自动中文翻译模型", preview)
+        self.assertIn("https://example.org/paper/1?a=1&amp;b=2", preview)
+        self.assertNotIn("<html", preview)
+        self.assertNotIn("&lt;li", preview)
+        self.assertLess(len(preview.encode("utf-8")), 200_000)
+
+    def test_excessive_dom_nodes_fall_back_to_safe_link_cover(self) -> None:
+        oversized = "<html><body>" + "<span>paper</span>" * 600 + "</body></html>"
+        result = render_agently_html_body(oversized)
+        self.assertIn("accept.yangsen666.cloud/papers/published", result)
+        self.assertLess(result.count("<span"), 10)
+        self.assertNotIn("<html", result)
 
 
 class SendEmailRecipientsTest(unittest.TestCase):
@@ -184,9 +263,11 @@ class SendEmailRecipientsTest(unittest.TestCase):
 
     def test_send_digest_email_uses_agently_confirmation_flow(self) -> None:
         calls: list[list[str]] = []
+        written_bodies: list[str] = []
 
         def fake_run(args, cwd, text, capture_output, check):  # type: ignore[no-untyped-def]
             calls.append(list(args))
+            written_bodies.append((Path(cwd) / args[args.index("--body-file") + 1]).read_text())
             if "--confirmation-token" in args:
                 stdout = '{"ok": true, "data": {"queued": true}}\n'
             else:
@@ -225,7 +306,7 @@ class SendEmailRecipientsTest(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            html_path.write_text("<html><body>Hi</body></html>", encoding="utf-8")
+            html_path.write_text("<!DOCTYPE html><html><head><style>p{color:#123456}</style></head><body><p>Hi</p></body></html>", encoding="utf-8")
             csv_path.write_text("a,b\n1,2\n", encoding="utf-8")
             xlsx_path.write_bytes(b"fake-xlsx")
 
@@ -244,6 +325,10 @@ class SendEmailRecipientsTest(unittest.TestCase):
         self.assertEqual(len(calls), 2)
         self.assertIn("--confirmation-token", calls[1])
         self.assertIn("ctk_test", calls[1])
+        self.assertEqual(len(written_bodies), 2)
+        self.assertTrue(all(body.startswith("<div") for body in written_bodies))
+        self.assertTrue(all("<!DOCTYPE" not in body and "<html" not in body for body in written_bodies))
+        self.assertTrue(all('style="color:#123456"' in body for body in written_bodies))
 
     def test_agently_failure_without_fallback_does_not_send_smtp(self) -> None:
         def fake_run(args, cwd, text, capture_output, check):  # type: ignore[no-untyped-def]
